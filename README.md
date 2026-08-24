@@ -1,6 +1,6 @@
 # SMB Tutorials
 
-A serverless marketplace connecting **students** with **teachers** for 1:1 tutoring over **peer-to-peer video**.
+A serverless marketplace connecting **students** with **teachers** for **instant, on-demand 1:1 tutoring** over **peer-to-peer video** — built for the Indian K-12 market (CBSE / State Board / ICSE). *One Student, One Teacher.*
 
 ## Status
 
@@ -17,9 +17,11 @@ A serverless marketplace connecting **students** with **teachers** for 1:1 tutor
 
 Serverless only — no always-on server to run.
 
-## MVP loop
+## Product model — three tiers
 
-Find a teacher → book a time → pay → join the video call.
+1. **Instant pick (primary)** — pick subject → see teachers online *now* → choose one → they accept → pay → live video call.
+2. **Request (fallback)** — want a specific offline teacher? Send a request; they accept later.
+3. **Scheduled (add-on, later)** — book a specific teacher for a future time.
 
 ## Docs
 
