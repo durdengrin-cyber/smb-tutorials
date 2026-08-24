@@ -117,6 +117,21 @@ RLS: anyone can read teacher `profiles` + `teacher_subjects`; a user can read/wr
 - **Bad video gets blamed on the platform** regardless of whose connection is at fault. Daily.co's per-session quality dashboard (packet loss, jitter, bitrate) is how we distinguish platform vs. user-connection issues.
 - **TURN cost is real at scale.** Predictable but non-zero; ~1,000 hours/month of 1:1 ≈ several hundred dollars in video infra. Budget it.
 
-## 13. Out of scope for this spec
+## 13. UI/UX decisions (from the visual design session)
+
+These decisions cover the screens the demo never built (the instant/presence surfaces). Existing screens (home, browse, signup, terms, etc.) are rebuilt faithfully from the demo.
+
+- **Visual language:** reuse the demo — teal→cyan gradient card headers, emoji avatars, ⭐ rating, `₹{rate}/hr`, gradient CTA buttons, light/clean. "One Student, One Teacher."
+- **Online-now list:** **hide busy teachers** — only "Available now" (green) cards are shown, so every visible card is instantly startable; busy teachers reappear when they free up. CTA label is **"Start now →"** (not "Book Now"). Header echoes the demo: "Showing teachers for {subject} • {curriculum} • {grade}".
+- **Empty state** (nobody online for the subject): a panel offering **"Request a teacher"** and **"Schedule for later"** — this is where the fallback tiers surface.
+- **Accept handshake (two-sided):**
+  - *Student:* "Asking {teacher}…" with a countdown ring + **Cancel**.
+  - *Teacher:* a live "New student request — {student} wants {subject} now, ₹{rate}/hr" prompt with **Accept / Decline** and a countdown.
+  - Accept window default **~30s** (tunable).
+  - On accept → payment → both join the call.
+  - On **decline or timeout → return to the list with a "{teacher} didn't respond — these teachers are free now" highlight** (option C: preserves student choice, nudges a fast retry).
+- **Still to design (just-in-time, before their milestone):** the in-call video screen, and the teacher dashboard (availability toggle + incoming-request management).
+
+## 14. Out of scope for this spec
 
 Native mobile apps, group/classroom (many-to-many) video, recording/playback, and AI features. Revisit after the instant loop is validated with real users.

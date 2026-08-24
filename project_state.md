@@ -1,7 +1,7 @@
 # SMB Tutorials — Project State
 
 ## Now
-Spec revised (rev. 2) to the **three-tier instant-availability model** + Indian K-12 domain, using the CRA demo (`~/Downloads/SMB-Tutorial-main`) as UI/UX blueprint (rebuild in Next.js — demo has no backend). M0 plan already written and still valid. Next: design screens with the visual companion, then execute M0.
+Design decisions for the new instant/presence screens recorded in spec §13 (online-list hides busy; handshake two-sided; decline/timeout → back-to-list-with-highlight). **Executing M0** (scaffold + Daily video spike) inline. In-call + teacher-dashboard screens deferred to just-in-time design before M2.
 
 ## Source of truth
 - Spec: `docs/superpowers/specs/2026-08-24-smb-tutorials-design.md` — all stack + scope decisions live here.
