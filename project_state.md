@@ -4,18 +4,22 @@
 1. `cd ~/smb-tutorials` (this is a standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + the spec (`docs/superpowers/specs/2026-08-24-smb-tutorials-design.md`) + `CLAUDE.md`.
 3. Confirm `git branch --show-current` = `main`; `git pull origin main`.
-4. **Read the M1 plan:** `docs/superpowers/plans/2026-08-25-m1-auth-taxonomy-onboarding.md`. It is written and reviewed — execute it, do not rewrite it. **Tasks 1–9 are done and committed.**
-5. **Next action:** Task 10 (rebuild demo home page, auth-aware header) → Task 11 (terms page + `/api/rooms` auth gate) → Task 12 (verify + deploy).
+4. **M1 code is complete — Tasks 1–11 of the plan are done and committed** (`docs/superpowers/plans/2026-08-25-m1-auth-taxonomy-onboarding.md`). Only Task 12 (deploy) is open.
+5. **Next action — Task 12, needs a human:**
+   - **Browser click-through** (the one thing not automatable here): student signup → sign out → sign in; tutor signup via the real form; `/find` → `/teachers`; `/call` while signed in.
+   - **Push + verify production.** `git fetch origin main` → rebase → `git push origin main`. Then on the prod URL: signup/signin work, `/teachers` lists the tutor, anonymous `POST /api/rooms` → 401.
+   - Before Google works in prod, add `https://<prod-domain>/auth/callback` to Supabase → Authentication → URL Configuration → Redirect URLs.
 6. **Still pending, manual:**
-   - **Google provider not enabled** in Supabase (verified: only `email` in `/auth/v1/settings`). The Google button errors until the Google Cloud OAuth client is created and pasted in. Email auth is unaffected. *(Email confirmation is now correctly OFF — `mailer_autoconfirm: true`.)*
-   - Supabase env vars **are** in Vercel now; `DAILY_API_KEY` may still be Production-only — extend to Preview.
-7. Commits are local and **unpushed** — push when ready; push to `main` deploys production.
+   - **Google provider not enabled** in Supabase (verified: only `email` in `/auth/v1/settings`). The Google button shows an inline error until the Google Cloud OAuth client is created and pasted in. Email auth is unaffected. *(Email confirmation is correctly OFF — `mailer_autoconfirm: true`.)*
+   - Supabase env vars **are** in Vercel; `DAILY_API_KEY` may still be Production-only — extend to Preview or preview deploys 500 on `/call`.
+7. Commits are local and **unpushed** — push to `main` deploys production.
 8. **Test data in the live DB:** one teacher `tutor-check@smbtutorials.in` ("Dr. Rao", CBSE 11th/12th Physics+Chemistry, ₹500/hr), created to verify browse. **Delete before launch.**
+9. **Known M1 limitations** (carry into M2 planning): Google OAuth always creates a `student` (no role picker post-OAuth) · email confirmation is off, so signups aren't email-verified — revisit with Resend in M4 · "Book Now", "Request a Teacher" and "Request a Custom Subject" render disabled pending M2/M4 · `/api/rooms` is auth-gated but still client-triggered with a client-supplied room name (spec §15 full close is M2).
 
 ## Now
 **M0 complete & verified** — Next.js on Vercel (push-to-deploy), `/api/rooms` (Daily rooms, self-expiring), `/call` spike: two-browser video + screen-share confirmed live.
 
-**M1 in progress — Tasks 1–9 of 12 done**, 19 tests green, build clean.
+**M1 code complete — Tasks 1–11 of 12 done**; 19 tests green, `tsc --noEmit` clean, production build clean, all 8 routes 200 with every internal link resolving and zero runtime errors. Task 12 (browser click-through + deploy) is the remainder.
 - Taxonomy (`src/lib/taxonomy.ts`) + form validation (`src/lib/validation.ts`), TDD.
 - Schema applied to the live Supabase project (`supabase/migrations/0001_*.sql`) and **verified against it**: CHECK constraints reject invalid taxonomy, FK enforced, anon read allowed / write refused (401), and `handle_new_user` maps signup metadata to a profile row (tested by creating and deleting a throwaway user).
 - Supabase clients + `src/proxy.ts` session refresh; auth actions (`src/app/auth/actions.ts`), OAuth callback, `SiteHeader`.
@@ -23,7 +27,12 @@
 - `/tutor-signup` — one form creating account + teacher profile + `teacher_subjects` (structured picker). Data path verified live end-to-end, including RLS refusing a cross-user subject write (42501).
 - `/find` (taxonomy selection, no date/time) → `/teachers` (live query, taxonomy-validated filters, honest empty state). Verified against real data: match, no-match, wrong-grade, and junk-param cases.
 
-Remaining: Task 10 home · 11 terms + `/api/rooms` auth gate · 12 verify/deploy.
+- `/` demo home rebuilt with an auth-aware header (Sign In ↔ "Hi, {name}" + Sign Out); `/terms` transcribed.
+- `/api/rooms` now rejects anonymous callers (401, verified) — spec §15 annotated with what M2 still owes.
+
+Remaining: Task 12 — browser click-through + push/verify production.
+
+**Terms-page caveat:** the demo's policy text is transcribed as-is and **contradicts the spec in places** — it describes a messaging system (chat is deferred), package/bundle purchases, ratings, and a scheduled-session model. Spec §12 already lists no-show/refund policy as open before launch; rewrite this page then rather than treating it as settled policy.
 
 **Supabase project ref:** `upggvzzzoxqgourjywtd` (SQL editor: `https://supabase.com/dashboard/project/upggvzzzoxqgourjywtd/sql/new`). Note: the public `/auth/v1/signup` endpoint **rejects `@example.com`** addresses — use a real-looking domain when testing signup; the admin API does not validate.
 
