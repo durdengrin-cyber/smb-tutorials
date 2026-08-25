@@ -10,6 +10,7 @@ export default function CallPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     let frame: DailyCall | null = null;
 
     (async () => {
@@ -22,6 +23,9 @@ export default function CallPage() {
         body: JSON.stringify(requested ? { name: requested } : {}),
       });
       const room = await res.json();
+      // A React strict-mode remount cancels this run: bail before creating a
+      // second room or joining a room the shared invite link won't point to.
+      if (cancelled) return;
       if (!res.ok) {
         setError(room.error ?? "Failed to create room");
         return;
@@ -44,6 +48,7 @@ export default function CallPage() {
     })();
 
     return () => {
+      cancelled = true;
       frame?.destroy();
     };
   }, []);
