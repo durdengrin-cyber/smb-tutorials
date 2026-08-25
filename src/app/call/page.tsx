@@ -32,11 +32,15 @@ export default function CallPage() {
       // React strict mode double-invokes effects in dev; guard against a duplicate frame.
       if (DailyIframe.getCallInstance() || !wrapRef.current) return;
 
-      frame = DailyIframe.createFrame(wrapRef.current, {
-        showLeaveButton: true,
-        iframeStyle: { width: "100%", height: "100%", border: "0" },
-      });
-      await frame.join({ url: room.url });
+      try {
+        frame = DailyIframe.createFrame(wrapRef.current, {
+          showLeaveButton: true,
+          iframeStyle: { width: "100%", height: "100%", border: "0" },
+        });
+        await frame.join({ url: room.url });
+      } catch (e) {
+        setError((e as Error)?.message ?? "Could not start the call");
+      }
     })();
 
     return () => {
