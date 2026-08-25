@@ -97,7 +97,7 @@ RLS: anyone can read teacher `profiles` + `teacher_subjects`; a user can read/wr
 
 - **M0 — Deploy skeleton + video spike.** *(Plan already written.)* Next.js → GitHub → Vercel auto-deploy; wire Daily.co; get **two browsers into a video call**. Model-agnostic; de-risks the hardest part first.
 - **M1 — Auth, profiles, taxonomy, onboarding.** Supabase Auth (email + Google) with `student`/`teacher` roles. Subject taxonomy seeded. Teacher onboarding form (the demo's `tutor-signup` fields) → `profiles` + `teacher_subjects`. Student can browse the teacher list.
-- **M2 — Presence + instant pick (core loop).** Teacher "available now" toggle publishing presence; student subject-select → live online list → pick → teacher accept/timeout handshake → **Daily room** on accept. Payment stubbed here.
+- **M2 — Presence + instant pick (core loop).** Teacher "available now" toggle publishing presence; student subject-select → live online list → pick → teacher accept/timeout handshake → **Daily room** on accept. Payment stubbed here. *(Detailed design, incl. the in-call and dashboard screens §13 deferred: `2026-08-25-m2-presence-instant-pick-design.md`.)*
 - **M3 — Payments.** Insert **Stripe Checkout** between accept and room creation. Teachers paid manually until volume justifies Stripe Connect.
 - **M4 — Request fallback.** Request a specific **offline** teacher → Resend notification → teacher accepts later → connect.
 
