@@ -1,7 +1,9 @@
 # SMB Tutorials — Project State
 
 ## Now
-Design decisions for the new instant/presence screens recorded in spec §13 (online-list hides busy; handshake two-sided; decline/timeout → back-to-list-with-highlight). **Executing M0** (scaffold + Daily video spike) inline. In-call + teacher-dashboard screens deferred to just-in-time design before M2.
+**M0 complete & verified** — Next.js on Vercel (push-to-deploy), `/api/rooms` (Daily rooms, self-expiring), `/call` spike: two-browser video + screen-share confirmed live. 5 tests green. Next: **M1** — Supabase auth + student/teacher roles + K-12 taxonomy seed + tutor onboarding (demo's `tutor-signup`) + teacher browse. Rebuild demo's signin/signup/tutor-signup screens faithfully.
+
+**Open liability:** `/api/rooms` is public/unauthenticated & live on Vercel (spec §15) — close in M1/M2 via server-side, auth-gated room creation. In-call + teacher-dashboard screens: just-in-time design before M2.
 
 ## Source of truth
 - Spec: `docs/superpowers/specs/2026-08-24-smb-tutorials-design.md` — all stack + scope decisions live here.
