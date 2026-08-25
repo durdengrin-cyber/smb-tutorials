@@ -17,6 +17,11 @@
 - Sync before every push: `git fetch origin main` then rebase onto it — never push on a stale base.
 - Secrets live in Vercel env vars and `.env.local` (gitignored) — never commit keys.
 
+## Fix quality — airtight, never makeshift
+- Every fix must strengthen core infrastructure, not paper over a symptom. State, unprompted, whether a change is a root-cause fix or a spike/temporary shortcut.
+- Distinguish **spike code** (deliberately throwaway — proves plumbing, gets replaced) from **core infrastructure** (reused in service). Harden core; don't gold-plate throwaways.
+- Any shortcut that would cause a functional, security, or cost problem *in service* is not left silent: it is recorded in the spec's "Spike → production hardening" section and closed properly in its milestone — never band-aided.
+
 ## Scope discipline
 - Product = 3 tiers: instant pick (primary) → request offline teacher (fallback) → scheduled (add-on later). Core loop: pick subject → online-now list → pick → teacher accepts → pay → video call.
 - Deferred, do not build without a decision: scheduled tier, Stripe Connect, search/ranking, chat.

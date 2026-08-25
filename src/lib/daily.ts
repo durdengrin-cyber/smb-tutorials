@@ -8,7 +8,8 @@ export interface Room {
 export async function getOrCreateRoom(
   name: string,
   apiKey: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  ttlSeconds: number = 7200
 ): Promise<Room> {
   if (!apiKey) throw new Error("DAILY_API_KEY is not set");
 
@@ -29,7 +30,14 @@ export async function getOrCreateRoom(
   const created = await fetchImpl(`${DAILY_API}/rooms`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ name, properties: { enable_prejoin_ui: true } }),
+    body: JSON.stringify({
+      name,
+      // Rooms self-expire so they don't accumulate on the Daily account.
+      properties: {
+        enable_prejoin_ui: true,
+        exp: Math.floor(Date.now() / 1000) + ttlSeconds,
+      },
+    }),
   });
   if (!created.ok) throw new Error(`Daily create failed: ${created.status}`);
   const data = await created.json();

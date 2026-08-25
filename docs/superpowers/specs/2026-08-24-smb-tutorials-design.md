@@ -135,3 +135,14 @@ These decisions cover the screens the demo never built (the instant/presence sur
 ## 14. Out of scope for this spec
 
 Native mobile apps, group/classroom (many-to-many) video, recording/playback, and AI features. Revisit after the instant loop is validated with real users.
+
+## 15. Spike → production hardening (M0 debts to close — must not ship as-is)
+
+The M0 `/call` page and `/api/rooms` route are a **spike** — they prove the Daily plumbing and are replaced by the real in-call + session flow. These known shortcuts must be closed in the milestone noted, not band-aided:
+
+- **`/api/rooms` is currently public + unauthenticated** (and live on Vercel — anyone hitting it creates Daily rooms on our account = cost/abuse). **Close in M1/M2:** rooms are minted **server-side only**, on an **authenticated teacher-accept**, tied to a `session` row. No client-supplied room names in production.
+- **Rooms never expire.** `getOrCreateRoom` must set an `exp` so rooms self-clean. *(Hardened in `daily.ts` now — reusable core.)*
+- **Client-triggered room creation** (browser effect calls `/api/rooms`) is the wrong shape for service. Production creates the room server-side when the session is arranged, stores `daily_room_url` on the session, and hands each party a scoped join token.
+- **Join tokens / access control:** production rooms should be private with per-user meeting tokens (student vs teacher), not open room URLs.
+
+Rule: no M0 spike shortcut reaches real users. Each item above is a gate on its milestone.

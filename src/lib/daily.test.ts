@@ -33,6 +33,20 @@ describe("getOrCreateRoom", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("sets a self-expiry (exp) on created rooms", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(404, {}))
+      .mockResolvedValueOnce(
+        jsonResponse(200, { url: "https://x.daily.co/new", name: "new" })
+      );
+    await getOrCreateRoom("new", "key", fetchMock as unknown as typeof fetch, 3600);
+    const createCall = fetchMock.mock.calls[1];
+    const body = JSON.parse((createCall[1] as RequestInit).body as string);
+    expect(body.properties.exp).toBeTypeOf("number");
+    expect(body.properties.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
+  });
+
   it("throws when the api key is missing", async () => {
     await expect(
       getOrCreateRoom("x", "", vi.fn() as unknown as typeof fetch)
