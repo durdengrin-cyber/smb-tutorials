@@ -377,7 +377,13 @@ create table public.sessions (
   hourly_rate int not null check (hourly_rate > 0),
   daily_room_url text,
   created_at timestamptz not null default now(),
-  constraint different_parties check (student_id <> teacher_id)
+  constraint different_parties check (student_id <> teacher_id),
+  -- effectiveStatus() can only expire a pending row that carries a deadline.
+  -- Without this, a null-deadline pending row would never time out and could
+  -- be accepted arbitrarily later — the exact failure the read-time rule exists
+  -- to prevent.
+  constraint pending_has_deadline
+    check (status <> 'pending' or accept_deadline is not null)
 );
 
 create index sessions_teacher_status_idx on public.sessions (teacher_id, status);
@@ -418,9 +424,14 @@ select count(*) from public.sessions;                       -- expect 0, table e
 select polname from pg_policies where tablename = 'sessions';  -- expect 3
 select 1 from pg_publication_tables
  where pubname = 'supabase_realtime' and tablename = 'sessions';  -- expect 1 row
+-- invalid taxonomy is rejected
 insert into public.sessions (student_id, teacher_id, curriculum, grade, stream, subject, hourly_rate)
- values (gen_random_uuid(), gen_random_uuid(), 'IB', '6th', 'Science', 'Physics', 500);  -- expect CHECK violation
+ values (gen_random_uuid(), gen_random_uuid(), 'IB', '6th', 'Science', 'Physics', 500);
+-- a pending row with no accept_deadline is rejected (pending_has_deadline)
+insert into public.sessions (student_id, teacher_id, curriculum, grade, stream, subject, hourly_rate, status)
+ values (gen_random_uuid(), gen_random_uuid(), 'CBSE', '6th', 'Science', 'Physics', 500, 'pending');
 ```
+Both inserts must fail with a check-constraint violation.
 
 - [ ] **Step 4: Commit** — `git add supabase/migrations/0002_sessions.sql && git commit -m "feat: sessions table, RLS, realtime publication (M2 spec §4)"`
 
