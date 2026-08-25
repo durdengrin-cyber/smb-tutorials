@@ -4,11 +4,17 @@
 1. `cd ~/smb-tutorials` (this is a standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + the spec (`docs/superpowers/specs/2026-08-24-smb-tutorials-design.md`) + `CLAUDE.md`.
 3. Confirm `git branch --show-current` = `main`; `git pull origin main`.
-4. **Next action:** write the **M1 implementation plan** (superpowers writing-plans) from the spec, using the demo screens as UI reference. M0 is done — do not rebuild it.
-5. Before M1 code, one manual prereq: create a **Supabase project**, put its URL + anon key + service-role key in `.env.local`, and add them to Vercel env. (The plan will spell this out.)
+4. **Read the M1 plan:** `docs/superpowers/plans/2026-08-25-m1-auth-taxonomy-onboarding.md`. It is written and reviewed — execute it, do not rewrite it. Tasks 1 and 3 are already done and committed.
+5. **Blocker before any further M1 code — Task 0 of the plan (manual, user-only):** create the **Supabase project**, put URL + anon key + service-role key in `.env.local` and Vercel env, turn **email confirmation OFF**, and set up the **Google OAuth client**. Tasks 2 and 4–12 all depend on it.
+6. **Then:** execute Task 2 onward (superpowers subagent-driven-development or executing-plans).
+7. Three commits are local and **unpushed** (`ed0a591`, `5729344`, `f47f9d7`) — push when ready; push to `main` deploys production.
 
 ## Now
-**M0 complete & verified** — Next.js on Vercel (push-to-deploy), `/api/rooms` (Daily rooms, self-expiring), `/call` spike: two-browser video + screen-share confirmed live. 5 tests green. Next: **M1** — Supabase auth + student/teacher roles + K-12 taxonomy seed + tutor onboarding (demo's `tutor-signup`) + teacher browse. Rebuild demo's signin/signup/tutor-signup screens faithfully.
+**M0 complete & verified** — Next.js on Vercel (push-to-deploy), `/api/rooms` (Daily rooms, self-expiring), `/call` spike: two-browser video + screen-share confirmed live.
+
+**M1 in progress** — plan written (12 tasks). Done: taxonomy module (`src/lib/taxonomy.ts`, spec §7) and form validation (`src/lib/validation.ts`), both TDD, **19 tests green**, `tsc --noEmit` clean. Remaining: DB schema + RLS + signup trigger, Supabase clients + `proxy.ts` session refresh, auth actions + Google OAuth, and the demo screens (home, signin, signup, tutor-signup, find, teachers, terms).
+
+**Decisions locked while planning M1:** home page rebuilt in M1 · tutor signup is **one** form creating account + profile + subjects · Google OAuth included · tutor "Subjects You Teach" free text becomes a structured curriculum × grade × subject picker (free text can't drive the browse filter) · find screen drops date/time (instant-first) · teacher cards show no fake rating/availability.
 
 **Open liability:** `/api/rooms` is public/unauthenticated & live on Vercel (spec §15) — close in M1/M2 via server-side, auth-gated room creation. In-call + teacher-dashboard screens: just-in-time design before M2.
 
@@ -38,4 +44,5 @@ No-show/refund policy · trust & safety (minors) escalation path.
 - **Local secrets:** `.env.local` (gitignored) holds `DAILY_API_KEY`. Daily domain = `smbtutorials` (rooms at `smbtutorials.daily.co/...`). Daily billing/payment method added.
 - **Demo (UI/UX blueprint, read-only):** `~/Downloads/SMB-Tutorial-main` — a CRA single-file `src/App.js` (~2,387 lines), no backend. We rebuild it in Next.js; do NOT extend it.
 - **Stack live:** Next.js 16 + React 19, Tailwind v4, Vitest (5 tests). Scripts: `npm run dev|build|test`.
-- **App routes so far:** `/` (placeholder), `/call` (M0 video spike — throwaway), `/api/rooms` (Daily room create/get — spike, unauthenticated; see spec §15).
+- **App routes so far:** `/` (placeholder — replaced by the demo home in M1 Task 10), `/call` (M0 video spike — throwaway), `/api/rooms` (Daily room create/get — spike, unauthenticated; auth gate lands in M1 Task 11, full close M2; see spec §15).
+- **Next.js 16 gotcha:** `middleware.ts` is deprecated → the file is `src/proxy.ts` exporting `proxy()`. Read `node_modules/next/dist/docs/` before writing app code.
