@@ -4,7 +4,6 @@ import {
   acceptDeadlineFrom, effectiveStatus, secondsRemaining, canTransition,
 } from "./session";
 
-const iso = (d: Date) => d.toISOString();
 const NOW = new Date("2026-08-25T12:00:00.000Z");
 
 describe("constants", () => {

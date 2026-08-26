@@ -138,12 +138,16 @@ Native mobile apps, group/classroom (many-to-many) video, recording/playback, an
 
 ## 15. Spike → production hardening (M0 debts to close — must not ship as-is)
 
-The M0 `/call` page and `/api/rooms` route are a **spike** — they prove the Daily plumbing and are replaced by the real in-call + session flow. These known shortcuts must be closed in the milestone noted, not band-aided:
+**Closed in M2.** Rooms are minted server-side in `acceptSession` only, are private, carry an `exp`, and each party joins with its own Daily meeting token. The `/call` spike page and the `/api/rooms` route were deleted in M2 Task 11 (commit on branch `m2-presence-instant-pick`), along with `lib/share.ts`.
+
+The original debts and how each was closed:
 
 - **`/api/rooms` is currently public + unauthenticated** (and live on Vercel — anyone hitting it creates Daily rooms on our account = cost/abuse). **Close in M1/M2:** rooms are minted **server-side only**, on an **authenticated teacher-accept**, tied to a `session` row. No client-supplied room names in production.
-  - *(M1, done: the route now rejects anonymous callers with 401 — anonymous cost/abuse is closed, verified. **Still open for M2:** the room is created on client request with a client-supplied name, not server-side on an authenticated teacher-accept tied to a `session` row. Any signed-in user can still mint an arbitrarily-named room.)*
+  - *(M1: the route rejected anonymous callers with 401, closing anonymous cost/abuse. **M2, closed:** the route is deleted. `createSessionRoom` runs only inside `acceptSession`, names the room from the session id, and no client-supplied name reaches Daily.)*
 - **Rooms never expire.** `getOrCreateRoom` must set an `exp` so rooms self-clean. *(Hardened in `daily.ts` now — reusable core.)*
-- **Client-triggered room creation** (browser effect calls `/api/rooms`) is the wrong shape for service. Production creates the room server-side when the session is arranged, stores `daily_room_url` on the session, and hands each party a scoped join token.
-- **Join tokens / access control:** production rooms should be private with per-user meeting tokens (student vs teacher), not open room URLs.
+- **Client-triggered room creation** (browser effect calls `/api/rooms`) is the wrong shape for service. *(M2, closed: `acceptSession` creates the room and writes `daily_room_url` onto the session row in the same update that sets `active`.)*
+- **Join tokens / access control:** production rooms should be private with per-user meeting tokens (student vs teacher), not open room URLs. *(M2, closed: `createSessionRoom` sets `privacy: "private"`, and `/call/[sessionId]` mints each viewer's own token with `is_owner` true only for the teacher.)*
 
 Rule: no M0 spike shortcut reaches real users. Each item above is a gate on its milestone.
+
+**Carried forward, not a gate:** `getOrCreateRoom` in `daily.ts` survives Task 11 with its tests but now has no caller. It creates a *public* room from an arbitrary name — the very model this section closed — so a future caller reaching for it would silently reopen the hole. Either delete it or give it a `privacy: "private"` default when something next needs it.
