@@ -82,6 +82,15 @@ describe("canTransition", () => {
     expect(canTransition("declined", "active")).toBe(false);
     expect(canTransition("pending", "completed")).toBe(false);
   });
+  it("no longer allows accept to jump straight to a room", () => {
+    // M3 puts payment between them: the only route to `active` is via `paid`.
+    // A caller that still asks for pending -> active is a caller that has not
+    // been migrated, and this is the assertion that finds it.
+    expect(canTransition("pending", "active")).toBe(false);
+    expect(canTransition("accepted", "active")).toBe(false);
+    expect(canTransition("accepted", "paid")).toBe(true);
+    expect(canTransition("paid", "active")).toBe(true);
+  });
 });
 
 // NOW is 2026-08-25T12:00:00Z; a 60-minute session that started at 11:30 is

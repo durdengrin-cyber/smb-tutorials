@@ -37,7 +37,7 @@ export async function acceptSession(sessionId: string): Promise<{ error: string 
     new Date()
   );
   if (actual !== "pending") return { error: "That request has already expired." };
-  if (!canTransition("pending", "active")) return { error: "Invalid transition." };
+  if (!canTransition("pending", "accepted")) return { error: "Invalid transition." };
 
   // Refuse a second concurrent call for this teacher — but decide that with
   // the read-time rule, not the stored column. completeSession is only ever
