@@ -74,8 +74,12 @@ export async function createSessionRoom(
     headers,
     body: JSON.stringify({
       name,
+      // `privacy` is a top-level field on the room, NOT a room property.
+      // Daily rejects the whole request with 400 "invalid property name
+      // 'privacy'" if it is nested — which is how this shipped: the unit test
+      // asserted the nested shape against a mock, so it agreed with the bug.
+      privacy: "private",
       properties: {
-        privacy: "private",
         enable_prejoin_ui: true,
         // Longer than the session so a call cannot die mid-lesson (design
         // spec §9), but not so long that the room stops being a cap.

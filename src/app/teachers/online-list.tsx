@@ -75,6 +75,10 @@ export function OnlineList({
   }, []);
 
   const online = intersectOnline(eligible, roster);
+  // requestSession validates the taxonomy, so starting from an unfiltered list
+  // can only ever return "Pick a subject before starting." Say so up front
+  // instead of letting the click fail.
+  const canStart = Boolean(subject && curriculum && grade && stream);
 
   async function start(teacherId: string) {
     setPendingId(teacherId);
@@ -149,12 +153,21 @@ export function OnlineList({
         </div>
       )}
       {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+      {!canStart && (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-700">
+          Pick a subject on{" "}
+          <a href="/find" className="text-teal-600 font-semibold hover:underline">
+            Find a teacher
+          </a>{" "}
+          to start a session — these teachers are online now.
+        </div>
+      )}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {online.map((teacher) => (
           <TeacherCard
             key={teacher.id}
             teacher={teacher}
-            onStart={() => start(teacher.id)}
+            onStart={canStart ? () => start(teacher.id) : undefined}
             starting={pendingId === teacher.id}
           />
         ))}

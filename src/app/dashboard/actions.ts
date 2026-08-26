@@ -74,7 +74,11 @@ export async function acceptSession(sessionId: string): Promise<{ error: string 
   try {
     const room = await createSessionRoom(sessionId, process.env.DAILY_API_KEY ?? "");
     roomUrl = room.url;
-  } catch {
+  } catch (e) {
+    // The teacher gets a sentence; the log gets the cause. Swallowing this
+    // entirely is what made a malformed Daily payload look like a generic
+    // "try again" for an entire test round.
+    console.error(`[acceptSession] room mint failed for ${sessionId}:`, e);
     return { error: "Couldn't start the call — try again." };
   }
 

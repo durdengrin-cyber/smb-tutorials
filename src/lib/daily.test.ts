@@ -70,7 +70,10 @@ describe("createSessionRoom", () => {
     expect(room).toEqual({ url: "https://smbtutorials.daily.co/smb-s1", name: "smb-s1" });
     const body = JSON.parse(String(captured?.body));
     expect(body.name).toBe("smb-s1");
-    expect(body.properties.privacy).toBe("private");
+    // Top level, not inside properties — Daily 400s on the nested form, and
+    // asserting the nested shape here is what let that reach a browser.
+    expect(body.privacy).toBe("private");
+    expect(body.properties.privacy).toBeUndefined();
     expect(body.properties.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
   });
 

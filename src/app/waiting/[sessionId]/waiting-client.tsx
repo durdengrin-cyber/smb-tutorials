@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { createRealtimeClient } from "@/lib/supabase/client";
 import { secondsRemaining } from "@/lib/session";
 import { cancelSession, timeOutSession } from "@/app/session/actions";
 
@@ -10,10 +11,18 @@ export function WaitingClient({
   sessionId,
   teacherName,
   deadline,
+  returnTo,
+  backToList,
 }: {
   sessionId: string;
   teacherName: string;
   deadline: string;
+  // Both carry the student's original search so they land back on the same
+  // filtered list. Sending them to a bare /teachers made them re-pick the
+  // subject before they could try anyone else — pure friction after a failed
+  // attempt, and "Start now" on an unfiltered list can only error.
+  returnTo: string;
+  backToList: string;
 }) {
   const router = useRouter();
   const [left, setLeft] = useState(() => secondsRemaining(deadline, new Date()));
@@ -29,36 +38,50 @@ export function WaitingClient({
   const refreshingRef = useRef(false);
 
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`session-${sessionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "sessions",
-          filter: `id=eq.${sessionId}`,
-        },
-        (payload) => {
-          if (leavingRef.current) return;
-          const status = (payload.new as { status: string }).status;
-          if (status === "active") {
-            leavingRef.current = true;
-            router.push(`/call/${sessionId}`);
-          } else if (status !== "pending") {
-            leavingRef.current = true;
-            router.push(
-              `/teachers?didNotRespond=${encodeURIComponent(teacherName)}`
-            );
+    let mounted = true;
+    let channel: RealtimeChannel | null = null;
+
+    void (async () => {
+      // Awaited before subscribing — an `anon` socket acks SUBSCRIBED and then
+      // hears nothing, which would leave the student waiting out the full 30s
+      // even after their teacher accepted.
+      const supabase = await createRealtimeClient();
+      if (!mounted) return;
+
+      channel = supabase
+        .channel(`session-${sessionId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "sessions",
+            filter: `id=eq.${sessionId}`,
+          },
+          (payload) => {
+            if (!mounted || leavingRef.current) return;
+            const status = (payload.new as { status: string }).status;
+            if (status === "active") {
+              leavingRef.current = true;
+              router.push(`/call/${sessionId}`);
+            } else if (status !== "pending") {
+              leavingRef.current = true;
+              router.push(returnTo);
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status) => {
+          // A late accept that landed while the socket was still connecting
+          // would otherwise only be noticed when the countdown expires.
+          if (mounted && status === "SUBSCRIBED") router.refresh();
+        });
+    })();
+
     return () => {
-      channel.unsubscribe();
+      mounted = false;
+      channel?.unsubscribe();
     };
-  }, [sessionId, teacherName, router]);
+  }, [sessionId, returnTo, router]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -86,7 +109,7 @@ export function WaitingClient({
     setCancelling(true);
     leavingRef.current = true;
     await cancelSession(sessionId);
-    router.push("/teachers");
+    router.push(backToList);
   }
 
   return (

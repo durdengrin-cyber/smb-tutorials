@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { createRealtimeClient } from "@/lib/supabase/client";
 import { secondsRemaining } from "@/lib/session";
 import { acceptSession, declineSession } from "./actions";
 
@@ -31,10 +32,10 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const supabase = createClient();
-    // An INSERT ack or a name lookup can land after this effect is torn down
-    // (React StrictMode's mount -> cleanup -> remount reproduces it).
+    // An ack or a query can land after this effect is torn down (React
+    // StrictMode's mount -> cleanup -> remount reproduces it).
     let mounted = true;
+    let channel: RealtimeChannel | null = null;
 
     const toPending = (row: SessionRow): PendingRequest => ({
       id: row.id,
@@ -44,62 +45,70 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
       student_name: row.student_name || "A student",
     });
 
-    // A request that landed before this component subscribed would otherwise
-    // never be seen — the teacher would sit idle while the student's 30s ran
-    // out. Reachable on a return from a call, a reload, or a socket rejoin.
-    (async () => {
-      const { data: row } = await supabase
-        .from("sessions")
-        .select("id, subject, hourly_rate, accept_deadline, student_name")
-        .eq("teacher_id", teacherId)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (!mounted || !row) return;
-      if (secondsRemaining(row.accept_deadline, new Date()) === 0) return;
-      // A live INSERT that arrived while this query was in flight is newer.
-      setRequest((prev) => prev ?? toPending(row));
-    })();
+    void (async () => {
+      // Awaited before subscribing: a socket that joins as `anon` acks
+      // SUBSCRIBED and then silently receives nothing, which is how a
+      // student's request stayed invisible until a manual refresh.
+      const supabase = await createRealtimeClient();
+      if (!mounted) return;
 
-    const channel = supabase
-      .channel(`teacher-sessions-${teacherId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "sessions",
-          filter: `teacher_id=eq.${teacherId}`,
-        },
-        (payload) => {
-          const row = payload.new as SessionRow & { status: string };
-          if (!mounted || row.status !== "pending") return;
-          setError(null);
-          setRequest(toPending(row));
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "sessions",
-          filter: `teacher_id=eq.${teacherId}`,
-        },
-        (payload) => {
-          const row = payload.new as { id: string; status: string };
-          if (!mounted || row.status === "pending") return;
-          // The student cancelled, or this teacher answered in another tab.
-          // Leaving the prompt up would offer an Accept that can only fail.
-          setRequest((prev) => (prev && prev.id === row.id ? null : prev));
-        }
-      )
-      .subscribe();
+      // A request that landed before this component subscribed would otherwise
+      // never be seen — the teacher would sit idle while the student's 30s ran
+      // out. Reachable on a return from a call, a reload, or a socket rejoin.
+      void (async () => {
+        const { data: row } = await supabase
+          .from("sessions")
+          .select("id, subject, hourly_rate, accept_deadline, student_name")
+          .eq("teacher_id", teacherId)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!mounted || !row) return;
+        if (secondsRemaining(row.accept_deadline, new Date()) === 0) return;
+        // A live INSERT that arrived while this query was in flight is newer.
+        setRequest((prev) => prev ?? toPending(row));
+      })();
+
+      channel = supabase
+        .channel(`teacher-sessions-${teacherId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "sessions",
+            filter: `teacher_id=eq.${teacherId}`,
+          },
+          (payload) => {
+            const row = payload.new as SessionRow & { status: string };
+            if (!mounted || row.status !== "pending") return;
+            setError(null);
+            setRequest(toPending(row));
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "sessions",
+            filter: `teacher_id=eq.${teacherId}`,
+          },
+          (payload) => {
+            const row = payload.new as { id: string; status: string };
+            if (!mounted || row.status === "pending") return;
+            // The student cancelled, or this teacher answered in another tab.
+            // Leaving the prompt up would offer an Accept that can only fail.
+            setRequest((prev) => (prev && prev.id === row.id ? null : prev));
+          }
+        )
+        .subscribe();
+    })();
 
     return () => {
       mounted = false;
-      channel.unsubscribe();
+      channel?.unsubscribe();
     };
   }, [teacherId]);
 

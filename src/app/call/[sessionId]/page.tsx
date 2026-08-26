@@ -77,7 +77,8 @@ export default async function CallPage({
       // cannot mint a credential that outlives the session.
       roomTtlSeconds(session.started_at!, session.duration_minutes, new Date())
     );
-  } catch {
+  } catch (e) {
+    console.error(`[call] token mint failed for ${sessionId}:`, e);
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 max-w-md w-full text-center">
