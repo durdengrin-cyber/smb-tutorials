@@ -21,7 +21,7 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
   const { data } = await supabase
     .from("sessions")
     .select(
-      "id, subject, status, hourly_rate, duration_minutes, started_at, accept_deadline, created_at, student_name"
+      "id, subject, status, hourly_rate, duration_minutes, started_at, accept_deadline, payment_deadline, created_at, student_name"
     )
     .eq("teacher_id", teacherId)
     .order("created_at", { ascending: false })
@@ -38,7 +38,7 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
   // no-fabricated-data rule, as inventing a figure.
   const { data: billable } = await supabase
     .from("sessions")
-    .select("status, hourly_rate, duration_minutes, started_at, accept_deadline")
+    .select("status, hourly_rate, duration_minutes, started_at, accept_deadline, payment_deadline")
     .eq("teacher_id", teacherId)
     .in("status", ["active", "completed"]);
 

@@ -16,7 +16,7 @@ export default async function WaitingPage({
   const { data: session } = await supabase
     .from("sessions")
     .select(
-      "id, student_id, teacher_id, curriculum, grade, stream, subject, status, accept_deadline, started_at, duration_minutes"
+      "id, student_id, teacher_id, curriculum, grade, stream, subject, status, accept_deadline, payment_deadline, started_at, duration_minutes"
     )
     .eq("id", sessionId)
     .single();

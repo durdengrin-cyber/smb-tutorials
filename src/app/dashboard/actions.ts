@@ -20,7 +20,7 @@ async function loadOwnSession(sessionId: string) {
   if (!user) return { supabase, user: null, session: null };
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, teacher_id, student_id, status, accept_deadline, started_at, duration_minutes")
+    .select("id, teacher_id, student_id, status, accept_deadline, payment_deadline, started_at, duration_minutes")
     .eq("id", sessionId)
     .single();
   return { supabase, user, session };
@@ -46,7 +46,7 @@ export async function acceptSession(sessionId: string): Promise<{ error: string 
   // every future request with no way back (design spec §3.2.1 rule 3).
   const { data: openRows } = await supabase
     .from("sessions")
-    .select("id, status, accept_deadline, started_at, duration_minutes")
+    .select("id, status, accept_deadline, payment_deadline, started_at, duration_minutes")
     .eq("teacher_id", user.id)
     .eq("status", "active");
   const open = (openRows ?? []).map((r) => ({

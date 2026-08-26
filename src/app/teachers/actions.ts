@@ -38,7 +38,7 @@ export async function requestSession(input: {
   // Reachable without malice: Start, browser Back, Start on someone else.
   const { data: openRows } = await supabase
     .from("sessions")
-    .select("id, status, accept_deadline, started_at, duration_minutes")
+    .select("id, status, accept_deadline, payment_deadline, started_at, duration_minutes")
     .eq("student_id", user.id)
     .in("status", ["pending", "active"]);
   const open = (openRows ?? []).map((r) => ({

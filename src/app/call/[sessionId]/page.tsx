@@ -22,7 +22,7 @@ export default async function CallPage({
   const { data: session } = await supabase
     .from("sessions")
     .select(
-      "id, student_id, teacher_id, subject, status, accept_deadline, started_at, duration_minutes, daily_room_url, student_name"
+      "id, student_id, teacher_id, subject, status, accept_deadline, payment_deadline, started_at, duration_minutes, daily_room_url, student_name"
     )
     .eq("id", sessionId)
     .single();

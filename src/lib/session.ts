@@ -10,26 +10,59 @@ export const SESSION_DURATION_MINUTES = 60;
 // in-call countdown runs on Date.now() and is not an authority.
 export const ROOM_GRACE_MINUTES = 15;
 
+// How long a student has to pay once their teacher has accepted. Deliberately
+// more generous than the 30s accept window because checkout means leaving the
+// app — a UPI flow is an app switch, an authentication and a PIN. It is also
+// the number most likely to need tuning against real data, and it is in direct
+// tension with how long a teacher will sit waiting (design spec §3.2).
+export const PAYMENT_WINDOW_SECONDS = 120;
+
 export type SessionStatus =
-  | "pending" | "accepted" | "active"
-  | "completed" | "declined" | "timed_out" | "cancelled";
+  | "pending" | "accepted" | "paid" | "active"
+  | "completed" | "declined" | "timed_out" | "cancelled"
+  | "payment_expired" | "refunded";
 
 const TERMINAL: readonly SessionStatus[] = [
   "completed", "declined", "timed_out", "cancelled",
+  "payment_expired", "refunded",
 ];
 
+// Mirrors the transition table in the M3 design spec §3.1, which migration
+// 0005's trigger enforces. The two removals matter as much as the additions:
+// `pending -> active` and `accepted -> active` are GONE, because accept no
+// longer produces a room. The only route to `active` is through `paid`, and
+// only the service role can make that move.
 const ALLOWED: Record<SessionStatus, readonly SessionStatus[]> = {
-  pending: ["active", "accepted", "declined", "timed_out", "cancelled"],
-  accepted: ["active", "cancelled"], // reserved for M3, where payment sits here
+  pending: ["accepted", "declined", "timed_out", "cancelled"],
+  accepted: ["paid", "payment_expired", "cancelled"],
+  paid: ["active", "refunded"],
   active: ["completed"],
   completed: [],
   declined: [],
   timed_out: [],
   cancelled: [],
+  payment_expired: [],
+  refunded: [],
 };
 
 export function acceptDeadlineFrom(createdAt: Date): Date {
   return new Date(createdAt.getTime() + ACCEPT_WINDOW_SECONDS * 1000);
+}
+
+export function paymentDeadlineFrom(acceptedAt: Date): Date {
+  return new Date(acceptedAt.getTime() + PAYMENT_WINDOW_SECONDS * 1000);
+}
+
+// What the student is charged, in paise. Rounded to whole rupees first so no
+// fraction of a paise can ever reach the money column, and so checkout and
+// the webhook's amount check cannot disagree by a rounding step — they both
+// call this. hourly_rate is the snapshot taken at request time, which
+// migration 0003 already makes immutable.
+export function amountPaiseFor(
+  hourlyRate: number,
+  durationMinutes: number
+): number {
+  return Math.round((hourlyRate * durationMinutes) / 60) * 100;
 }
 
 export function secondsRemaining(deadline: string | Date, now: Date): number {
@@ -45,6 +78,7 @@ export function effectiveStatus(
   row: {
     status: SessionStatus;
     accept_deadline: string | null;
+    payment_deadline: string | null;
     started_at: string | null;
     duration_minutes: number;
   },
@@ -54,6 +88,12 @@ export function effectiveStatus(
 
   if (row.status === "pending" && row.accept_deadline) {
     if (secondsRemaining(row.accept_deadline, now) === 0) return "timed_out";
+  }
+
+  // The second deadline, same mechanism as the first: a student who accepted
+  // the price but never paid must release their teacher without a timer.
+  if (row.status === "accepted" && row.payment_deadline) {
+    if (secondsRemaining(row.payment_deadline, now) === 0) return "payment_expired";
   }
 
   if (row.status === "active" && row.started_at) {
@@ -71,6 +111,7 @@ export interface SessionTimingRow {
   id: string;
   status: SessionStatus;
   accept_deadline: string | null;
+  payment_deadline: string | null;
   started_at: string | null;
   duration_minutes: number;
 }
@@ -83,11 +124,20 @@ export interface SessionTimingRow {
 const isLive = (row: SessionTimingRow, now: Date) =>
   row.started_at !== null && effectiveStatus(row, now) === "active";
 
+// A teacher is busy from the moment they accept, not from the moment the call
+// starts. Without this they would be offered a second request while their
+// first student is still at the checkout screen.
+const isBusy = (row: SessionTimingRow, now: Date) => {
+  const status = effectiveStatus(row, now);
+  if (status === "accepted" || status === "paid") return true;
+  return isLive(row, now);
+};
+
 export function hasLiveSession(
   rows: readonly SessionTimingRow[],
   now: Date
 ): boolean {
-  return rows.some((row) => isLive(row, now));
+  return rows.some((row) => isBusy(row, now));
 }
 
 // Rows stored `active` that the read-time rule already considers finished.
@@ -104,6 +154,21 @@ export function expiredActiveIds(
         row.status === "active" &&
         row.started_at !== null &&
         effectiveStatus(row, now) === "completed"
+    )
+    .map((row) => row.id);
+}
+
+// The settle-on-read twin of expiredActiveIds, for the payment window.
+export function expiredAcceptedIds(
+  rows: readonly SessionTimingRow[],
+  now: Date
+): string[] {
+  return rows
+    .filter(
+      (row) =>
+        row.status === "accepted" &&
+        row.payment_deadline !== null &&
+        effectiveStatus(row, now) === "payment_expired"
     )
     .map((row) => row.id);
 }
@@ -133,7 +198,7 @@ export function hasOpenRequest(
 ): boolean {
   return rows.some((row) => {
     const status = effectiveStatus(row, now);
-    return status === "pending" || isLive(row, now);
+    return status === "pending" || isBusy(row, now);
   });
 }
 
