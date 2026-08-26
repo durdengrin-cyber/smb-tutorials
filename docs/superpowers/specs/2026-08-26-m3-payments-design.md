@@ -450,6 +450,22 @@ avoids is designing the flow around one provider's redirect model before
 confirming that provider can take domestic INR and UPI for this business, in a
 market where UPI dominates.
 
+**Provider chosen: Razorpay** (2026-08-27, after research). The decision was
+made on fit rather than price — the three port methods map onto Razorpay's
+existing surface almost exactly:
+
+| Port method | Razorpay |
+|---|---|
+| `createCheckout` | **Payment Links API** — created server-side, returns a `short_url` to redirect to, with `callback_url` bringing the student back. No pre-created Order needed, unlike Standard/Hosted Checkout. |
+| `verifyWebhook` | HMAC-SHA256 over the **raw request body**, `x-razorpay-signature` header. Razorpay's own docs warn "do not parse or cast the webhook request body" — the exact footgun §3.5 already guards. `x-razorpay-event-id` is unique per event and gives deduplication a second layer beyond our status guard. |
+| `refund` | Refunds API, with `refund.processed` webhook events. |
+
+Razorpay also reports the highest UPI success rate of the Indian three (~93%),
+which matters more than the ~0.25% fee difference against Cashfree: on a ₹500
+session that gap is about ₹1.25, while a failed payment costs the whole ₹500
+and the student. Fee and entity figures came from third-party comparisons and
+should be confirmed against Razorpay's contract before going live.
+
 **Prerequisite before implementation:** no payment package is installed and no
 payment keys exist in `.env.local` or in Vercel (verified 2026-08-26 — only
 `DAILY_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
