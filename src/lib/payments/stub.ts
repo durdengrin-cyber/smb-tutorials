@@ -3,6 +3,13 @@ import type {
   CheckoutRequest, CheckoutResult, PaymentPort, RefundResult, WebhookEvent,
 } from "./port";
 
+// The stub's signing capability is not on the shared PaymentPort contract —
+// a real adapter must never be able to implement this member, live, by
+// accident. Only code that explicitly asks for a StubPaymentPort can reach it.
+export interface StubPaymentPort extends PaymentPort {
+  signForTest(rawBody: string): string;
+}
+
 // A local stand-in for a payment provider, so the whole M3 flow can be built
 // and walked end to end before a provider is chosen (design spec §11). It
 // signs and verifies with a real HMAC, so the webhook route is exercised the
@@ -10,7 +17,14 @@ import type {
 //
 // It must NEVER be reachable in production: it would let anyone mark a session
 // paid. index.ts enforces that, and stub.test.ts proves it.
-export function stubPort(secret: string): PaymentPort {
+export function stubPort(secret: string): StubPaymentPort {
+  // The guards in index.ts, the dev checkout page and its action are all
+  // external to this function — they protect the paths we happen to know
+  // about. This one protects the capability itself, so a future caller that
+  // imports this module directly cannot mint a valid signature in production.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("stubPort must never be constructed in production");
+  }
   if (!secret) throw new Error("stub payment port requires a secret");
 
   const sign = (rawBody: string) =>

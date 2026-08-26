@@ -443,3 +443,16 @@ signing secret are needed before any of this runs.
 | Trigger and migration drifting apart | A status added without a trigger rule silently widens what a user token can write | They ship in the same migration; `probe-session-rls.mjs` asserts it |
 | Mock-based tests certifying a wrong API shape | Happened in M2 and reached a browser | §8 — mocks document, live calls prove |
 | Refund failure with no admin surface | Money stuck, no in-product recovery | Accepted gap (§9); loud logs + reconciliation |
+
+---
+
+## 13. Spike → production hardening (M3 debts to close)
+
+- **The development stub and `/dev/checkout` must not reach production.** The
+  stub holds the only capability that can mark a session paid, and the dev
+  checkout page can drive it. Four independent refusals stand in the way
+  (`stubPort` itself, `getPaymentPort`, the page, the action), and the page
+  additionally bakes to a static 404 at build time. **Close in Task 12/13:**
+  delete both once a real adapter exists, and confirm `/dev/checkout` returns
+  404 in production. Until then, `PAYMENT_PROVIDER` must never be `stub` — or
+  unset — in any deployed environment.

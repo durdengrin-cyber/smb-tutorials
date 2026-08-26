@@ -39,6 +39,4 @@ export interface PaymentPort {
   // Throws on a bad or missing signature. Never returns a partial event.
   verifyWebhook(rawBody: string, signature: string): Promise<WebhookEvent>;
   refund(paymentRef: string, amountPaise: number): Promise<RefundResult>;
-  // Test-only helper, present on the stub and absent on real adapters.
-  signForTest?(rawBody: string): string;
 }

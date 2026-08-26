@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { stubPort } from "./stub";
+import { getPaymentPort } from "./index";
 
 const port = stubPort("test-secret");
 
@@ -15,7 +16,7 @@ describe("stub payment port", () => {
 
   it("verifies a payload it signed", async () => {
     const body = JSON.stringify({ sessionId: "s1", amountPaise: 50000, paymentRef: "stub_1", kind: "succeeded" });
-    const sig = port.signForTest!(body);
+    const sig = port.signForTest(body);
     const event = await port.verifyWebhook(body, sig);
     expect(event).toEqual({ sessionId: "s1", amountPaise: 50000, paymentRef: "stub_1", kind: "succeeded" });
   });
@@ -27,9 +28,14 @@ describe("stub payment port", () => {
 
   it("rejects a tampered payload signed for different content", async () => {
     const original = JSON.stringify({ sessionId: "s1", amountPaise: 50000, paymentRef: "stub_1", kind: "succeeded" });
-    const sig = port.signForTest!(original);
+    const sig = port.signForTest(original);
     const tampered = JSON.stringify({ sessionId: "s1", amountPaise: 1, paymentRef: "stub_1", kind: "succeeded" });
     await expect(port.verifyWebhook(tampered, sig)).rejects.toThrow(/signature/i);
+  });
+
+  it("rejects a missing signature", async () => {
+    const body = JSON.stringify({ sessionId: "s1", amountPaise: 50000, paymentRef: "stub_1", kind: "succeeded" });
+    await expect(port.verifyWebhook(body, "")).rejects.toThrow(/signature/i);
   });
 
   it("refunds and returns a reference", async () => {
@@ -38,5 +44,33 @@ describe("stub payment port", () => {
 
   it("refuses to exist without a secret", () => {
     expect(() => stubPort("")).toThrow(/secret/i);
+  });
+});
+
+describe("production refuses the stub, independent of any caller", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalProvider = process.env.PAYMENT_PROVIDER;
+
+  afterEach(() => {
+    Object.defineProperty(process.env, "NODE_ENV", { value: originalNodeEnv, configurable: true, writable: true, enumerable: true });
+    if (originalProvider === undefined) delete process.env.PAYMENT_PROVIDER;
+    else process.env.PAYMENT_PROVIDER = originalProvider;
+  });
+
+  it("stubPort itself refuses to be constructed under NODE_ENV=production", () => {
+    Object.defineProperty(process.env, "NODE_ENV", { value: "production", configurable: true, writable: true, enumerable: true });
+    expect(() => stubPort("test-secret")).toThrow(/production/i);
+  });
+
+  it("getPaymentPort refuses under NODE_ENV=production with PAYMENT_PROVIDER=stub", () => {
+    Object.defineProperty(process.env, "NODE_ENV", { value: "production", configurable: true, writable: true, enumerable: true });
+    process.env.PAYMENT_PROVIDER = "stub";
+    expect(() => getPaymentPort()).toThrow(/production/i);
+  });
+
+  it("getPaymentPort refuses under NODE_ENV=production with PAYMENT_PROVIDER unset", () => {
+    Object.defineProperty(process.env, "NODE_ENV", { value: "production", configurable: true, writable: true, enumerable: true });
+    delete process.env.PAYMENT_PROVIDER;
+    expect(() => getPaymentPort()).toThrow(/production/i);
   });
 });
