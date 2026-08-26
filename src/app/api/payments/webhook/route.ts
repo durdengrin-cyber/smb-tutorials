@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   const { data: session } = await db
     .from("sessions")
     .select(
-      "id, status, accept_deadline, payment_deadline, started_at, duration_minutes, hourly_rate, payment_ref, amount_paid_paise"
+      "id, status, accept_deadline, payment_deadline, started_at, duration_minutes, hourly_rate, payment_ref, amount_paid_paise, refund_ref"
     )
     .eq("id", event.sessionId)
     .single();
@@ -104,8 +104,19 @@ export async function POST(req: Request) {
     new Date()
   );
 
-  // Already paid, already running, or already finished: a duplicate delivery.
-  if (["paid", "active", "completed"].includes(session.status)) return ok();
+  // A redelivery with nothing left to do. Two ways a charge is already
+  // resolved: we credited it (paid/active/completed), or we already gave it
+  // back. The refund_ref half matters as much as the status half — the two
+  // refund paths below leave the row in DIFFERENT states (a mint failure
+  // moves it to `refunded`; a late payment keeps `payment_expired` and only
+  // records the reference), so a status list alone would let a retry fall
+  // through and call refund() a second time against the same charge.
+  if (
+    ["paid", "active", "completed"].includes(session.status) ||
+    session.refund_ref
+  ) {
+    return ok();
+  }
 
   // The case people get wrong: the student paid, but we already released the
   // teacher. Never keep the money, and never resurrect a session whose teacher
