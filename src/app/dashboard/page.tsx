@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 import { AvailabilityToggle } from "./availability-toggle";
 import { IncomingRequest } from "./incoming-request";
+import { SessionHistory } from "./session-history";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -66,6 +67,8 @@ export default async function DashboardPage() {
               </p>
             )}
           </section>
+
+          <SessionHistory teacherId={profile.id} />
         </div>
       </main>
     </div>
