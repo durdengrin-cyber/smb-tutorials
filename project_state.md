@@ -4,7 +4,8 @@
 1. `cd ~/smb-tutorials` (this is a standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + the spec (`docs/superpowers/specs/2026-08-24-smb-tutorials-design.md`) + `CLAUDE.md`.
 3. **M2 is code-complete on branch `m2-presence-instant-pick` and NOT yet merged.** Confirm with `git branch --show-current`.
-4. **Next action: the two-browser end-to-end run (plan Task 12 Step 2), then push.** Everything else in M2 is done and verified. The loop has never been walked in a real browser — automated checks, route status codes and direct-to-Postgres probes all pass, but that is not the same thing.
+4. **The two-browser run passed (2026-08-26). Next action: rebase onto `origin/main`, push, then re-run the loop against production (plan Task 12 Steps 5-6).**
+   - Evidence in the live `sessions` table: `timed_out` x2, `cancelled`, `completed` (with a real `daily_room_url`), `declined` — every terminal status, zero stale `pending`/`active`. Delete those 5 test rows with the test teacher before launch.
    - Test accounts, both in the live DB: teacher `tutor-check@smbtutorials.in` / see the password in the SDD ledger (gitignored, not stored here) — "Dr. Rao", CBSE 11th/12th Physics+Chemistry, ₹500/hr. Student = your own account, "Tyler".
    - **Presence = an open tab.** A teacher is "online" only while `/dashboard` is open with **Available now** toggled on, in a visible (not backgrounded) window. With no teacher tab open, `/teachers` correctly shows "No teachers online" — that is the design, not a bug.
    - You need two browser *profiles* (e.g. normal + incognito), because Supabase auth cookies are per-profile.
@@ -15,7 +16,7 @@
 7. **Test data in the live DB:** teacher "Dr. Rao" (`tutor-check@smbtutorials.in`) and student "Tyler". **Delete Dr. Rao before launch.** `sessions` is empty — every probe cleaned up after itself.
 
 ## Now
-**🌐 Production is live: https://smb-tutorials.vercel.app** — that is still M1. M2 is not deployed.
+**🌐 Production is live: https://smb-tutorials.vercel.app** — that is still M1. M2 is verified locally but not yet deployed.
 
 **M0 complete** — Daily plumbing proven. *(The spike itself was deleted in M2 Task 11; see spec §15.)*
 
@@ -26,7 +27,8 @@
 - **Migrations applied to the live project:** `0002_sessions.sql` (table, RLS, realtime publication), `0003_session_integrity.sql`, `0004_session_student_name.sql`. All three verified against the live DB, both that they block what they should and that they permit every write the app makes.
 - **Spec §15 is closed.** Rooms are minted only inside `acceptSession`, are private, carry an `exp` tied to the session length, and each party joins with its own meeting token. `/call` (spike) and `/api/rooms` are deleted.
 - **A whole-branch code review was run and every Critical and Important finding fixed** (2 Critical, 8 Important). The two Criticals were: a teacher whose browser closed mid-call was locked out of the product permanently, and the `sessions` RLS was column-blind so either participant could rewrite `hourly_rate`, jump `pending → completed`, or forge an `active` row that could never expire. Both are closed by the read-time settling in `acceptSession` plus the `0003`/`0004` triggers, and both were probed against the live DB before and after.
-- **Not yet done:** the two-browser run, and the push.
+- **The two-browser run passed.** The first attempt found three bugs no automated check had caught: `postgres_changes` were silently dropped because the realtime socket joins as `anon` unless the JWT is pushed onto it *before* subscribing (`subscribe()` acks SUBSCRIBED either way); Daily's `privacy` is a top-level room field, not a room property, so no room was ever minted — and the unit test asserted the wrong shape against a mock, so it agreed with the bug; and a student sent back after a failed attempt lost their search criteria. All three fixed and re-verified against the real services.
+- **Not yet done:** the push, and the production re-run.
 
 **⚠ The one thing to know about presence:** a teacher is online only while their dashboard tab is open. Accepting navigates them to `/call`, which drops presence on purpose (a teacher in a session must not look startable); returning to `/dashboard` restores it from a localStorage intent flag. An empty `/teachers` list is almost always "nobody has a tab open", not a bug.
 
