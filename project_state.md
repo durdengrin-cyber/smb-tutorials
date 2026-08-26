@@ -4,34 +4,49 @@
 1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + the spec (`docs/superpowers/specs/2026-08-24-smb-tutorials-design.md`) + `CLAUDE.md`.
 3. **M2 is DONE, merged to `main`, deployed and verified in production (2026-08-26).** The instant-pick loop works end to end. Nothing is half-finished in the code.
-4. **Next action: finish the site-redesign brainstorm, which is IN PROGRESS and NOT yet a spec.** See "Redesign brainstorm — open" below. Do NOT start writing redesign code: the brainstorming skill's architectural path is mid-flight and the gate (user approval of a design) has not been passed.
+4. **Next action: M3 — Stripe Checkout.** Brainstorm it from the M3 section of the design spec, then writing-plans, then implement. Nothing about M3 has been started.
+   - **The redesign work is DEFERRED behind M3 by an explicit user decision (2026-08-26).** See "Post-M3: redesign + the three dashboards" below. Do not start it, and do not treat its open questions as blocking M3.
 5. **Still pending, manual (none block work):**
    - **Google provider not enabled** in Supabase (verified: only `email` in `/auth/v1/settings`). The Google button shows an inline error until a Google Cloud OAuth client is created and pasted in. Also add `https://smb-tutorials.vercel.app/auth/callback` to Supabase → Authentication → URL Configuration → Redirect URLs.
    - *(Email confirmation is deliberately OFF — `mailer_autoconfirm: true`. Revisit with Resend in M4.)*
 6. **Test data in the live DB (shared by local + production):** teacher "Dr. Rao" (`tutor-check@smbtutorials.in`, password in the gitignored SDD ledger at `.superpowers/sdd/2026-08-25-m2-presence-instant-pick/progress.md`) and student "Tyler". Plus 5 test `sessions` rows from the verification run. **Delete all of it before launch.**
 
-## Redesign brainstorm — open (started 2026-08-26, unfinished)
+## Post-M3: redesign + the three dashboards (scoped 2026-08-26, deferred behind M3)
 
-**Trigger:** a signed-in teacher has no way to reach `/dashboard`. Verified: `auth/actions.ts` redirects everyone to `/` after sign-in, and `/` renders only "Hi, {name}" + Sign out with no role branch. The teacher was reaching the dashboard by typing the URL.
+**Sequencing decision (user, 2026-08-26): ship M3 Stripe Checkout on the current UI FIRST, then do all of the below.** The trade-off was put to the user explicitly — the redesign will then have to absorb the Stripe surfaces too, and admin/payouts stays manual while real money is moving — and they chose this order anyway. Do not re-litigate it; do plan M3 knowing its UI is temporary.
 
-**Diagnosis — the gap is structural, not one missing link.** There is no authenticated shell at all. `SiteHeader` is a logo plus a single ad-hoc `action` prop, and each page passes its own one-off back link. Nothing in the app knows who is signed in or what role they are. M1 and M2 each built their own pages; the connective tissue joining them was never built.
+**How this started:** a signed-in teacher had no way to reach `/dashboard`. Verified: `auth/actions.ts` redirects everyone to `/` after sign-in, and `/` renders only "Hi, {name}" + Sign out with no role branch.
 
-**Findings that should survive into the redesign:**
-- **Stack drift:** `CLAUDE.md` locks the stack as "Tailwind + shadcn/ui", but **shadcn/ui was never installed** — no `components.json`, no `src/components/ui`, only two shared components (`site-header`, `google-button`). Every button/card/input is inline Tailwind, duplicated per page, inherited from the CRA demo. A redesign is therefore building the component layer the spec always assumed existed, not repainting one.
-- **The home page lies about the product.** `/` advertises "Your Schedule — Book sessions that fit your time", i.e. the scheduled tier that is deferred. Same class of defect as `/terms` (which describes chat, packages and ratings). Both should be rewritten with whatever the redesign touches.
-- **Device choice collides with the presence model, and is a product decision, not a styling one.** "Online" means a teacher has `/dashboard` open in a *visible* tab. On a phone, backgrounding the browser or taking a call throttles the websocket and the teacher silently drops offline. If phones are primary for teachers, the presence model in design spec §3 needs rethinking — not just the layout. The current build is desktop-first (base styles desktop, `md:` layering down), which is unusual for Indian K-12.
+**The real diagnosis is structural.** There is no authenticated shell anywhere. `SiteHeader` is a logo plus a per-page ad-hoc `action` prop; nothing in the app knows who is signed in or what role they are. M1 and M2 each built their own pages and the connective tissue was never built.
 
-**Brainstorming state — architectural path, mid-flight:**
-- Classified **architectural** (restructures a component every page renders; defines routing by role). Gets a design doc + implementation plan before any code.
-- **Answered:** scope = **full visual redesign** — rework the visual language across every screen (layout, typography, spacing, components), not just navigation. The user chose this over "connective tissue only" and over "shell + fix the lying pages", having been told it touches pages verified working the same day.
-- **Asked and withdrawn:** primary device (mobile-first per role / mobile-first everywhere / desktop-first / fully responsive). The user wanted to clarify the question rather than answer it. **Re-ask this early — everything else depends on it.**
-- **Still open, roughly in priority order:**
-  1. Primary device per role, and whether the presence model survives that choice.
-  2. Is the SMB teal/cyan brand and "One Student, One Teacher" fixed, or open to change?
-  3. Does "every screen" include the marketing surface (`/`, `/terms`, `/signup`, `/tutor-signup`) or only the product surface (`/find`, `/teachers`, `/dashboard`, `/waiting`, `/call`)? Different design problems.
-  4. Is there a reference the user likes, or should directions be proposed?
-  5. **What does the user believe is missing?** Their words were "re-done to accommodate everything missing" — that implies specific surfaces they have in mind that do not exist yet (a student dashboard? student session history? profiles? notifications?). This may be the real question; ask it directly rather than inferring from the repo.
-- **Do not invoke `ui-ux-pro-max` or any implementation skill during the brainstorm.** The architectural path's only terminal state is `writing-plans`, after a design doc is approved.
+**Full inventory of what is missing (user, 2026-08-26 — "3 sets of different dashboards"):**
+
+| Surface | Reality today |
+|---|---|
+| Teacher dashboard | EXISTS (M2): availability toggle, incoming request, subjects, history + earnings. Unreachable without typing the URL. |
+| Student dashboard | **DOES NOT EXIST.** A student has `/find` -> `/teachers` -> call, then nowhere. No history, no profile, no home. |
+| Admin | **DOES NOT EXIST AND CANNOT YET.** `profiles.role` is `check (role in ('student','teacher'))` — there is no admin role. Zero mention of admin in code or specs. Needs a migration, its own RLS policies, and policy decisions. |
+| Shell / design system | No component layer, no nav, no role routing. |
+| Polish | "Small things not given attention" — real, but only assessable once the above settles. |
+
+**Why admin is load-bearing, not cosmetic.** Three existing launch blockers quietly require it: payouts are manual (the teacher dashboard literally renders "Payouts are made manually while payments are being set up"), the no-show/refund policy needs someone able to act on it, and the trust & safety escalation path for minors needs somewhere to escalate *to*.
+
+**Agreed decomposition — four separate spec -> plan -> implement cycles, in this order:**
+1. **IA + design system** — the shell, role-aware nav, post-login routing by role, the component layer that was never built, the visual language, and deleting the marketing copy that advertises deferred features. Everything else is built *in* this, so it must go first; doing it later means building three dashboards in the old language and redoing them.
+2. **Student dashboard** — smallest new surface; closes the student's dead end after a call.
+3. **Admin** — largest; gated on policy answers only the user can give; unblocks the launch items above.
+4. **Polish pass** — last, against a finished system rather than a moving one.
+
+**Scope already chosen by the user: FULL VISUAL REDESIGN** — rework the visual language across every screen (layout, typography, spacing, components), not just navigation. Chosen over "connective tissue only" and over "shell + fix the lying pages", having been told it touches pages verified working the same day.
+
+**Findings that must survive into that work:**
+- **Stack drift:** `CLAUDE.md` locks the stack as "Tailwind + shadcn/ui" but **shadcn/ui was never installed** — no `components.json`, no `src/components/ui`, only two shared components (`site-header`, `google-button`). Every button/card/input is inline Tailwind duplicated per page, inherited from the CRA demo. The redesign is *building* the component layer, not repainting one.
+- **The home page lies about the product.** `/` advertises "Your Schedule — Book sessions that fit your time", the scheduled tier that is deferred. Same defect class as `/terms` (chat, packages, ratings).
+- **Primary device is a product decision, not a styling one.** "Online" means a teacher has `/dashboard` open in a *visible* tab; on a phone, backgrounding the browser throttles the websocket and the teacher silently drops offline. If phones are primary for teachers, design spec §3's presence model needs rethinking. Current build is desktop-first, which is unusual for Indian K-12. **This question was asked and withdrawn for clarification — re-ask it first when this work starts.**
+
+**Still-open questions for piece 1:** primary device per role (above) · is the SMB teal/cyan brand and "One Student, One Teacher" fixed or open · does "every screen" include the marketing surface (`/`, `/terms`, `/signup`, `/tutor-signup`) or only the product surface · is there a visual reference the user likes, or should directions be proposed.
+
+**Process note:** classified architectural. When resumed, the brainstorming skill's architectural path applies — questions, approaches, sectioned design, written spec, then `writing-plans`. Do NOT invoke `ui-ux-pro-max` or any implementation skill during the brainstorm; the only terminal state is `writing-plans`.
 
 ## Now
 **🌐 Production is live: https://smb-tutorials.vercel.app** — M2 is deployed and verified there (deployment `b7i9b32au`, 2026-08-26). Every route curl'd against the real URL, not just "Vercel says Ready": marketing pages 200, `/dashboard` `/waiting/{id}` `/call/{id}` all 307 behind the auth gate, `/call` and `/api/rooms` both 404 confirming the M0 spike is gone from the deployed build.
@@ -68,13 +83,17 @@
 - Domain: Indian K-12 — CBSE/State Board/ICSE, grades 6–12, streams Science/Commerce/Arts.
 
 ## Build order
-M0 skeleton + video spike ✅ → M1 auth + profiles + taxonomy + tutor onboarding ✅ → **M2 presence + instant pick + accept/timeout + Daily room — code-complete, awaiting the two-browser run + push** → M3 Stripe Checkout → M4 request fallback.
+M0 skeleton + video spike ✅ → M1 auth + profiles + taxonomy + tutor onboarding ✅ → M2 presence + instant pick + accept/timeout + Daily room ✅ → **M3 Stripe Checkout ← next** → redesign: IA/design system, student dashboard, admin, polish (4 cycles) → M4 request fallback.
+
+*Ordering note: the redesign sits after M3 by explicit decision, so M3 ships on a UI that is known to be temporary.*
 
 ## Deferred (not MVP)
 Scheduled tier (Cal.com later) · Stripe Connect · search/ranking · chat.
 
 ## Open before real launch
 No-show/refund policy · trust & safety (minors) escalation path · delete test teacher · rewrite `/terms`.
+
+**Needs an admin surface before launch (see the post-M3 section):** manual payouts · no-show/refund policy · trust & safety (minors) escalation.
 
 **Carried forward from the M2 review (logged, not blocking):** `getOrCreateRoom` in `daily.ts` survives with no caller and still creates *public* rooms — delete it or make it private-by-default before anything calls it (spec §15) · only one incoming request is displayed at a time, a second overwrites the first · `sessions.subject` has no CHECK constraint (the insert trigger blocks the forged-insert route to it) · `didNotRespond` on `/teachers` is unvalidated text (React escapes it, so content-injection not XSS).
 
