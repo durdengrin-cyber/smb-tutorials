@@ -2,15 +2,35 @@
 
 ## ▶ Resume here (next session)
 1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
-2. Read this file + the spec (`docs/superpowers/specs/2026-08-24-smb-tutorials-design.md`) + `CLAUDE.md`.
-3. **M2 is DONE, merged to `main`, deployed and verified in production (2026-08-26).** The instant-pick loop works end to end. Nothing is half-finished in the code.
-4. **Next action: write the M3 implementation plan** (superpowers writing-plans) from `docs/superpowers/specs/2026-08-26-m3-payments-design.md`. **The M3 design is brainstormed, written and user-approved — do not re-litigate it.** No M3 code has been written; no payment provider has been chosen or installed.
-   - **Prerequisite the user must supply before implementation can run:** a payment provider account, API keys and a webhook signing secret. None exist (verified: no payment package, no payment env vars locally or in Vercel).
-   - **The redesign work is DEFERRED behind M3 by an explicit user decision (2026-08-26).** See "Post-M3: redesign + the three dashboards" below. Do not start it, and do not treat its open questions as blocking M3.
-5. **Still pending, manual (none block work):**
-   - **Google provider not enabled** in Supabase (verified: only `email` in `/auth/v1/settings`). The Google button shows an inline error until a Google Cloud OAuth client is created and pasted in. Also add `https://smb-tutorials.vercel.app/auth/callback` to Supabase → Authentication → URL Configuration → Redirect URLs.
-   - *(Email confirmation is deliberately OFF — `mailer_autoconfirm: true`. Revisit with Resend in M4.)*
-6. **Test data in the live DB (shared by local + production):** teacher "Dr. Rao" (`tutor-check@smbtutorials.in`, password in the gitignored SDD ledger at `.superpowers/sdd/2026-08-25-m2-presence-instant-pick/progress.md`) and student "Tyler". Plus 5 test `sessions` rows from the verification run. **Delete all of it before launch.**
+2. Read this file + `CLAUDE.md` + the M3 spec (`docs/superpowers/specs/2026-08-26-m3-payments-design.md`).
+3. **You are mid-milestone on branch `m3-payments`, 35 commits ahead of `main`, nothing pushed.** Confirm with `git branch --show-current`. The tree is clean; 83 tests, `tsc --noEmit`, eslint and `npm run build` are all green.
+4. **The full SDD ledger is at `.superpowers/sdd/2026-08-26-m3-payments/progress.md`** — every commit, all 26 rulings, every parked finding. It is gitignored, lives only on this machine, and is the authoritative record. **Read it before doing anything.** Tasks with a `Task <N>: complete` line are done; do not re-dispatch them.
+5. **M3 is 11 of 13 tasks complete.** Payments work end to end against a development stub. What remains:
+   - **Task 12 — the Razorpay adapter. BLOCKED on the user** supplying test-mode keys: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `PAYMENT_WEBHOOK_SECRET`, plus `PAYMENT_PROVIDER=razorpay`. The plan's Task 12 carries the concrete call shapes.
+   - **Task 13 — verify and deploy.** Needs the user's two-browser run with Razorpay test cards, then rebase onto `origin/main` and push.
+   - Task 11's task review was **in flight when this session ended** — check whether findings came back and whether a fix round is owed before treating Task 11 as closed.
+6. **Resume with `superpowers:subagent-driven-development`**, plan `docs/superpowers/plans/2026-08-26-m3-payments.md`.
+
+## What M3 built, and what proves it
+
+The loop now runs: teacher accepts → a 120-second payment window opens → student pays → a signature-verified webhook mints the room and starts the session → leaving completes it and the earnings figure reflects money actually collected.
+
+**Migrations `0002`–`0005` are all applied to the live Supabase project.** `0005` is the security boundary: `paid`, `active` and `refunded` require `auth.uid() is null`, so only the service role — held solely by the webhook — can write them.
+
+**Three committed probes prove it against the real database** (`scripts/`), all re-runnable:
+- `probe-session-rls.mjs` — ten attacks with a participant's own JWT. All refused. Needs `PROBE_TEACHER_PASSWORD` in the environment.
+- `probe-happy-path.mjs` — nine legitimate writes plus three malformed inserts. Takes ~60s by design: it waits for a real Postgres deadline to elapse rather than mocking a clock.
+- `reconcile-payments.mjs` — asserts the money invariants, exits non-zero on violation so it can gate a deploy.
+
+**⚠ Rotate the test teacher's password.** `tutor-check@smbtutorials.in`'s password was set during this work and passed through conversation transcripts. It is in no committed file (the probes read it from an env var), but rotate it before that account is used beyond internal probing.
+
+## Known gaps carried out of M3
+
+- **A teacher in the payment window is still visible as available.** Parent spec §125 and M2 design §3.1 both require busy teachers be *hidden*; the untracking that implements it fires on `active`, and M3 inserted `accepted`/`paid` ahead of it. Server-side is safe (the second accept is refused) but a second student can send a request that can only fail, and the teacher's dashboard catch-up query can then mask their own in-flight row. **Root fix is presence — untrack on `accepted`, not `active`.** Recorded in M3 spec §9.
+- **Four ways a row can strand at `paid`**, each requiring our database or the provider to fail *after* money moved. All alarmed, none silent; a durable fix needs a transactional outbox M3 does not have. `reconcile-payments.mjs` is the backstop. M3 spec §9.
+- **A crossed `payment_ref` alarms rather than auto-refunding** — money sits with the provider until a human acts. Should be impossible (the column is unique and write-once), so its occurrence is itself the signal. M3 spec §9.
+- **The development stub and `/dev/checkout` must not reach production.** Four independent refusals plus a build-time 404. Delete both once Razorpay is live. M3 spec §13.
+- `getOrCreateRoom` in `daily.ts` still has no caller and still mints *public* rooms — the M2 trap, still open.
 
 ## Post-M3: redesign + the three dashboards (scoped 2026-08-26, deferred behind M3)
 
@@ -74,7 +94,8 @@
 ## Source of truth
 - Spec: `docs/superpowers/specs/2026-08-24-smb-tutorials-design.md` — all stack + scope decisions.
 - M2 design: `docs/superpowers/specs/2026-08-25-m2-presence-instant-pick-design.md`.
-- **M3 design: `docs/superpowers/specs/2026-08-26-m3-payments-design.md`** — approved 2026-08-26. Note §11: it deviates from the locked "Stripe Checkout" to a processor-agnostic payment port, with the reasoning recorded.
+- **M3 design: `docs/superpowers/specs/2026-08-26-m3-payments-design.md`** — approved 2026-08-26. §11 records the deviation from the locked "Stripe Checkout" to a processor-agnostic port, and the subsequent choice of **Razorpay** with the reasoning. §9 lists every accepted gap; §13 the spike debts.
+- **M3 plan: `docs/superpowers/plans/2026-08-26-m3-payments.md`** — 13 tasks. Its code blocks have been synced to the reviewed implementations, so a re-run reproduces what shipped rather than the original drafts.
 
 ## Decided
 - Stack: Next.js (App Router) on Vercel · Supabase (Postgres + Auth + realtime) · Daily.co (video) · Stripe Checkout · Resend · Tailwind + shadcn/ui.
@@ -85,7 +106,7 @@
 - Domain: Indian K-12 — CBSE/State Board/ICSE, grades 6–12, streams Science/Commerce/Arts.
 
 ## Build order
-M0 skeleton + video spike ✅ → M1 auth + profiles + taxonomy + tutor onboarding ✅ → M2 presence + instant pick + accept/timeout + Daily room ✅ → **M3 Stripe Checkout ← next** → redesign: IA/design system, student dashboard, admin, polish (4 cycles) → M4 request fallback.
+M0 ✅ → M1 ✅ → M2 ✅ → **M3 payments — 11 of 13 tasks done, Razorpay chosen, blocked on test keys** → redesign: IA/design system, student dashboard, admin, polish (4 cycles) → M4 request fallback.
 
 *Ordering note: the redesign sits after M3 by explicit decision, so M3 ships on a UI that is known to be temporary.*
 
