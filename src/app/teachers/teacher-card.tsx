@@ -1,3 +1,5 @@
+"use client";
+
 export interface TeacherCardData {
   id: string;
   full_name: string;
@@ -8,7 +10,15 @@ export interface TeacherCardData {
   subject: string;
 }
 
-export function TeacherCard({ teacher }: { teacher: TeacherCardData }) {
+export function TeacherCard({
+  teacher,
+  onStart,
+  starting,
+}: {
+  teacher: TeacherCardData;
+  onStart?: () => void;
+  starting?: boolean;
+}) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 overflow-hidden">
       <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-6 text-center">
@@ -51,11 +61,11 @@ export function TeacherCard({ teacher }: { teacher: TeacherCardData }) {
           </div>
           <button
             type="button"
-            disabled
-            title="Instant booking arrives with presence (M2)"
-            className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-semibold px-6 py-2 rounded-lg opacity-50 cursor-not-allowed"
+            onClick={onStart}
+            disabled={!onStart || starting}
+            className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold px-6 py-2 rounded-lg transition-all disabled:opacity-50"
           >
-            Book Now
+            {starting ? "Asking…" : "Start now →"}
           </button>
         </div>
       </div>

@@ -421,7 +421,7 @@ alter table public.sessions replica identity full;
 
 ```sql
 select count(*) from public.sessions;                       -- expect 0, table exists
-select polname from pg_policies where tablename = 'sessions';  -- expect 3
+select policyname from pg_policies where schemaname = 'public' and tablename = 'sessions';  -- expect 3
 select 1 from pg_publication_tables
  where pubname = 'supabase_realtime' and tablename = 'sessions';  -- expect 1 row
 -- invalid taxonomy is rejected

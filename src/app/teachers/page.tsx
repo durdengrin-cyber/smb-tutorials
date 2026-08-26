@@ -2,7 +2,8 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 import { isCurriculum, isGrade, isStream, isSubjectOf } from "@/lib/taxonomy";
-import { TeacherCard, type TeacherCardData } from "./teacher-card";
+import { type TeacherCardData } from "./teacher-card";
+import { OnlineList } from "./online-list";
 
 type SubjectRow = {
   curriculum: string;
@@ -107,46 +108,17 @@ export default async function TeachersPage({
               </p>
               <p className="text-gray-600">Refresh to try again.</p>
             </div>
-          ) : teachers.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {teachers.map((teacher) => (
-                <TeacherCard key={teacher.id} teacher={teacher} />
-              ))}
-            </div>
           ) : (
-            <div className="bg-white rounded-2xl p-12 text-center border border-gray-100">
-              <div className="text-5xl mb-4">🔍</div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                No teachers {subject ? `for ${subject}` : "yet"} — check back
-                soon
-              </h3>
-              <p className="text-gray-600">
-                We&apos;re onboarding tutors now. Try another subject in the
-                meantime.
-              </p>
-            </div>
+            <OnlineList
+              eligible={teachers}
+              subject={subject}
+              curriculum={curriculum}
+              grade={grade}
+              stream={stream}
+              didNotRespond={one(params.didNotRespond) || undefined}
+            />
           )}
 
-          {/* Request tier arrives in M4 */}
-          <div className="mt-16 text-center">
-            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl p-12 border border-gray-100">
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                Didn&apos;t find what you&apos;re looking for?
-              </h3>
-              <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-                We have more teachers who are currently inactive. Request them
-                and we&apos;ll notify them that you need their expertise!
-              </p>
-              <button
-                type="button"
-                disabled
-                title="Teacher requests arrive in M4"
-                className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-semibold px-8 py-4 rounded-lg text-lg opacity-50 cursor-not-allowed"
-              >
-                Request a Teacher
-              </button>
-            </div>
-          </div>
         </div>
       </main>
     </div>
