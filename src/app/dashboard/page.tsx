@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 import { AvailabilityToggle } from "./availability-toggle";
+import { IncomingRequest } from "./incoming-request";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -37,6 +38,8 @@ export default async function DashboardPage() {
               Go available to receive instant student requests.
             </p>
           </div>
+
+          <IncomingRequest teacherId={profile.id} />
 
           <AvailabilityToggle
             teacherId={profile.id}
