@@ -36,30 +36,29 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
   // the same 25 rows the table shows would quietly understate the payout of a
   // teacher who has done more than that — as wrong, under the spec's
   // no-fabricated-data rule, as inventing a figure.
+  // Earnings are money actually collected, never recomputed from the rate
+  // (M3 spec §6 invariant 4). A refunded session is not earnings.
   const { data: billable } = await supabase
     .from("sessions")
-    .select("status, hourly_rate, duration_minutes, started_at, accept_deadline, payment_deadline")
+    .select("status, amount_paid_paise, refund_ref, accept_deadline, payment_deadline, started_at, duration_minutes")
     .eq("teacher_id", teacherId)
     .in("status", ["active", "completed"]);
 
-  // Earned = work actually completed. Not a balance, not a projection.
-  const earned = (billable ?? [])
+  const earnedPaise = (billable ?? [])
     .filter(
       (r) =>
-        effectiveStatus({ ...r, status: r.status as SessionStatus }, now) ===
-        "completed"
+        r.refund_ref === null &&
+        r.amount_paid_paise !== null &&
+        effectiveStatus({ ...r, status: r.status as SessionStatus }, now) === "completed"
     )
-    .reduce(
-      (sum, r) => sum + Math.round((r.hourly_rate * r.duration_minutes) / 60),
-      0
-    );
+    .reduce((sum, r) => sum + (r.amount_paid_paise ?? 0), 0);
 
   return (
     <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="font-bold text-gray-900">Your sessions</h3>
         <div className="text-right">
-          <p className="text-2xl font-bold text-gray-900">₹{earned}</p>
+          <p className="text-2xl font-bold text-gray-900">₹{Math.round(earnedPaise / 100)}</p>
           <p className="text-xs text-gray-500">earned · pending payout</p>
         </div>
       </div>
