@@ -3,7 +3,7 @@ import { getPaymentPort, paymentProviderName, type WebhookEvent } from "@/lib/pa
 import { createSessionRoom } from "@/lib/daily";
 import {
   amountPaiseFor, effectiveStatus, roomTtlSeconds, ROOM_GRACE_MINUTES,
-  type SessionStatus,
+  PAYMENT_WINDOW_SECONDS, type SessionStatus,
 } from "@/lib/session";
 
 // The signature check below depends on node:crypto, and every real provider
@@ -144,7 +144,9 @@ export async function POST(req: Request) {
     // charge with nothing to show for it. One retry closes the narrow
     // transient-error window cheaply; a durable fix needs an outbox, so this
     // is the proportionate answer, not the complete one (known gap).
+    let retried = false;
     if (error) {
+      retried = true;
       ({ data: recorded, error } = await stamp());
     }
     if (error) {
@@ -157,9 +159,29 @@ export async function POST(req: Request) {
       return;
     }
     if (!recorded || recorded.length === 0) {
-      // refund() succeeded and this write reported no error, but the guard
-      // matched zero rows — something else set refund_ref first. The money
-      // is genuinely back with the student; this reference just has nowhere
+      // A guard-blocked write and attempt 1's own commit landing anyway look
+      // identical from here: a transport error after a successful commit is
+      // indistinguishable from one before it (same reasoning as the claim
+      // error path above). If this is the retry, attempt 1 may well have
+      // written refund_ref before the error surfaced — check before alarming,
+      // so reconciliation's backstop (design spec §9) isn't trained to
+      // distrust a line that cried wolf about money that was recorded fine.
+      if (retried) {
+        const { data: check } = await db
+          .from("sessions")
+          .select("refund_ref")
+          .eq("id", event.sessionId)
+          .maybeSingle();
+        if (check?.refund_ref === refundRef) {
+          console.info(
+            `[webhook] refund ${refundRef} for ${event.sessionId} was recorded by attempt 1; ` +
+              `its error was a transport failure after the commit, not a lost write.`
+          );
+          return;
+        }
+      }
+      // Genuinely absent or different: something else set refund_ref first.
+      // The money is back with the student; this reference just has nowhere
       // to live, so it is named here or nowhere.
       console.error(
         `[webhook] REFUND ISSUED BUT NOT RECORDED for ${event.sessionId}, refund ${refundRef} — ` +
@@ -180,9 +202,16 @@ export async function POST(req: Request) {
   // `active` has no route to `refunded`, so the money would be unrecoverable.
   // Bounded against payment_deadline because the first claim happened inside
   // that window.
+  //
+  // Slack must cover the worst case between the first mint and this repair:
+  // the claim can happen up to PAYMENT_WINDOW_SECONDS after acceptance, and
+  // the room minted then lives ROOM_GRACE_MINUTES past the session's end.
+  // Deriving it here means tuning the payment window cannot silently make
+  // this bound unsafe — which a bare `- 5` would have allowed.
+  const repairSlackMs =
+    ROOM_GRACE_MINUTES * 60_000 - PAYMENT_WINDOW_SECONDS * 1000;
   const repairDeadline =
-    new Date(session.payment_deadline ?? 0).getTime() +
-    (ROOM_GRACE_MINUTES - 5) * 60_000;
+    new Date(session.payment_deadline ?? 0).getTime() + repairSlackMs;
   if (alreadyClaimed && Date.now() > repairDeadline) {
     await refundAndRecord("repair arrived too late for the minted room", "refunded");
     return ok();
