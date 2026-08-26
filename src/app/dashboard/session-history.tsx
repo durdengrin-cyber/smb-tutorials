@@ -38,11 +38,15 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
   // no-fabricated-data rule, as inventing a figure.
   // Earnings are money actually collected, never recomputed from the rate
   // (M3 spec §6 invariant 4). A refunded session is not earnings.
-  const { data: billable } = await supabase
+  const { data: billable, error: billableError } = await supabase
     .from("sessions")
     .select("status, amount_paid_paise, refund_ref, accept_deadline, payment_deadline, started_at, duration_minutes")
     .eq("teacher_id", teacherId)
     .in("status", ["active", "completed"]);
+
+  if (billableError) {
+    console.error(`[session-history] earnings query failed for ${teacherId}:`, billableError);
+  }
 
   const earnedPaise = (billable ?? [])
     .filter(
@@ -58,8 +62,12 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="font-bold text-gray-900">Your sessions</h3>
         <div className="text-right">
-          <p className="text-2xl font-bold text-gray-900">₹{Math.round(earnedPaise / 100)}</p>
-          <p className="text-xs text-gray-500">earned · pending payout</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {billableError ? "—" : `₹${Math.round(earnedPaise / 100)}`}
+          </p>
+          <p className="text-xs text-gray-500">
+            {billableError ? "couldn't load earnings" : "earned · pending payout"}
+          </p>
         </div>
       </div>
 
