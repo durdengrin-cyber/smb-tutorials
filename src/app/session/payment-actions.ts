@@ -115,3 +115,32 @@ export async function createCheckout(
     return { error: "Couldn't open the payment page — try again." };
   }
 }
+
+// The browser's return from checkout proves nothing about payment — but it is
+// a useful nudge. This asks our own webhook path to re-check, so a provider
+// whose webhook never arrived does not strand a paid session. Safe to call
+// repeatedly: every path it can reach is idempotent.
+export async function verifyPaymentNow(sessionId: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("id, student_id, status, payment_ref")
+    .eq("id", sessionId)
+    .single();
+  if (!session || session.student_id !== user.id) return;
+  if (session.status !== "accepted" || !session.payment_ref) return;
+
+  // INCOMPLETE BY DESIGN until Task 12 Step 3b. With a stub adapter there is no
+  // provider to query, so this records the attempt and makes an outage visible
+  // in logs. The spec's §3.6 dual path is not real until Task 12 adds
+  // `fetchPayment` to the port and this drives the same transition the webhook
+  // drives. Do not mark §3.6 satisfied on the strength of this function.
+  console.info(
+    `[verifyPaymentNow] ${sessionId} still 'accepted' after checkout return, ref ${session.payment_ref}`
+  );
+}
