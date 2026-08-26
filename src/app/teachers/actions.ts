@@ -40,7 +40,7 @@ export async function requestSession(input: {
     .from("sessions")
     .select("id, status, accept_deadline, payment_deadline, started_at, duration_minutes")
     .eq("student_id", user.id)
-    .in("status", ["pending", "active"]);
+    .in("status", ["pending", "accepted", "paid", "active"]);
   const open = (openRows ?? []).map((r) => ({
     ...r,
     status: r.status as SessionStatus,
