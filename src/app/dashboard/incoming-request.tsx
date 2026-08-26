@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createRealtimeClient } from "@/lib/supabase/client";
@@ -16,20 +16,25 @@ interface PendingRequest {
   // "pending": awaiting this teacher's Accept/Decline. "accepted": the
   // teacher has answered and the card now waits on the student's payment
   // (M3 spec §5.3) — the room itself is minted later by the webhook, never
-  // from this component.
+  // from this component. A DB row of "paid" also maps to this UI state
+  // (see toRequest below): it is a brief pass-through on the way to
+  // `active`, not a state this component distinguishes on screen.
   status: "pending" | "accepted";
   payment_deadline: string | null;
 }
 
-// The columns a pending request needs, from either the realtime payload or the
-// catch-up query below. student_name is snapshotted onto the row at insert
-// (migration 0004) because the profiles policy hides students from teachers.
+// The columns a pending/accepted/paid request needs, from either the
+// realtime payload or the catch-up query below. student_name is snapshotted
+// onto the row at insert (migration 0004) because the profiles policy hides
+// students from teachers.
 interface SessionRow {
   id: string;
   subject: string;
   hourly_rate: number;
   accept_deadline: string;
   student_name: string | null;
+  status: string;
+  payment_deadline: string | null;
 }
 
 export function IncomingRequest({ teacherId }: { teacherId: string }) {
@@ -38,6 +43,11 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
   const [left, setLeft] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Latches once the row this card was showing reaches `active`, so a
+  // redelivered UPDATE (the same event twice, or a later one that arrives
+  // while router.push is still resolving) can't call push a second time.
+  // Mirrors leavingRef in the student's waiting-client.tsx.
+  const navigatedRef = useRef(false);
 
   useEffect(() => {
     // An ack or a query can land after this effect is torn down (React
@@ -45,14 +55,17 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
     let mounted = true;
     let channel: RealtimeChannel | null = null;
 
-    const toPending = (row: SessionRow): PendingRequest => ({
+    const toRequest = (row: SessionRow): PendingRequest => ({
       id: row.id,
       subject: row.subject,
       hourly_rate: row.hourly_rate,
       accept_deadline: row.accept_deadline,
       student_name: row.student_name || "A student",
-      status: "pending",
-      payment_deadline: null,
+      // "paid" collapses into "accepted" here too — this component only
+      // ever renders two shapes (the Accept/Decline prompt, or the waiting
+      // card), so a paid row is shown exactly like an accepted one.
+      status: row.status === "pending" ? "pending" : "accepted",
+      payment_deadline: row.payment_deadline,
     });
 
     void (async () => {
@@ -62,22 +75,32 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
       const supabase = await createRealtimeClient();
       if (!mounted) return;
 
-      // A request that landed before this component subscribed would otherwise
-      // never be seen — the teacher would sit idle while the student's 30s ran
-      // out. Reachable on a return from a call, a reload, or a socket rejoin.
+      // A request that landed before this component subscribed would
+      // otherwise never be seen. Reachable on a return from a call, a
+      // reload, or a socket rejoin — and since Task 9 that reload can land
+      // mid-payment-window too: accepting used to redirect instantly, so no
+      // reload could ever catch a row sitting in `accepted`/`paid`. Now that
+      // window is up to 120s wide, so the catch-up query has to look for
+      // those rows as well, not just `pending` — otherwise a teacher who
+      // reloads while their student is paying finds nothing, and the
+      // eventual `active` update has no local `request` to match against,
+      // so the navigation below never fires.
       void (async () => {
         const { data: row } = await supabase
           .from("sessions")
-          .select("id, subject, hourly_rate, accept_deadline, student_name")
+          .select("id, subject, hourly_rate, accept_deadline, student_name, status, payment_deadline")
           .eq("teacher_id", teacherId)
-          .eq("status", "pending")
+          .in("status", ["pending", "accepted", "paid"])
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
         if (!mounted || !row) return;
-        if (secondsRemaining(row.accept_deadline, new Date()) === 0) return;
-        // A live INSERT that arrived while this query was in flight is newer.
-        setRequest((prev) => prev ?? toPending(row));
+        // Whichever deadline is live for this row's status — an accepted or
+        // paid row is timed by payment_deadline, not accept_deadline.
+        const deadline = row.status === "pending" ? row.accept_deadline : row.payment_deadline;
+        if (!deadline || secondsRemaining(deadline, new Date()) === 0) return;
+        // A live INSERT/UPDATE that arrived while this query was in flight is newer.
+        setRequest((prev) => prev ?? toRequest(row));
       })();
 
       channel = supabase
@@ -91,10 +114,10 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
             filter: `teacher_id=eq.${teacherId}`,
           },
           (payload) => {
-            const row = payload.new as SessionRow & { status: string };
+            const row = payload.new as SessionRow;
             if (!mounted || row.status !== "pending") return;
             setError(null);
-            setRequest(toPending(row));
+            setRequest(toRequest(row));
           }
         )
         .on(
@@ -106,12 +129,12 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
             filter: `teacher_id=eq.${teacherId}`,
           },
           (payload) => {
+            if (!mounted || navigatedRef.current) return;
             const row = payload.new as {
               id: string;
               status: string;
               payment_deadline: string | null;
             };
-            if (!mounted) return;
             // matched tells us, after the functional update below has run
             // against the latest committed state, whether this event was
             // actually about the card on screen — needed because the update
@@ -139,6 +162,7 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
               return null;
             });
             if (matched && row.status === "active") {
+              navigatedRef.current = true;
               router.push(`/call/${row.id}`);
             }
           }
@@ -195,27 +219,42 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
   async function accept(id: string) {
     setBusy(true);
     setError(null);
-    // acceptSession no longer redirects — it just agrees the price and
-    // starts the payment window (Task 7). The move into the "waiting for
-    // payment" state happens when the realtime UPDATE above lands, not
-    // here, so this handler's only job is to report an error and, on every
-    // path out, stop disabling the buttons.
-    const result = await acceptSession(id);
-    if (result?.error) setError(result.error);
-    setBusy(false);
+    try {
+      // acceptSession no longer redirects — it just agrees the price and
+      // starts the payment window (Task 7). The move into the "waiting for
+      // payment" state happens when the realtime UPDATE above lands, not
+      // here.
+      const result = await acceptSession(id);
+      if (result?.error) setError(result.error);
+    } catch (e) {
+      // acceptSession returns {error} for the failures it anticipates, but a
+      // rejection — a network fault, an uncaught server exception — would
+      // otherwise skip the reset below and leave both buttons disabled with
+      // no error, which is the regression this task exists to close.
+      console.error(`[incoming-request] accept failed for ${id}:`, e);
+      setError("Couldn't accept the request — try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function decline(id: string) {
     setBusy(true);
     setError(null);
-    const result = await declineSession(id);
-    if (result?.error) {
-      setError(result.error);
+    try {
+      const result = await declineSession(id);
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      setRequest(null);
+    } catch (e) {
+      // Same unhandled-rejection risk as accept() above.
+      console.error(`[incoming-request] decline failed for ${id}:`, e);
+      setError("Couldn't decline the request — try again.");
+    } finally {
       setBusy(false);
-      return;
     }
-    setRequest(null);
-    setBusy(false);
   }
 
   return (
