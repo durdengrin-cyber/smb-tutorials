@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { effectiveStatus, type SessionStatus } from "@/lib/session";
+import { amountPaiseFor, effectiveStatus, type SessionStatus } from "@/lib/session";
 import { WaitingClient } from "./waiting-client";
 
 export default async function WaitingPage({
@@ -16,7 +16,7 @@ export default async function WaitingPage({
   const { data: session } = await supabase
     .from("sessions")
     .select(
-      "id, student_id, teacher_id, curriculum, grade, stream, subject, status, accept_deadline, payment_deadline, started_at, duration_minutes"
+      "id, student_id, teacher_id, curriculum, grade, stream, subject, status, accept_deadline, payment_deadline, started_at, duration_minutes, hourly_rate"
     )
     .eq("id", sessionId)
     .single();
@@ -50,15 +50,20 @@ export default async function WaitingPage({
     new Date()
   );
   if (status === "active") redirect(`/call/${sessionId}`);
-  if (status !== "pending") redirect(returnTo);
+  if (status !== "pending" && status !== "accepted" && status !== "paid") {
+    redirect(returnTo);
+  }
 
   return (
     <WaitingClient
       sessionId={session.id}
       teacherName={teacherName}
+      status={status}
       // Guaranteed non-null while status is pending: the pending_has_deadline
       // constraint in migration 0002 enforces exactly that.
       deadline={session.accept_deadline!}
+      paymentDeadline={session.payment_deadline}
+      amountPaise={amountPaiseFor(session.hourly_rate, session.duration_minutes)}
       returnTo={returnTo}
       backToList={backToList}
     />
