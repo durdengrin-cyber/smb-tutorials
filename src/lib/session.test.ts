@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   ACCEPT_WINDOW_SECONDS, SESSION_DURATION_MINUTES,
   acceptDeadlineFrom, effectiveStatus, secondsRemaining, canTransition,
+  hasLiveSession, expiredActiveIds, type SessionTimingRow,
 } from "./session";
 
 const NOW = new Date("2026-08-25T12:00:00.000Z");
@@ -77,5 +78,68 @@ describe("canTransition", () => {
     expect(canTransition("timed_out", "active")).toBe(false);
     expect(canTransition("declined", "active")).toBe(false);
     expect(canTransition("pending", "completed")).toBe(false);
+  });
+});
+
+// NOW is 2026-08-25T12:00:00Z; a 60-minute session that started at 11:30 is
+// half done, one that started at 10:30 is over.
+const live: SessionTimingRow = {
+  id: "live", status: "active", accept_deadline: null,
+  started_at: "2026-08-25T11:30:00.000Z", duration_minutes: 60,
+};
+const expired: SessionTimingRow = {
+  id: "expired", status: "active", accept_deadline: null,
+  started_at: "2026-08-25T10:30:00.000Z", duration_minutes: 60,
+};
+// Never produced by acceptSession, which writes started_at in the same update
+// that sets `active`. Only a direct write to the table can create it.
+const forged: SessionTimingRow = {
+  id: "forged", status: "active", accept_deadline: null,
+  started_at: null, duration_minutes: 60,
+};
+
+describe("hasLiveSession", () => {
+  it("is false with no rows", () => {
+    expect(hasLiveSession([], NOW)).toBe(false);
+  });
+
+  it("counts an active session inside its hour", () => {
+    expect(hasLiveSession([live], NOW)).toBe(true);
+  });
+
+  it("does not count an active session past its hour", () => {
+    // The whole point: a row left `active` by two closed browsers must not
+    // keep its teacher out of the product forever.
+    expect(hasLiveSession([expired], NOW)).toBe(false);
+  });
+
+  it("does not count an active row with no started_at", () => {
+    // effectiveStatus cannot expire this row, so believing it would lock the
+    // teacher out permanently.
+    expect(hasLiveSession([forged], NOW)).toBe(false);
+  });
+
+  it("finds a live row among finished ones", () => {
+    expect(hasLiveSession([expired, forged, live], NOW)).toBe(true);
+  });
+});
+
+describe("expiredActiveIds", () => {
+  it("returns nothing when every active row is still running", () => {
+    expect(expiredActiveIds([live], NOW)).toEqual([]);
+  });
+
+  it("names the rows whose hour has passed", () => {
+    expect(expiredActiveIds([live, expired], NOW)).toEqual(["expired"]);
+  });
+
+  it("leaves a row with no started_at alone", () => {
+    // Settling it to `completed` would fold a forged row into earnings.
+    expect(expiredActiveIds([forged], NOW)).toEqual([]);
+  });
+
+  it("ignores rows that are not stored active", () => {
+    const done: SessionTimingRow = { ...expired, id: "done", status: "completed" };
+    expect(expiredActiveIds([done], NOW)).toEqual([]);
   });
 });

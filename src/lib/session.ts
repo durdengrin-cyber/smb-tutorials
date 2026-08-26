@@ -60,6 +60,49 @@ export function effectiveStatus(
   return row.status;
 }
 
+// The shape every caller needs to ask "what is this row really?" — the exact
+// columns effectiveStatus reads, plus the id so a caller can act on the answer.
+export interface SessionTimingRow {
+  id: string;
+  status: SessionStatus;
+  accept_deadline: string | null;
+  started_at: string | null;
+  duration_minutes: number;
+}
+
+// A row is only genuinely live if it is still active AND carries the clock the
+// read-time rule needs. acceptSession always writes started_at in the same
+// update that sets `active`, so an active row without one was not produced by
+// this application; treating it as live is what would let a forged row lock a
+// teacher out of the product forever.
+const isLive = (row: SessionTimingRow, now: Date) =>
+  row.started_at !== null && effectiveStatus(row, now) === "active";
+
+export function hasLiveSession(
+  rows: readonly SessionTimingRow[],
+  now: Date
+): boolean {
+  return rows.some((row) => isLive(row, now));
+}
+
+// Rows stored `active` that the read-time rule already considers finished.
+// Deriving that on every read is not enough on its own: the stored column is
+// what a concurrency check counts and what a stale row keeps hostage, so the
+// derivation has to be written back.
+export function expiredActiveIds(
+  rows: readonly SessionTimingRow[],
+  now: Date
+): string[] {
+  return rows
+    .filter(
+      (row) =>
+        row.status === "active" &&
+        row.started_at !== null &&
+        effectiveStatus(row, now) === "completed"
+    )
+    .map((row) => row.id);
+}
+
 export function canTransition(from: SessionStatus, to: SessionStatus): boolean {
   return ALLOWED[from].includes(to);
 }
