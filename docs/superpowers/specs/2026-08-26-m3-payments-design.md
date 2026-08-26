@@ -399,6 +399,15 @@ Baseline to beat: 57 tests green, `tsc --noEmit` clean, eslint clean.
   the parent spec §12 already flags as a launch blocker — *"Stripe's refund API
   is easy; the policy is the work."* **M3 makes the data support that decision
   and does not invent a policy in code.**
+- **A crossed payment reference is alarmed, not auto-resolved.** If a signed
+  event names one session while carrying another's `payment_ref`, the webhook
+  writes nothing and logs loudly rather than refunding. Refunding a charge we
+  cannot attribute is its own risk, and stamping the amount onto the named row
+  would make a delivered, genuinely-paid lesson read as refunded. The money
+  sits with the provider until a human resolves it. This should not occur —
+  `payment_ref` is unique-indexed and write-once — so its occurrence is itself
+  the signal.
+
 - **Payouts stay manual.** Stripe Connect remains deferred (parent spec §13, a
   2–4 week project). The teacher dashboard's "Payouts are made manually while
   payments are being set up" note stays true.
