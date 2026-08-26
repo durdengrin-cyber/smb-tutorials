@@ -408,6 +408,21 @@ Baseline to beat: 57 tests green, `tsc --noEmit` clean, eslint clean.
   `payment_ref` is unique-indexed and write-once — so its occurrence is itself
   the signal.
 
+- **Four ways a row can strand at `paid`, three of them narrow.** Invariant 3
+  says `paid` is never terminal, and the webhook's exits honour that — but
+  four residues remain and are accepted rather than solved: (a) a refund that
+  throws leaves the row `paid` with the money kept, which is §9's original
+  refund gap; (b) a refund that succeeds while its write fails leaves the row
+  `paid` with `refund_ref` null, so a later redelivery could activate a
+  session already refunded — mitigated by one retry of the stamp and a loud
+  `REFUNDED BUT NOT RECORDED` line, not eliminated; (c) a guarded refund write
+  blocked by a concurrent resolution, now alarmed but still unrecorded; and
+  (d) a provider exhausting its retry budget against repeated 503s. Each is
+  reachable only through a failure of our own database or the provider's API
+  *after* money has moved. A durable fix needs a transactional outbox, which
+  M3 does not have. **The reconciliation script (§8) is the backstop for all
+  four, and its `paid`-is-never-terminal assertion is what surfaces them.**
+
 - **Payouts stay manual.** Stripe Connect remains deferred (parent spec §13, a
   2–4 week project). The teacher dashboard's "Payouts are made manually while
   payments are being set up" note stays true.
