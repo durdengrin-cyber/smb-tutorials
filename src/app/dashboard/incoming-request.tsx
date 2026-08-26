@@ -89,6 +89,22 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
           setRequest(pending);
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "sessions",
+          filter: `teacher_id=eq.${teacherId}`,
+        },
+        (payload) => {
+          const row = payload.new as { id: string; status: string };
+          if (!mounted || row.status === "pending") return;
+          // The student cancelled, or this teacher answered in another tab.
+          // Leaving the prompt up would offer an Accept that can only fail.
+          setRequest((prev) => (prev && prev.id === row.id ? null : prev));
+        }
+      )
       .subscribe();
 
     return () => {
