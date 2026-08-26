@@ -2,7 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { acceptDeadlineFrom } from "@/lib/session";
+import {
+  acceptDeadlineFrom,
+  hasOpenRequest,
+  type SessionStatus,
+  type SessionTimingRow,
+} from "@/lib/session";
 import { isCurriculum, isGrade, isSubjectOf } from "@/lib/taxonomy";
 
 export async function requestSession(input: {
@@ -26,6 +31,23 @@ export async function requestSession(input: {
     return { error: "Pick a subject before starting." };
   }
   if (input.teacherId === user.id) return { error: "You cannot tutor yourself." };
+
+  // One request in flight at a time. Two live requests can both be accepted,
+  // and the losing teacher then sits alone for an hour in a session that later
+  // counts toward their earnings — a fabricated figure by another name.
+  // Reachable without malice: Start, browser Back, Start on someone else.
+  const { data: openRows } = await supabase
+    .from("sessions")
+    .select("id, status, accept_deadline, started_at, duration_minutes")
+    .eq("student_id", user.id)
+    .in("status", ["pending", "active"]);
+  const open = (openRows ?? []).map((r) => ({
+    ...r,
+    status: r.status as SessionStatus,
+  })) as SessionTimingRow[];
+  if (hasOpenRequest(open, new Date())) {
+    return { error: "You already have a session in progress." };
+  }
 
   // Rate is snapshotted from the teacher's profile at request time.
   const { data: teacher } = await supabase

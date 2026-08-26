@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { secondsRemaining } from "@/lib/session";
-import { cancelSession } from "@/app/session/actions";
+import { cancelSession, timeOutSession } from "@/app/session/actions";
 
 export function WaitingClient({
   sessionId,
@@ -20,8 +20,13 @@ export function WaitingClient({
   const [cancelling, setCancelling] = useState(false);
   // Navigation is not instant: without this, the 250ms interval keeps firing
   // between the decision to leave and the unmount, pushing the same route
-  // several more times.
+  // several more times. Only genuine navigations set it.
   const leavingRef = useRef(false);
+  // Expiry is NOT a navigation — router.refresh() re-renders this same
+  // component instance, so refs survive it. Latching `leaving` here would kill
+  // the interval and the subscription for good, stranding a student whose
+  // clock ran a few hundred ms ahead of the server's. Throttle instead.
+  const refreshingRef = useRef(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -60,18 +65,22 @@ export function WaitingClient({
       if (leavingRef.current) return;
       const remaining = secondsRemaining(deadline, new Date());
       setLeft(remaining);
-      if (remaining === 0) {
-        leavingRef.current = true;
-        // Ask the server rather than assuming nobody answered. If the realtime
-        // socket dropped, the teacher may have accepted while this countdown
-        // ran — the page above re-reads the row and sends us to the call, to
-        // /teachers, or nowhere, using the same read-time rule the rest of the
-        // system trusts.
-        router.refresh();
+      if (remaining === 0 && !refreshingRef.current) {
+        refreshingRef.current = true;
+        // Record the outcome, then ask the server rather than assuming nobody
+        // answered. If the realtime socket dropped, the teacher may have
+        // accepted while this countdown ran — the page above re-reads the row
+        // and sends us to the call, to /teachers, or nowhere, using the same
+        // read-time rule the rest of the system trusts. The write is guarded
+        // on the deadline server-side, so firing it early changes nothing.
+        void timeOutSession(sessionId).then(() => router.refresh());
+        window.setTimeout(() => {
+          refreshingRef.current = false;
+        }, 2000);
       }
     }, 250);
     return () => clearInterval(id);
-  }, [deadline, router]);
+  }, [deadline, router, sessionId]);
 
   async function cancel() {
     setCancelling(true);

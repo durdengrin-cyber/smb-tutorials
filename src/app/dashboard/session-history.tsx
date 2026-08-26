@@ -4,6 +4,9 @@ import { effectiveStatus, type SessionStatus } from "@/lib/session";
 // This renders on the server, where the timezone is the runtime's (UTC on
 // Vercel) rather than the teacher's. Naming the zone keeps the times right
 // for the audience the product is built for instead of silently off by 5:30.
+// Rows shown in the table. Earnings deliberately ignore this cap.
+const PAGE = 25;
+
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata",
@@ -13,24 +16,39 @@ const when = (iso: string) =>
 
 export async function SessionHistory({ teacherId }: { teacherId: string }) {
   const supabase = await createClient();
+  const now = new Date();
+
   const { data } = await supabase
     .from("sessions")
     .select(
-      "id, subject, status, hourly_rate, duration_minutes, started_at, accept_deadline, created_at, student_id"
+      "id, subject, status, hourly_rate, duration_minutes, started_at, accept_deadline, created_at, student_name"
     )
     .eq("teacher_id", teacherId)
     .order("created_at", { ascending: false })
-    .limit(25);
+    .limit(PAGE);
 
-  const now = new Date();
   const rows = (data ?? []).map((s) => ({
     ...s,
     status: effectiveStatus({ ...s, status: s.status as SessionStatus }, now),
   }));
 
+  // Earnings run over every session, not the page being displayed. Reducing
+  // the same 25 rows the table shows would quietly understate the payout of a
+  // teacher who has done more than that — as wrong, under the spec's
+  // no-fabricated-data rule, as inventing a figure.
+  const { data: billable } = await supabase
+    .from("sessions")
+    .select("status, hourly_rate, duration_minutes, started_at, accept_deadline")
+    .eq("teacher_id", teacherId)
+    .in("status", ["active", "completed"]);
+
   // Earned = work actually completed. Not a balance, not a projection.
-  const earned = rows
-    .filter((r) => r.status === "completed")
+  const earned = (billable ?? [])
+    .filter(
+      (r) =>
+        effectiveStatus({ ...r, status: r.status as SessionStatus }, now) ===
+        "completed"
+    )
     .reduce(
       (sum, r) => sum + Math.round((r.hourly_rate * r.duration_minutes) / 60),
       0
@@ -55,6 +73,7 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b border-gray-100">
+                <th className="py-2 font-semibold">Student</th>
                 <th className="py-2 font-semibold">Subject</th>
                 <th className="py-2 font-semibold">When</th>
                 <th className="py-2 font-semibold">Status</th>
@@ -64,7 +83,10 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="border-b border-gray-50">
-                  <td className="py-2 text-gray-900">{r.subject}</td>
+                  <td className="py-2 text-gray-900">
+                    {r.student_name || "A student"}
+                  </td>
+                  <td className="py-2 text-gray-600">{r.subject}</td>
                   <td className="py-2 text-gray-600">{when(r.created_at)}</td>
                   <td className="py-2 text-gray-600">{r.status}</td>
                   <td className="py-2 text-gray-900 text-right">
@@ -78,6 +100,7 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
       )}
       <p className="text-xs text-gray-500 mt-4">
         Payouts are made manually while payments are being set up.
+        {rows.length === PAGE && ` Showing your latest ${PAGE} sessions; earnings cover all of them.`}
       </p>
     </section>
   );

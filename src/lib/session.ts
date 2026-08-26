@@ -4,6 +4,11 @@
 
 export const ACCEPT_WINDOW_SECONDS = 30;
 export const SESSION_DURATION_MINUTES = 60;
+// Daily rooms and meeting tokens expire this long after a session should
+// have ended. Long enough that a call cannot die mid-lesson (design spec §9),
+// short enough that the room itself caps a client with a slow clock — the
+// in-call countdown runs on Date.now() and is not an authority.
+export const ROOM_GRACE_MINUTES = 15;
 
 export type SessionStatus =
   | "pending" | "accepted" | "active"
@@ -101,6 +106,35 @@ export function expiredActiveIds(
         effectiveStatus(row, now) === "completed"
     )
     .map((row) => row.id);
+}
+
+// Absolute expiry for a session's room and tokens, as a ttl from `now`. Both
+// are pinned to the same wall-clock end, so reloading mid-call cannot extend a
+// call past the room it lives in.
+export function roomTtlSeconds(
+  startedAt: string | Date,
+  durationMinutes: number,
+  now: Date
+): number {
+  const start =
+    typeof startedAt === "string" ? new Date(startedAt) : startedAt;
+  const endsAt =
+    start.getTime() + (durationMinutes + ROOM_GRACE_MINUTES) * 60_000;
+  // Never issue a dead credential: a late join still gets a usable minute.
+  return Math.max(60, Math.ceil((endsAt - now.getTime()) / 1000));
+}
+
+// "Does this student already have something in flight?" A student with two
+// live requests can have both accepted; the loser's teacher then sits alone
+// for an hour and that row later counts toward their earnings.
+export function hasOpenRequest(
+  rows: readonly SessionTimingRow[],
+  now: Date
+): boolean {
+  return rows.some((row) => {
+    const status = effectiveStatus(row, now);
+    return status === "pending" || isLive(row, now);
+  });
 }
 
 export function canTransition(from: SessionStatus, to: SessionStatus): boolean {

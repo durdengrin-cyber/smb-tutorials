@@ -2,7 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createMeetingToken, roomNameForSession } from "@/lib/daily";
-import { effectiveStatus, type SessionStatus } from "@/lib/session";
+import {
+  effectiveStatus,
+  roomTtlSeconds,
+  type SessionStatus,
+} from "@/lib/session";
 import { CallFrame } from "./call-frame";
 
 export default async function CallPage({
@@ -18,7 +22,7 @@ export default async function CallPage({
   const { data: session } = await supabase
     .from("sessions")
     .select(
-      "id, student_id, teacher_id, subject, status, accept_deadline, started_at, duration_minutes, daily_room_url"
+      "id, student_id, teacher_id, subject, status, accept_deadline, started_at, duration_minutes, daily_room_url, student_name"
     )
     .eq("id", sessionId)
     .single();
@@ -36,17 +40,26 @@ export default async function CallPage({
   );
   if (status !== "active" || !session.daily_room_url) redirect(returnTo);
 
-  const otherId = isTeacher ? session.student_id : session.teacher_id;
   const { data: me } = await supabase
     .from("profiles")
     .select("full_name")
     .eq("id", user.id)
     .single();
-  const { data: other } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", otherId)
-    .single();
+
+  // Only the student can read the other party's profile — the policy from
+  // migration 0001 hides students from teachers. The teacher reads the name
+  // snapshotted onto the session row instead (migration 0004).
+  let otherName: string;
+  if (isTeacher) {
+    otherName = session.student_name || "Your student";
+  } else {
+    const { data: teacher } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", session.teacher_id)
+      .single();
+    otherName = teacher?.full_name ?? "Your teacher";
+  }
 
   // Per-user token: the student cannot join as the teacher (spec §15).
   // createMeetingToken throws if Daily is unreachable or the key is wrong —
@@ -58,7 +71,11 @@ export default async function CallPage({
       roomNameForSession(sessionId),
       me?.full_name || "Participant",
       isTeacher,
-      process.env.DAILY_API_KEY ?? ""
+      process.env.DAILY_API_KEY ?? "",
+      fetch,
+      // Pinned to the same wall-clock end as the room, so reloading mid-call
+      // cannot mint a credential that outlives the session.
+      roomTtlSeconds(session.started_at!, session.duration_minutes, new Date())
     );
   } catch {
     return (
@@ -88,7 +105,7 @@ export default async function CallPage({
       sessionId={session.id}
       roomUrl={session.daily_room_url}
       token={token}
-      otherName={other?.full_name ?? "Your session"}
+      otherName={otherName}
       subject={session.subject}
       // Non-null while status is active: acceptSession writes started_at in
       // the same update that sets the status.

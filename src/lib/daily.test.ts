@@ -74,6 +74,31 @@ describe("createSessionRoom", () => {
     expect(body.properties.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
   });
 
+  it("falls back to the existing room when the name is already taken", async () => {
+    // Accept minted the room, then the row write failed. The teacher retries;
+    // Daily rejects the duplicate name. That must not strand the session.
+    const calls: string[] = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if ((init?.method ?? "GET") === "POST") {
+        return { ok: false, status: 400, json: async () => ({}) } as Response;
+      }
+      return okJson({ url: "https://smbtutorials.daily.co/smb-s1", name: "smb-s1" });
+    }) as unknown as typeof fetch;
+
+    const room = await createSessionRoom("s1", "key", fetchImpl);
+
+    expect(room.name).toBe("smb-s1");
+    expect(calls[0]).toContain("POST");
+    expect(calls[1]).toContain("/rooms/smb-s1");
+  });
+
+  it("still throws when the room genuinely cannot be created", async () => {
+    const fetchImpl = (async () =>
+      ({ ok: false, status: 401, json: async () => ({}) }) as Response) as unknown as typeof fetch;
+    await expect(createSessionRoom("s1", "key", fetchImpl)).rejects.toThrow("401");
+  });
+
   it("throws without an API key", async () => {
     await expect(createSessionRoom("s1", "")).rejects.toThrow("DAILY_API_KEY");
   });

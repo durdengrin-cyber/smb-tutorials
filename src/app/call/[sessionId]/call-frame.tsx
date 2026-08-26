@@ -53,10 +53,10 @@ export function CallFrame({
       // mount -> cleanup -> remount, or a back-navigation). The spike simply
       // bailed here, which left a blank pane and no error; tear the old one
       // down instead so this mount actually gets a call.
-      const stale = DailyIframe.getCallInstance();
-      if (stale) await stale.destroy();
-      if (cancelled || !wrapRef.current) return;
       try {
+        const stale = DailyIframe.getCallInstance();
+        if (stale) await stale.destroy();
+        if (cancelled || !wrapRef.current) return;
         frame = DailyIframe.createFrame(wrapRef.current, {
           showLeaveButton: true,
           iframeStyle: { width: "100%", height: "100%", border: "0" },

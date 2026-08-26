@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   ACCEPT_WINDOW_SECONDS, SESSION_DURATION_MINUTES,
   acceptDeadlineFrom, effectiveStatus, secondsRemaining, canTransition,
-  hasLiveSession, expiredActiveIds, type SessionTimingRow,
+  hasLiveSession, expiredActiveIds, hasOpenRequest, roomTtlSeconds,
+  ROOM_GRACE_MINUTES, type SessionTimingRow,
 } from "./session";
 
 const NOW = new Date("2026-08-25T12:00:00.000Z");
@@ -141,5 +142,49 @@ describe("expiredActiveIds", () => {
   it("ignores rows that are not stored active", () => {
     const done: SessionTimingRow = { ...expired, id: "done", status: "completed" };
     expect(expiredActiveIds([done], NOW)).toEqual([]);
+  });
+});
+
+describe("hasOpenRequest", () => {
+  const pending = (deadline: string): SessionTimingRow => ({
+    id: "p", status: "pending", accept_deadline: deadline,
+    started_at: null, duration_minutes: 60,
+  });
+
+  it("is false with no rows", () => {
+    expect(hasOpenRequest([], NOW)).toBe(false);
+  });
+
+  it("counts a request still inside its window", () => {
+    expect(hasOpenRequest([pending("2026-08-25T12:00:20.000Z")], NOW)).toBe(true);
+  });
+
+  it("does not count a request whose window has passed", () => {
+    expect(hasOpenRequest([pending("2026-08-25T11:59:59.000Z")], NOW)).toBe(false);
+  });
+
+  it("counts a call that is still running", () => {
+    expect(hasOpenRequest([live], NOW)).toBe(true);
+  });
+
+  it("does not count a finished call, or a forged one", () => {
+    expect(hasOpenRequest([expired, forged], NOW)).toBe(false);
+  });
+});
+
+describe("roomTtlSeconds", () => {
+  it("covers the session plus the grace window", () => {
+    // Starting now, a 60-minute session with a 15-minute grace = 4500s.
+    expect(roomTtlSeconds(NOW, 60, NOW)).toBe((60 + ROOM_GRACE_MINUTES) * 60);
+  });
+
+  it("shrinks for a token minted mid-call, pinning the same end", () => {
+    const halfway = new Date("2026-08-25T12:30:00.000Z");
+    expect(roomTtlSeconds(NOW, 60, halfway)).toBe((30 + ROOM_GRACE_MINUTES) * 60);
+  });
+
+  it("never issues a dead credential", () => {
+    const longAfter = new Date("2026-08-26T12:00:00.000Z");
+    expect(roomTtlSeconds(NOW, 60, longAfter)).toBe(60);
   });
 });

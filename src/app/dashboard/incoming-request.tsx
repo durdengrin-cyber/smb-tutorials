@@ -14,13 +14,14 @@ interface PendingRequest {
 }
 
 // The columns a pending request needs, from either the realtime payload or the
-// catch-up query below.
+// catch-up query below. student_name is snapshotted onto the row at insert
+// (migration 0004) because the profiles policy hides students from teachers.
 interface SessionRow {
   id: string;
   subject: string;
   hourly_rate: number;
   accept_deadline: string;
-  student_id: string;
+  student_name: string | null;
 }
 
 export function IncomingRequest({ teacherId }: { teacherId: string }) {
@@ -35,20 +36,13 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
     // (React StrictMode's mount -> cleanup -> remount reproduces it).
     let mounted = true;
 
-    async function withStudentName(row: SessionRow): Promise<PendingRequest> {
-      const { data: student } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", row.student_id)
-        .single();
-      return {
-        id: row.id,
-        subject: row.subject,
-        hourly_rate: row.hourly_rate,
-        accept_deadline: row.accept_deadline,
-        student_name: student?.full_name || "A student",
-      };
-    }
+    const toPending = (row: SessionRow): PendingRequest => ({
+      id: row.id,
+      subject: row.subject,
+      hourly_rate: row.hourly_rate,
+      accept_deadline: row.accept_deadline,
+      student_name: row.student_name || "A student",
+    });
 
     // A request that landed before this component subscribed would otherwise
     // never be seen — the teacher would sit idle while the student's 30s ran
@@ -56,7 +50,7 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
     (async () => {
       const { data: row } = await supabase
         .from("sessions")
-        .select("id, subject, hourly_rate, accept_deadline, student_id")
+        .select("id, subject, hourly_rate, accept_deadline, student_name")
         .eq("teacher_id", teacherId)
         .eq("status", "pending")
         .order("created_at", { ascending: false })
@@ -64,10 +58,8 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
         .maybeSingle();
       if (!mounted || !row) return;
       if (secondsRemaining(row.accept_deadline, new Date()) === 0) return;
-      const pending = await withStudentName(row);
-      if (!mounted) return;
       // A live INSERT that arrived while this query was in flight is newer.
-      setRequest((prev) => prev ?? pending);
+      setRequest((prev) => prev ?? toPending(row));
     })();
 
     const channel = supabase
@@ -80,13 +72,11 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
           table: "sessions",
           filter: `teacher_id=eq.${teacherId}`,
         },
-        async (payload) => {
+        (payload) => {
           const row = payload.new as SessionRow & { status: string };
-          if (row.status !== "pending") return;
-          const pending = await withStudentName(row);
-          if (!mounted) return;
+          if (!mounted || row.status !== "pending") return;
           setError(null);
-          setRequest(pending);
+          setRequest(toPending(row));
         }
       )
       .on(
@@ -126,7 +116,24 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
     return () => clearInterval(id);
   }, [request]);
 
-  if (!request) return null;
+  // Rendered above the prompt guard on purpose. The two failures worth
+  // reporting — "already expired" and "no longer waiting" — are produced by
+  // the very events that clear `request`, so an error rendered inside the
+  // prompt would unmount in the same tick it was set.
+  const banner = error && (
+    <section className="bg-red-50 border border-red-200 rounded-2xl px-6 py-4 flex items-start justify-between gap-4">
+      <p className="text-red-700 text-sm">{error}</p>
+      <button
+        type="button"
+        onClick={() => setError(null)}
+        className="text-red-700 text-sm font-semibold hover:underline shrink-0"
+      >
+        Dismiss
+      </button>
+    </section>
+  );
+
+  if (!request) return banner ? banner : null;
 
   async function accept(id: string) {
     setBusy(true);
@@ -153,31 +160,33 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
   }
 
   return (
-    <section className="bg-white rounded-2xl shadow-xl border-2 border-teal-500 p-6">
-      <p className="text-lg font-bold text-gray-900 mb-1">
-        New student request — {request.student_name} wants {request.subject} now, ₹
-        {request.hourly_rate}/hr
-      </p>
-      <p className="text-sm text-gray-600 mb-4">{left}s to respond</p>
-      {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
-      <div className="flex gap-3">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => accept(request.id)}
-          className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold px-6 py-3 rounded-lg disabled:opacity-50"
-        >
-          Accept
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => decline(request.id)}
-          className="bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-6 py-3 rounded-lg disabled:opacity-50"
-        >
-          Decline
-        </button>
-      </div>
-    </section>
+    <>
+      {banner}
+      <section className="bg-white rounded-2xl shadow-xl border-2 border-teal-500 p-6">
+        <p className="text-lg font-bold text-gray-900 mb-1">
+          New student request — {request.student_name} wants {request.subject}{" "}
+          now, ₹{request.hourly_rate}/hr
+        </p>
+        <p className="text-sm text-gray-600 mb-4">{left}s to respond</p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => accept(request.id)}
+            className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold px-6 py-3 rounded-lg disabled:opacity-50"
+          >
+            Accept
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => decline(request.id)}
+            className="bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-6 py-3 rounded-lg disabled:opacity-50"
+          >
+            Decline
+          </button>
+        </div>
+      </section>
+    </>
   );
 }
