@@ -30,9 +30,14 @@ alter table public.sessions add constraint sessions_status_check
 
 -- The payment window's equivalent of pending_has_deadline: effectiveStatus()
 -- can only expire an accepted row that carries a deadline, so a null-deadline
--- accepted row would hold its teacher hostage forever.
+-- accepted row would hold its teacher hostage forever. NOT VALID (fix round
+-- 2, same reasoning as paid_has_amount below): 'accepted' was already a legal
+-- status before this migration and payment_deadline is a brand-new column,
+-- so it is NULL on every row that predates it. A single legacy accepted row
+-- would abort the whole migration on history payments never touched. NOT
+-- VALID still enforces the rule for every future insert and update.
 alter table public.sessions add constraint accepted_has_payment_deadline
-  check (status <> 'accepted' or payment_deadline is not null);
+  check (status <> 'accepted' or payment_deadline is not null) not valid;
 
 -- Money that moved must say how much. NOT VALID (C1, fix round 1): the live
 -- table already holds a `completed` row from a previous milestone's
@@ -274,4 +279,7 @@ commit;
 -- select conname from pg_constraint where conrelid='public.sessions'::regclass and contype='c';
 --   -- confirm the status CHECK is really named sessions_status_check
 -- select status, count(*) from public.sessions group by status;
---   -- any paid/active/completed rows are why paid_has_amount is NOT VALID
+--   -- checking for pre-existing accepted/paid/active/completed rows: any of
+--   -- those predate payment_deadline/amount_paid_paise and are exactly why
+--   -- accepted_has_payment_deadline and paid_has_amount are NOT VALID.
+--   -- Seeing some here is expected, not alarming.
