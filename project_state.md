@@ -4,7 +4,8 @@
 1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + the spec (`docs/superpowers/specs/2026-08-24-smb-tutorials-design.md`) + `CLAUDE.md`.
 3. **M2 is DONE, merged to `main`, deployed and verified in production (2026-08-26).** The instant-pick loop works end to end. Nothing is half-finished in the code.
-4. **Next action: M3 — Stripe Checkout.** Brainstorm it from the M3 section of the design spec, then writing-plans, then implement. Nothing about M3 has been started.
+4. **Next action: write the M3 implementation plan** (superpowers writing-plans) from `docs/superpowers/specs/2026-08-26-m3-payments-design.md`. **The M3 design is brainstormed, written and user-approved — do not re-litigate it.** No M3 code has been written; no payment provider has been chosen or installed.
+   - **Prerequisite the user must supply before implementation can run:** a payment provider account, API keys and a webhook signing secret. None exist (verified: no payment package, no payment env vars locally or in Vercel).
    - **The redesign work is DEFERRED behind M3 by an explicit user decision (2026-08-26).** See "Post-M3: redesign + the three dashboards" below. Do not start it, and do not treat its open questions as blocking M3.
 5. **Still pending, manual (none block work):**
    - **Google provider not enabled** in Supabase (verified: only `email` in `/auth/v1/settings`). The Google button shows an inline error until a Google Cloud OAuth client is created and pasted in. Also add `https://smb-tutorials.vercel.app/auth/callback` to Supabase → Authentication → URL Configuration → Redirect URLs.
@@ -73,6 +74,7 @@
 ## Source of truth
 - Spec: `docs/superpowers/specs/2026-08-24-smb-tutorials-design.md` — all stack + scope decisions.
 - M2 design: `docs/superpowers/specs/2026-08-25-m2-presence-instant-pick-design.md`.
+- **M3 design: `docs/superpowers/specs/2026-08-26-m3-payments-design.md`** — approved 2026-08-26. Note §11: it deviates from the locked "Stripe Checkout" to a processor-agnostic payment port, with the reasoning recorded.
 
 ## Decided
 - Stack: Next.js (App Router) on Vercel · Supabase (Postgres + Auth + realtime) · Daily.co (video) · Stripe Checkout · Resend · Tailwind + shadcn/ui.
