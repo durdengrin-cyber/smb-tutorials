@@ -423,6 +423,28 @@ Baseline to beat: 57 tests green, `tsc --noEmit` clean, eslint clean.
   M3 does not have. **The reconciliation script (§8) is the backstop for all
   four, and its `paid`-is-never-terminal assertion is what surfaces them.**
 
+- **M3 REGRESSION AGAINST A SPEC RULE: a teacher in the payment window is not
+  hidden from the online list.** Parent spec §125 and M2 design §3.1 both
+  require that busy teachers are *hidden, not greyed* — "every visible card is
+  genuinely startable" — implemented by a teacher untracking from presence for
+  the duration of a session. That untracking is tied to navigating into the
+  call, i.e. to `active`. M3 inserts `accepted` and `paid` ahead of `active`,
+  and a teacher sits in them for up to 120 seconds while their student pays,
+  **still tracked and still startable-looking**.
+
+  Server-side this is safe: `acceptSession` counts `accepted` and `paid` as
+  busy, so the second request cannot be accepted. The costs are a second
+  student sending a request that can only fail, and — worse — the teacher's
+  own dashboard catch-up query ordering by `created_at desc limit 1`, which
+  will then recover the *newer pending* row and mask the `accepted` one,
+  reproducing exactly the mid-payment stranding Task 9 fixed.
+
+  **The root fix is presence, not ordering:** untrack when the session becomes
+  `accepted` rather than when it becomes `active`. Patching the query ordering
+  would be treating the symptom. Sized as its own change because it touches
+  the availability toggle and the presence lifecycle, not this milestone's
+  payment path.
+
 - **Payouts stay manual.** Stripe Connect remains deferred (parent spec §13, a
   2–4 week project). The teacher dashboard's "Payouts are made manually while
   payments are being set up" note stays true.
