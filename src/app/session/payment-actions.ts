@@ -73,7 +73,7 @@ export async function createCheckout(
     // `.is("payment_ref", null)` guard plus the migration's write-once rule
     // mean a double-click cannot open a second charge against this session.
     // Written with the service role: see the note on `admin` above.
-    const { data: stamped } = await admin()
+    const { data: stamped, error: stampError } = await admin()
       .from("sessions")
       .update({
         payment_ref: paymentRef,
@@ -81,9 +81,21 @@ export async function createCheckout(
         payment_checkout_url: checkoutUrl,
       })
       .eq("id", sessionId)
-      .eq("status", "accepted")
+      .eq("status", "accepted") // between effectiveStatus check and this write, a session could expire; accepting this window
       .is("payment_ref", null)
       .select("id");
+
+    if (stampError) {
+      // A real database failure, not a lost race. Distinguished on purpose: the
+      // two are indistinguishable in the control flow below, and conflating them
+      // hides a misconfigured service-role key behind a message that reads like
+      // ordinary contention.
+      console.error(
+        `[createCheckout] stamp write errored for ${sessionId} (ref ${paymentRef}):`,
+        stampError
+      );
+      return { error: "Couldn't open the payment page — try again." };
+    }
 
     // This write is a hard precondition, not bookkeeping: migration 0005's
     // `paid_has_ref` refuses the webhook's `accepted -> paid` transition on a
