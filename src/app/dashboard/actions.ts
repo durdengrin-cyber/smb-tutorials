@@ -41,12 +41,19 @@ export async function acceptSession(sessionId: string): Promise<{ error: string 
 
   // Refuse a second concurrent session for this teacher — decided with the
   // read-time rule, not the stored column, and now counting a teacher whose
-  // student is mid-checkout as busy.
-  const { data: openRows } = await supabase
+  // student is mid-checkout as busy. Fail closed on a read error: the whole
+  // point of this query is to decide whether the teacher is already busy, so
+  // falling through to an empty list here would let a busy teacher accept a
+  // second session, not merely delay one.
+  const { data: openRows, error: openError } = await supabase
     .from("sessions")
     .select("id, status, accept_deadline, payment_deadline, started_at, duration_minutes")
     .eq("teacher_id", user.id)
     .in("status", ["accepted", "paid", "active"]);
+  if (openError) {
+    console.error(`[acceptSession] open-session read failed for teacher ${user.id}:`, openError);
+    return { error: "Couldn't accept the request — try again." };
+  }
   const open = (openRows ?? []).map((r) => ({
     ...r,
     status: r.status as SessionStatus,
@@ -56,16 +63,33 @@ export async function acceptSession(sessionId: string): Promise<{ error: string 
     return { error: "You are already in a session." };
   }
 
-  // Settle both kinds of expiry, so neither keeps this teacher hostage.
+  // Settle both kinds of expiry, so neither keeps this teacher hostage. A
+  // failed write-back here is self-healing — effectiveStatus already excludes
+  // stale rows from the busy check above on this and every future read — but
+  // a *permanently* failing write-back (an RLS change, a trigger rejecting on
+  // clock skew) would otherwise be invisible: the column just quietly stops
+  // self-correcting while every read still looks right. Log it, don't swallow it.
   const staleActive = expiredActiveIds(open, new Date());
   if (staleActive.length > 0) {
-    await supabase.from("sessions").update({ status: "completed" })
-      .in("id", staleActive).eq("status", "active");
+    const { error: settleActiveError } = await supabase
+      .from("sessions")
+      .update({ status: "completed" })
+      .in("id", staleActive)
+      .eq("status", "active");
+    if (settleActiveError) {
+      console.error(`[acceptSession] settle-active failed for ${staleActive.join(",")}:`, settleActiveError);
+    }
   }
   const staleAccepted = expiredAcceptedIds(open, new Date());
   if (staleAccepted.length > 0) {
-    await supabase.from("sessions").update({ status: "payment_expired" })
-      .in("id", staleAccepted).eq("status", "accepted");
+    const { error: settleAcceptedError } = await supabase
+      .from("sessions")
+      .update({ status: "payment_expired" })
+      .in("id", staleAccepted)
+      .eq("status", "accepted");
+    if (settleAcceptedError) {
+      console.error(`[acceptSession] settle-accepted failed for ${staleAccepted.join(",")}:`, settleAcceptedError);
+    }
   }
 
   // No room is minted here any more. Accepting agrees a price; the room is

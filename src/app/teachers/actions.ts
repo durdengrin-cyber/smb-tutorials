@@ -36,11 +36,18 @@ export async function requestSession(input: {
   // and the losing teacher then sits alone for an hour in a session that later
   // counts toward their earnings — a fabricated figure by another name.
   // Reachable without malice: Start, browser Back, Start on someone else.
-  const { data: openRows } = await supabase
+  // Fail closed on a read error: the whole point of this query is to decide
+  // whether the student is already busy, so falling through to an empty list
+  // here would let a second request through, not merely delay one.
+  const { data: openRows, error: openError } = await supabase
     .from("sessions")
     .select("id, status, accept_deadline, payment_deadline, started_at, duration_minutes")
     .eq("student_id", user.id)
     .in("status", ["pending", "accepted", "paid", "active"]);
+  if (openError) {
+    console.error(`[requestSession] open-request read failed for student ${user.id}:`, openError);
+    return { error: "Couldn't start the request — try again." };
+  }
   const open = (openRows ?? []).map((r) => ({
     ...r,
     status: r.status as SessionStatus,
