@@ -1,34 +1,53 @@
 # SMB Tutorials — Project State
 
 ## ▶ Resume here (next session)
-1. `cd ~/smb-tutorials` (this is a standalone repo, separate from HL-Trader — do not confuse the two).
+1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + the spec (`docs/superpowers/specs/2026-08-24-smb-tutorials-design.md`) + `CLAUDE.md`.
-3. **M2 is code-complete on branch `m2-presence-instant-pick` and NOT yet merged.** Confirm with `git branch --show-current`.
-4. **The two-browser run passed (2026-08-26). Next action: rebase onto `origin/main`, push, then re-run the loop against production (plan Task 12 Steps 5-6).**
-   - Evidence in the live `sessions` table: `timed_out` x2, `cancelled`, `completed` (with a real `daily_room_url`), `declined` — every terminal status, zero stale `pending`/`active`. Delete those 5 test rows with the test teacher before launch.
-   - Test accounts, both in the live DB: teacher `tutor-check@smbtutorials.in` / see the password in the SDD ledger (gitignored, not stored here) — "Dr. Rao", CBSE 11th/12th Physics+Chemistry, ₹500/hr. Student = your own account, "Tyler".
-   - **Presence = an open tab.** A teacher is "online" only while `/dashboard` is open with **Available now** toggled on, in a visible (not backgrounded) window. With no teacher tab open, `/teachers` correctly shows "No teachers online" — that is the design, not a bug.
-   - You need two browser *profiles* (e.g. normal + incognito), because Supabase auth cookies are per-profile.
-5. Then plan Task 12 Steps 5–6: `git fetch origin main && git rebase origin/main`, push, and re-run the loop against production.
-6. **Still pending, manual (none block M2):**
-   - **Google provider not enabled** in Supabase (verified: only `email` in `/auth/v1/settings`). The Google button shows an inline error until a Google Cloud OAuth client is created and pasted in. Email auth is unaffected. Also add `https://smb-tutorials.vercel.app/auth/callback` to Supabase → Authentication → URL Configuration → Redirect URLs.
+3. **M2 is DONE, merged to `main`, deployed and verified in production (2026-08-26).** The instant-pick loop works end to end. Nothing is half-finished in the code.
+4. **Next action: finish the site-redesign brainstorm, which is IN PROGRESS and NOT yet a spec.** See "Redesign brainstorm — open" below. Do NOT start writing redesign code: the brainstorming skill's architectural path is mid-flight and the gate (user approval of a design) has not been passed.
+5. **Still pending, manual (none block work):**
+   - **Google provider not enabled** in Supabase (verified: only `email` in `/auth/v1/settings`). The Google button shows an inline error until a Google Cloud OAuth client is created and pasted in. Also add `https://smb-tutorials.vercel.app/auth/callback` to Supabase → Authentication → URL Configuration → Redirect URLs.
    - *(Email confirmation is deliberately OFF — `mailer_autoconfirm: true`. Revisit with Resend in M4.)*
-7. **Test data in the live DB:** teacher "Dr. Rao" (`tutor-check@smbtutorials.in`) and student "Tyler". **Delete Dr. Rao before launch.** `sessions` is empty — every probe cleaned up after itself.
+6. **Test data in the live DB (shared by local + production):** teacher "Dr. Rao" (`tutor-check@smbtutorials.in`, password in the gitignored SDD ledger at `.superpowers/sdd/2026-08-25-m2-presence-instant-pick/progress.md`) and student "Tyler". Plus 5 test `sessions` rows from the verification run. **Delete all of it before launch.**
+
+## Redesign brainstorm — open (started 2026-08-26, unfinished)
+
+**Trigger:** a signed-in teacher has no way to reach `/dashboard`. Verified: `auth/actions.ts` redirects everyone to `/` after sign-in, and `/` renders only "Hi, {name}" + Sign out with no role branch. The teacher was reaching the dashboard by typing the URL.
+
+**Diagnosis — the gap is structural, not one missing link.** There is no authenticated shell at all. `SiteHeader` is a logo plus a single ad-hoc `action` prop, and each page passes its own one-off back link. Nothing in the app knows who is signed in or what role they are. M1 and M2 each built their own pages; the connective tissue joining them was never built.
+
+**Findings that should survive into the redesign:**
+- **Stack drift:** `CLAUDE.md` locks the stack as "Tailwind + shadcn/ui", but **shadcn/ui was never installed** — no `components.json`, no `src/components/ui`, only two shared components (`site-header`, `google-button`). Every button/card/input is inline Tailwind, duplicated per page, inherited from the CRA demo. A redesign is therefore building the component layer the spec always assumed existed, not repainting one.
+- **The home page lies about the product.** `/` advertises "Your Schedule — Book sessions that fit your time", i.e. the scheduled tier that is deferred. Same class of defect as `/terms` (which describes chat, packages and ratings). Both should be rewritten with whatever the redesign touches.
+- **Device choice collides with the presence model, and is a product decision, not a styling one.** "Online" means a teacher has `/dashboard` open in a *visible* tab. On a phone, backgrounding the browser or taking a call throttles the websocket and the teacher silently drops offline. If phones are primary for teachers, the presence model in design spec §3 needs rethinking — not just the layout. The current build is desktop-first (base styles desktop, `md:` layering down), which is unusual for Indian K-12.
+
+**Brainstorming state — architectural path, mid-flight:**
+- Classified **architectural** (restructures a component every page renders; defines routing by role). Gets a design doc + implementation plan before any code.
+- **Answered:** scope = **full visual redesign** — rework the visual language across every screen (layout, typography, spacing, components), not just navigation. The user chose this over "connective tissue only" and over "shell + fix the lying pages", having been told it touches pages verified working the same day.
+- **Asked and withdrawn:** primary device (mobile-first per role / mobile-first everywhere / desktop-first / fully responsive). The user wanted to clarify the question rather than answer it. **Re-ask this early — everything else depends on it.**
+- **Still open, roughly in priority order:**
+  1. Primary device per role, and whether the presence model survives that choice.
+  2. Is the SMB teal/cyan brand and "One Student, One Teacher" fixed, or open to change?
+  3. Does "every screen" include the marketing surface (`/`, `/terms`, `/signup`, `/tutor-signup`) or only the product surface (`/find`, `/teachers`, `/dashboard`, `/waiting`, `/call`)? Different design problems.
+  4. Is there a reference the user likes, or should directions be proposed?
+  5. **What does the user believe is missing?** Their words were "re-done to accommodate everything missing" — that implies specific surfaces they have in mind that do not exist yet (a student dashboard? student session history? profiles? notifications?). This may be the real question; ask it directly rather than inferring from the repo.
+- **Do not invoke `ui-ux-pro-max` or any implementation skill during the brainstorm.** The architectural path's only terminal state is `writing-plans`, after a design doc is approved.
 
 ## Now
-**🌐 Production is live: https://smb-tutorials.vercel.app** — that is still M1. M2 is verified locally but not yet deployed.
+**🌐 Production is live: https://smb-tutorials.vercel.app** — M2 is deployed and verified there (deployment `b7i9b32au`, 2026-08-26). Every route curl'd against the real URL, not just "Vercel says Ready": marketing pages 200, `/dashboard` `/waiting/{id}` `/call/{id}` all 307 behind the auth gate, `/call` and `/api/rooms` both 404 confirming the M0 spike is gone from the deployed build.
 
 **M0 complete** — Daily plumbing proven. *(The spike itself was deleted in M2 Task 11; see spec §15.)*
 
 **M1 complete (all 12 tasks)** — auth, profiles, taxonomy, tutor onboarding, `/find` → `/teachers` browse. Deployed and verified in production.
 
-**M2 code-complete, unmerged (all 12 tasks, branch `m2-presence-instant-pick`)** — 57 tests green, `tsc --noEmit` exit 0, eslint clean, production build clean.
+**M2 complete and deployed (all 12 tasks, merged to `main`)** — 57 tests green, `tsc --noEmit` exit 0, eslint clean, production build clean.
 - **The loop:** `/teachers` lists only teachers who are online *right now* (eligible ∩ presence) → **Start now →** → `/waiting/{id}` with a 30s countdown → teacher's dashboard shows an Accept/Decline prompt → Accept mints a **private** Daily room server-side and drops both into `/call/{id}` for a fixed 60 minutes → leaving (or the countdown) completes the session and it appears in the teacher's history with earnings.
 - **Migrations applied to the live project:** `0002_sessions.sql` (table, RLS, realtime publication), `0003_session_integrity.sql`, `0004_session_student_name.sql`. All three verified against the live DB, both that they block what they should and that they permit every write the app makes.
 - **Spec §15 is closed.** Rooms are minted only inside `acceptSession`, are private, carry an `exp` tied to the session length, and each party joins with its own meeting token. `/call` (spike) and `/api/rooms` are deleted.
 - **A whole-branch code review was run and every Critical and Important finding fixed** (2 Critical, 8 Important). The two Criticals were: a teacher whose browser closed mid-call was locked out of the product permanently, and the `sessions` RLS was column-blind so either participant could rewrite `hourly_rate`, jump `pending → completed`, or forge an `active` row that could never expire. Both are closed by the read-time settling in `acceptSession` plus the `0003`/`0004` triggers, and both were probed against the live DB before and after.
 - **The two-browser run passed.** The first attempt found three bugs no automated check had caught: `postgres_changes` were silently dropped because the realtime socket joins as `anon` unless the JWT is pushed onto it *before* subscribing (`subscribe()` acks SUBSCRIBED either way); Daily's `privacy` is a top-level room field, not a room property, so no room was ever minted — and the unit test asserted the wrong shape against a mock, so it agreed with the bug; and a student sent back after a failed attempt lost their search criteria. All three fixed and re-verified against the real services.
-- **Not yet done:** the push, and the production re-run.
+- **Shipped.** `main` @ `790db95`. 12/12 tasks, 57 tests, migrations 0002-0004 live.
+- **Known gap found immediately after shipping:** no navigation to `/dashboard` for a signed-in teacher. See "Redesign brainstorm — open" above.
 
 **⚠ The one thing to know about presence:** a teacher is online only while their dashboard tab is open. Accepting navigates them to `/call`, which drops presence on purpose (a teacher in a session must not look startable); returning to `/dashboard` restores it from a localStorage intent flag. An empty `/teachers` list is almost always "nobody has a tab open", not a bug.
 
