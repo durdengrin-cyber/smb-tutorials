@@ -179,13 +179,25 @@ export function WaitingClient({
   async function pay() {
     setPaying(true);
     setError(null);
-    const result = await createCheckout(sessionId);
-    if ("error" in result) {
-      setError(result.error);
+    try {
+      const result = await createCheckout(sessionId);
+      if ("error" in result) {
+        setError(result.error);
+        setPaying(false);
+        return;
+      }
+      window.location.href = result.checkoutUrl;
+    } catch (e) {
+      // createCheckout returns {error} for the failures it anticipates, but a
+      // thrown exception from its auth or session read rejects the promise
+      // instead. With no error boundary above this screen, an unhandled
+      // rejection would leave the student on a dead "Opening…" button with no
+      // way back — on the one screen where they have already been told their
+      // teacher is waiting.
+      console.error(`[waiting] checkout failed for ${sessionId}:`, e);
+      setError("Couldn't open the payment page — try again.");
       setPaying(false);
-      return;
     }
-    window.location.href = result.checkoutUrl;
   }
 
   if (status === "accepted") {
