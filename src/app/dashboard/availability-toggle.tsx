@@ -6,8 +6,17 @@ import { createClient } from "@/lib/supabase/client";
 import { PRESENCE_CHANNEL } from "@/lib/presence";
 
 export function AvailabilityToggle({
-  teacherId, fullName, hourlyRate,
-}: { teacherId: string; fullName: string; hourlyRate: number }) {
+  teacherId, fullName, hourlyRate, inSession = false,
+}: {
+  teacherId: string;
+  fullName: string;
+  hourlyRate: number;
+  // True from the moment this teacher accepts a request until that session
+  // resolves. Distinct from being offline: the teacher still WANTS to be
+  // available, they are just committed to someone right now, so presence is
+  // dropped while the channel and their intent are kept.
+  inSession?: boolean;
+}) {
   const [online, setOnline] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +31,15 @@ export function AvailabilityToggle({
   // CLOSED status that unsubscribe() naturally produces isn't mistaken for a
   // failed handshake and surfaced as an error.
   const closingRef = useRef(false);
+  // Read inside the subscribe() ack, which closed over `inSession` at
+  // subscribe time. A session that starts while the handshake is still in
+  // flight would otherwise track the teacher straight back into the list.
+  const inSessionRef = useRef(inSession);
+  // What we last told the channel: true = tracked, false = untracked, null =
+  // nothing applied to the current channel yet. Without it the effect below
+  // re-tracks on every render that touches it, churning presence for every
+  // student watching the list.
+  const visibleRef = useRef<boolean | null>(null);
 
   // Leaving the page must drop presence, or the list shows a ghost.
   useEffect(() => {
@@ -50,6 +68,35 @@ export function AvailabilityToggle({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherId]);
 
+  // M3 spec §9's root fix. Both specs require that a busy teacher is HIDDEN,
+  // not greyed — "every visible card is genuinely startable" — and until now
+  // the hiding was a side effect of accepting navigating into the call, i.e.
+  // of reaching `active`. M3 put a 120-second payment window in front of
+  // `active`, and this component stays mounted through all of it, so the
+  // teacher kept advertising themselves to students who could only ever be
+  // refused. Presence now follows the commitment, not the navigation.
+  //
+  // Untrack, don't unsubscribe: the channel and the teacher's remembered
+  // intent both survive, so they reappear automatically when the window
+  // resolves — paid, expired or cancelled — without touching the toggle.
+  useEffect(() => {
+    inSessionRef.current = inSession;
+    const channel = channelRef.current;
+    if (!channel || !online) return;
+    const visible = !inSession;
+    if (visibleRef.current === visible) return;
+    visibleRef.current = visible;
+    if (visible) {
+      void channel.track({
+        teacher_id: teacherId,
+        full_name: fullName,
+        hourly_rate: hourlyRate,
+      });
+    } else {
+      void channel.untrack();
+    }
+  }, [inSession, online, teacherId, fullName, hourlyRate]);
+
   function rememberIntent(available: boolean) {
     try {
       localStorage.setItem(`smb-available-${teacherId}`, available ? "1" : "0");
@@ -72,11 +119,15 @@ export function AvailabilityToggle({
       if (!mountedRef.current || channelRef.current !== channel) return;
 
       if (status === "SUBSCRIBED") {
-        await channel.track({
-          teacher_id: teacherId,
-          full_name: fullName,
-          hourly_rate: hourlyRate,
-        });
+        const visible = !inSessionRef.current;
+        if (visible) {
+          await channel.track({
+            teacher_id: teacherId,
+            full_name: fullName,
+            hourly_rate: hourlyRate,
+          });
+        }
+        visibleRef.current = visible;
         // Re-check after the await: unmount or a newer channel could have
         // arrived while track() was in flight.
         if (!mountedRef.current || channelRef.current !== channel) return;
@@ -96,6 +147,7 @@ export function AvailabilityToggle({
         // channel down on purpose — not a failure, so don't report it.
         if (closingRef.current) return;
         channelRef.current = null;
+        visibleRef.current = null;
         setOnline(false);
         setBusy(false);
         setError("Couldn't go available — try again.");
@@ -111,6 +163,7 @@ export function AvailabilityToggle({
     await channelRef.current?.untrack();
     await channelRef.current?.unsubscribe();
     channelRef.current = null;
+    visibleRef.current = null;
     closingRef.current = false;
     setOnline(false);
     setBusy(false);
@@ -123,16 +176,24 @@ export function AvailabilityToggle({
         <div>
           <div className="flex items-center gap-2">
             <span
-              className={`w-3 h-3 rounded-full ${online ? "bg-green-500" : "bg-gray-300"}`}
+              className={`w-3 h-3 rounded-full ${
+                !online ? "bg-gray-300" : inSession ? "bg-amber-500" : "bg-green-500"
+              }`}
             />
             <span className="font-bold text-gray-900">
-              {online ? "Available now" : "Offline"}
+              {!online ? "Offline" : inSession ? "In a session" : "Available now"}
             </span>
           </div>
+          {/* Three readings, not two. "In a session" is not "Offline": the
+              teacher is hidden from the list but still online and still
+              intending to be available, and saying "Offline" would invite
+              them to toggle back on mid-payment-window and undo it. */}
           <p className="text-sm text-gray-600 mt-1">
-            {online
-              ? "Students can see you and start a session. Keep this tab open — closing it takes you offline."
-              : "You are not visible to students."}
+            {!online
+              ? "You are not visible to students."
+              : inSession
+                ? "Hidden from students while you finish this session. You'll be visible again automatically."
+                : "Students can see you and start a session. Keep this tab open — closing it takes you offline."}
           </p>
           {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
         </div>

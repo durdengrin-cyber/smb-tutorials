@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createRealtimeClient } from "@/lib/supabase/client";
-import { secondsRemaining } from "@/lib/session";
+import { pickOpenRequest, secondsRemaining, type SessionStatus } from "@/lib/session";
 import { acceptSession, declineSession } from "./actions";
 
 interface PendingRequest {
@@ -14,12 +14,15 @@ interface PendingRequest {
   accept_deadline: string;
   student_name: string;
   // "pending": awaiting this teacher's Accept/Decline. "accepted": the
-  // teacher has answered and the card now waits on the student's payment
-  // (M3 spec §5.3) — the room itself is minted later by the webhook, never
-  // from this component. A DB row of "paid" also maps to this UI state
-  // (see toRequest below): it is a brief pass-through on the way to
-  // `active`, not a state this component distinguishes on screen.
-  status: "pending" | "accepted";
+  // teacher has answered and the card is counting down the student's payment
+  // window (M3 spec §5.3) — the room itself is minted later by the webhook,
+  // never from this component. "paid" is its own state rather than a second
+  // reading of "accepted", because the payment window stops governing the
+  // moment the money is in: the row can only move to `active` or `refunded`
+  // from there, both by the webhook. Collapsing it into "accepted" left the
+  // countdown free to clear a paid card at the deadline, stranding the
+  // teacher out of a session their student had already paid for.
+  status: "pending" | "accepted" | "paid";
   payment_deadline: string | null;
 }
 
@@ -37,7 +40,15 @@ interface SessionRow {
   payment_deadline: string | null;
 }
 
-export function IncomingRequest({ teacherId }: { teacherId: string }) {
+export function IncomingRequest({
+  teacherId, onLiveSessionChange,
+}: {
+  teacherId: string;
+  // Reports whether this teacher is currently committed to a student, so
+  // presence can drop them from the online list for the whole payment window
+  // (M3 spec §9). Must be a stable function — a useState setter is.
+  onLiveSessionChange?: (inSession: boolean) => void;
+}) {
   const router = useRouter();
   const [request, setRequest] = useState<PendingRequest | null>(null);
   const [left, setLeft] = useState(0);
@@ -61,10 +72,10 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
       hourly_rate: row.hourly_rate,
       accept_deadline: row.accept_deadline,
       student_name: row.student_name || "A student",
-      // "paid" collapses into "accepted" here too — this component only
-      // ever renders two shapes (the Accept/Decline prompt, or the waiting
-      // card), so a paid row is shown exactly like an accepted one.
-      status: row.status === "pending" ? "pending" : "accepted",
+      status:
+        row.status === "pending" ? "pending"
+        : row.status === "paid" ? "paid"
+        : "accepted",
       payment_deadline: row.payment_deadline,
     });
 
@@ -86,19 +97,26 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
       // eventual `active` update has no local `request` to match against,
       // so the navigation below never fires.
       void (async () => {
-        const { data: row } = await supabase
+        // Three rows, not one. `limit(1)` on created_at desc answered the
+        // wrong question: if a second student sent a request while this
+        // teacher was mid-payment-window, the newer pending row won and
+        // masked the teacher's own in-flight session, so the eventual
+        // `active` update had no card to match and the teacher never reached
+        // their own call. pickOpenRequest ranks commitment above recency and
+        // drops rows whose clock has already run out.
+        const { data: rows } = await supabase
           .from("sessions")
           .select("id, subject, hourly_rate, accept_deadline, student_name, status, payment_deadline")
           .eq("teacher_id", teacherId)
           .in("status", ["pending", "accepted", "paid"])
           .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (!mounted || !row) return;
-        // Whichever deadline is live for this row's status — an accepted or
-        // paid row is timed by payment_deadline, not accept_deadline.
-        const deadline = row.status === "pending" ? row.accept_deadline : row.payment_deadline;
-        if (!deadline || secondsRemaining(deadline, new Date()) === 0) return;
+          .limit(3);
+        if (!mounted || !rows) return;
+        const row = pickOpenRequest(
+          rows.map((r) => ({ ...r, status: r.status as SessionStatus })),
+          new Date()
+        );
+        if (!row) return;
         // A live INSERT/UPDATE that arrived while this query was in flight is newer.
         setRequest((prev) => prev ?? toRequest(row));
       })();
@@ -153,7 +171,12 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
               if (row.status === "accepted") {
                 return { ...prev, status: "accepted", payment_deadline: row.payment_deadline };
               }
-              if (row.status === "paid" || row.status === "active") return prev;
+              // `paid` stops the countdown: the money is in and only the
+              // webhook moves the row from here. `active` is left alone
+              // because it is handled below by navigating away, rather than
+              // by clearing state out from under the card mid-transition.
+              if (row.status === "paid") return { ...prev, status: "paid" };
+              if (row.status === "active") return prev;
               // Any other status is genuinely terminal from here (declined,
               // timed_out, cancelled, payment_expired) — the student
               // cancelled, the window lapsed, or this teacher answered in
@@ -176,6 +199,16 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
     };
   }, [teacherId, router]);
 
+  // The card's "accepted" state covers both `accepted` and `paid` in the
+  // database (toRequest collapses them), which is exactly the span a teacher
+  // must be hidden for. Derived from `request` rather than signalled at each
+  // call site so that no path — the realtime UPDATE, the catch-up query, or
+  // the countdown hitting zero — can forget to report it.
+  const inSession = request?.status === "accepted" || request?.status === "paid";
+  useEffect(() => {
+    onLiveSessionChange?.(inSession);
+  }, [inSession, onLiveSessionChange]);
+
   // Local countdown. Which deadline is live depends on which state we're
   // in: the 30s accept window while pending, the 120s payment window once
   // accepted — using the wrong one would make the countdown lie about how
@@ -184,6 +217,9 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
   // produces a new object, restarts the timer against the new deadline.
   useEffect(() => {
     if (!request) return;
+    // A paid row has no live deadline — nothing about it expires any more, so
+    // it gets no countdown and, crucially, is never cleared by one.
+    if (request.status === "paid") return;
     const deadline =
       request.status === "accepted" ? request.payment_deadline : request.accept_deadline;
     if (!deadline) return;
@@ -261,7 +297,14 @@ export function IncomingRequest({ teacherId }: { teacherId: string }) {
     <>
       {banner}
       <section className="bg-white rounded-2xl shadow-xl border-2 border-teal-500 p-6">
-        {request.status === "accepted" ? (
+        {request.status === "paid" ? (
+          <>
+            <p className="text-lg font-bold text-gray-900 mb-1">
+              {request.student_name} has paid
+            </p>
+            <p className="text-sm text-gray-600">Opening your room…</p>
+          </>
+        ) : request.status === "accepted" ? (
           <>
             <p className="text-lg font-bold text-gray-900 mb-1">
               Waiting for {request.student_name} to pay — {left}s

@@ -2,8 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
-import { AvailabilityToggle } from "./availability-toggle";
-import { IncomingRequest } from "./incoming-request";
+import { DashboardLive } from "./dashboard-live";
 import { SessionHistory } from "./session-history";
 
 export default async function DashboardPage() {
@@ -40,9 +39,7 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          <IncomingRequest teacherId={profile.id} />
-
-          <AvailabilityToggle
+          <DashboardLive
             teacherId={profile.id}
             fullName={profile.full_name}
             hourlyRate={profile.hourly_rate ?? 0}

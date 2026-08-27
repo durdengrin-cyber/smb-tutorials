@@ -5,7 +5,7 @@ import {
   hasLiveSession, expiredActiveIds, hasOpenRequest, roomTtlSeconds,
   ROOM_GRACE_MINUTES, type SessionTimingRow,
   PAYMENT_WINDOW_SECONDS, paymentDeadlineFrom, amountPaiseFor,
-  expiredAcceptedIds, type SessionStatus,
+  expiredAcceptedIds, type SessionStatus, pickOpenRequest,
 } from "./session";
 
 const NOW = new Date("2026-08-25T12:00:00.000Z");
@@ -289,5 +289,82 @@ describe("expiredAcceptedIds", () => {
     expect(expiredAcceptedIds(
       [{ ...row("x", "2026-08-25T11:00:00.000Z"), status: "cancelled" }], NOW
     )).toEqual([]);
+  });
+});
+
+describe("pickOpenRequest — which row the teacher's dashboard shows", () => {
+  const row = (
+    id: string,
+    status: SessionStatus,
+    { accept = null, payment = null }: { accept?: string | null; payment?: string | null } = {}
+  ) => ({ id, status, accept_deadline: accept, payment_deadline: payment });
+
+  const LIVE = "2026-08-25T12:01:00.000Z";
+  const PASSED = "2026-08-25T11:59:00.000Z";
+
+  it("returns null when there is nothing open", () => {
+    expect(pickOpenRequest([], NOW)).toBe(null);
+  });
+
+  it("returns the only live pending request", () => {
+    expect(pickOpenRequest([row("a", "pending", { accept: LIVE })], NOW)?.id).toBe("a");
+  });
+
+  it("prefers a session the teacher is committed to over a newer pending request", () => {
+    // The regression this exists to stop: the catch-up query orders by
+    // created_at desc, so a second student's request arrives first in the
+    // list and used to mask the teacher's own in-flight row, stranding them
+    // mid-payment-window with a card that can only fail.
+    const rows = [
+      row("newer-pending", "pending", { accept: LIVE }),
+      row("mine", "accepted", { payment: LIVE }),
+    ];
+    expect(pickOpenRequest(rows, NOW)?.id).toBe("mine");
+  });
+
+  it("prefers a paid row over a newer pending request", () => {
+    const rows = [
+      row("newer-pending", "pending", { accept: LIVE }),
+      row("mine", "paid", { payment: LIVE }),
+    ];
+    expect(pickOpenRequest(rows, NOW)?.id).toBe("mine");
+  });
+
+  it("keeps a paid row whose payment window has since passed", () => {
+    // Money is in and the webhook is minting the room; payment_deadline no
+    // longer governs (the trigger only allows accepted -> payment_expired).
+    // Dropping it here would leave the eventual `active` update with no card
+    // to match, stranding the teacher out of a session already paid for.
+    expect(pickOpenRequest([row("paid-late", "paid", { payment: PASSED })], NOW)?.id).toBe("paid-late");
+  });
+
+  it("skips an accepted row whose payment window has closed", () => {
+    // It reads as payment_expired, so showing it would offer a dead card and
+    // hide a genuine pending request behind it.
+    const rows = [
+      row("stale", "accepted", { payment: PASSED }),
+      row("real", "pending", { accept: LIVE }),
+    ];
+    expect(pickOpenRequest(rows, NOW)?.id).toBe("real");
+  });
+
+  it("skips a pending row whose accept window has closed", () => {
+    expect(pickOpenRequest([row("gone", "pending", { accept: PASSED })], NOW)).toBe(null);
+  });
+
+  it("skips rows carrying no deadline at all", () => {
+    expect(pickOpenRequest([row("nodeadline", "pending")], NOW)).toBe(null);
+  });
+
+  it("ignores statuses that are not open requests", () => {
+    expect(pickOpenRequest([row("done", "completed", { accept: LIVE })], NOW)).toBe(null);
+  });
+
+  it("falls back to the first still-open row when none is committed", () => {
+    const rows = [
+      row("newest", "pending", { accept: LIVE }),
+      row("older", "pending", { accept: LIVE }),
+    ];
+    expect(pickOpenRequest(rows, NOW)?.id).toBe("newest");
   });
 });

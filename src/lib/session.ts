@@ -202,6 +202,56 @@ export function hasOpenRequest(
   });
 }
 
+// The columns needed to decide whether a request is still worth showing.
+// Narrower than SessionTimingRow on purpose: this answers a question about
+// open requests, none of which can be `active`, so started_at and
+// duration_minutes have nothing to say about them.
+export interface OpenRequestRow {
+  status: SessionStatus;
+  accept_deadline: string | null;
+  payment_deadline: string | null;
+}
+
+// Is this row still a request the teacher can act on, or has its clock run
+// out? `paid` is the exception and deliberately has no deadline check: the
+// money is in and only the webhook moves the row from here — the trigger
+// permits `payment_expired` out of `accepted` alone. Dropping a paid row
+// because its payment_deadline lapsed while the room was being minted would
+// leave the eventual `active` update with no card to match, stranding the
+// teacher out of a session already paid for.
+const isOpenRequest = (row: OpenRequestRow, now: Date): boolean => {
+  if (row.status === "paid") return true;
+  const deadline =
+    row.status === "pending" ? row.accept_deadline
+    : row.status === "accepted" ? row.payment_deadline
+    : null;
+  return deadline !== null && secondsRemaining(deadline, now) > 0;
+};
+
+// Which of a teacher's open rows their dashboard should show, given a list
+// already ordered newest-first. A session this teacher is COMMITTED to
+// outranks a newer request, whatever the timestamps say: ordering by
+// created_at alone let a second student's pending row mask the teacher's own
+// in-flight one on a mid-payment reload — the same stranding M2's Critical 1
+// closed, arriving by another route. There can be at most one committed row,
+// because acceptSession refuses a second, so the first match wins and
+// anything behind it is a request that could only ever have failed.
+//
+// This is defence in depth, not the fix. The root fix is presence: a teacher
+// is untracked from the online list the moment they accept, so the second
+// request should not be sendable in the first place (M3 spec §9).
+export function pickOpenRequest<T extends OpenRequestRow>(
+  rows: readonly T[],
+  now: Date
+): T | null {
+  const open = rows.filter((row) => isOpenRequest(row, now));
+  return (
+    open.find((row) => row.status === "accepted" || row.status === "paid") ??
+    open[0] ??
+    null
+  );
+}
+
 export function canTransition(from: SessionStatus, to: SessionStatus): boolean {
   return ALLOWED[from].includes(to);
 }

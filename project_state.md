@@ -3,11 +3,11 @@
 ## ▶ Resume here (next session)
 1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + `CLAUDE.md` + the M3 spec (`docs/superpowers/specs/2026-08-26-m3-payments-design.md`).
-3. **You are mid-milestone on branch `m3-payments`, 41 commits ahead of `main`, nothing pushed.** Confirm with `git branch --show-current`. The tree is clean; 83 tests, `tsc --noEmit`, eslint and `npm run build` are all green.
+3. **You are mid-milestone on branch `m3-payments`, 42 commits ahead of `main`, nothing pushed.** Confirm with `git branch --show-current`. The tree is clean; 93 tests, `tsc --noEmit`, eslint and `npm run build` are all green.
 4. **The full SDD ledger is at `.superpowers/sdd/2026-08-26-m3-payments/progress.md`** — every commit, all 26 rulings, every parked finding. It is gitignored, lives only on this machine, and is the authoritative record. **Read it before doing anything.** Tasks with a `Task <N>: complete` line are done; do not re-dispatch them.
 5. **M3 is 11 of 13 tasks complete** (Tasks 1-11). Payments work end to end against a development stub. **Task 11's owed fix round is done** — all three review findings closed and re-verified live on 2026-08-27; see "Task 11, closed" below. What remains, in order:
    - **Task 12 — the Razorpay adapter. BLOCKED on the user** supplying test-mode keys: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `PAYMENT_WEBHOOK_SECRET`, plus `PAYMENT_PROVIDER=razorpay`. The plan's Task 12 carries the concrete call shapes.
-   - **Task 13 — verify and deploy.** Needs the user's two-browser run with Razorpay test cards, then rebase onto `origin/main` and push.
+   - **Task 13 — verify and deploy.** Needs the user's two-browser run with Razorpay test cards, then rebase onto `origin/main` and push. **Step 3b is new and is not optional:** the presence fix and the payment-window Cancel added on 2026-08-27 are client-side realtime, so nothing automated proves either — the plan spells out exactly what to click.
 6. **Resume with `superpowers:subagent-driven-development`**, plan `docs/superpowers/plans/2026-08-26-m3-payments.md`.
 
 ## What M3 built, and what proves it
@@ -37,11 +37,20 @@ Its review had come back *changes requested* and the first fix round died on a q
 
 **Green after the round:** 83 tests · `tsc --noEmit` 0 · eslint clean · `npm run build` clean · all three probes exit 0.
 
+### Two gaps closed after that (2026-08-27, user chose "fix both")
+
+Both were recorded gaps, not new work, and both are **app-layer only — no migration, no DB change**, so the probes above are unaffected and were not re-run.
+
+1. **The busy-teacher regression, fixed at the root.** Presence now follows the *commitment*, not the navigation: `IncomingRequest` reports whether the teacher is committed, the new `DashboardLive` holds that fact for the two siblings that need it, and `AvailabilityToggle` untracks — **without unsubscribing**, so the channel and the remembered intent survive and the teacher reappears on their own when the window resolves. The toggle reads three states now: Offline · In a session (amber) · Available now. Two more defects in the same code went with it — the catch-up query's `limit(1)` on `created_at desc` let a second student's newer request mask the teacher's own in-flight row (now `pickOpenRequest`, 10 unit tests), and the card collapsed `paid` into `accepted` so the countdown could clear a card whose student had already paid.
+2. **`accepted → cancelled` made reachable.** `cancelSession` takes `pending` and `accepted`; Cancel sits beside Pay. It now returns `{ cancelled }` and the screen only navigates on a true — otherwise a student whose payment cleared in the same instant would be walked off the screen their room was about to open on. The other half of that race was already safe: the webhook refunds a payment landing on a row that is no longer `accepted`.
+
+**93 tests · tsc 0 · eslint clean · build clean.** Neither fix is proven in a browser — both are client-side realtime, which is exactly what Task 13 Step 3b now exists to cover.
+
 ## Known gaps carried out of M3
 
-- **A teacher in the payment window is still visible as available.** Parent spec §125 and M2 design §3.1 both require busy teachers be *hidden*; the untracking that implements it fires on `active`, and M3 inserted `accepted`/`paid` ahead of it. Server-side is safe (the second accept is refused) but a second student can send a request that can only fail, and the teacher's dashboard catch-up query can then mask their own in-flight row. **Root fix is presence — untrack on `accepted`, not `active`.** Recorded in M3 spec §9.
+- ~~**A teacher in the payment window is still visible as available.**~~ **FIXED 2026-08-27** at the root, as the spec required: presence follows the commitment, not the navigation. The toggle untracks (without unsubscribing) from `accepted` through `paid`, and reads three states — Offline · In a session · Available now. Two further defects in the same code went with it: the dashboard catch-up query no longer lets a newer pending row mask the teacher's own in-flight session (`pickOpenRequest`, unit-tested), and a `paid` card is no longer cleared by the payment-window countdown. **Not yet proven in a browser** — presence is client-side realtime, so Task 13 Step 3b carries the run. M3 spec §9.
 - **Four ways a row can strand at `paid`**, each requiring our database or the provider to fail *after* money moved. All alarmed, none silent; a durable fix needs a transactional outbox M3 does not have. `reconcile-payments.mjs` is the backstop. M3 spec §9.
-- **`accepted → cancelled` is specified and permitted but unreachable.** M3 spec §3.1 lists it, `ALLOWED` permits it, and the trigger permits it (now proved live with a real student JWT) — but `cancelSession` filters on `status = 'pending'` and the waiting screen swaps Cancel for Pay once accepted. A student who changes their mind mid-payment must wait out the full 120s. Safe either way: a payment landing on a no-longer-`accepted` row is auto-refunded by the webhook. **Decision owed — widen the action, or narrow the spec.** M3 spec §9.
+- ~~**`accepted → cancelled` is specified and permitted but unreachable.**~~ **FIXED 2026-08-27** (user chose to widen the action over narrowing the spec): `cancelSession` accepts `pending` and `accepted`, and the waiting screen shows Cancel beside Pay. The status filter decides the race in Postgres, and `cancelSession` now returns `{ cancelled }` so the screen never navigates a student away from a session that just got paid for. **Not yet proven in a browser** — Task 13 Step 3b runs the pay/cancel race deliberately. M3 spec §9.
 - **A crossed `payment_ref` alarms rather than auto-refunding** — money sits with the provider until a human acts. Should be impossible (the column is unique and write-once), so its occurrence is itself the signal. M3 spec §9.
 - **The development stub and `/dev/checkout` must not reach production.** Four independent refusals plus a build-time 404. Delete both once Razorpay is live. M3 spec §13.
 - `getOrCreateRoom` in `daily.ts` still has no caller and still mints *public* rooms — the M2 trap, still open.

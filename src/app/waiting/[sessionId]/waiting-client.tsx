@@ -171,9 +171,29 @@ export function WaitingClient({
 
   async function cancel() {
     setCancelling(true);
-    leavingRef.current = true;
-    await cancelSession(sessionId);
-    router.push(backToList);
+    setError(null);
+    try {
+      const result = await cancelSession(sessionId);
+      if (!result.cancelled) {
+        // Nothing was written. In the payment window that almost always means
+        // the webhook won the race and this session is already paid — so stay
+        // put and let the realtime UPDATE move the screen on, rather than
+        // walking away from a session the student has just paid for. Latching
+        // leavingRef before knowing the answer would have disabled exactly
+        // that handler.
+        setError("Couldn't cancel — your payment may have already gone through.");
+        setCancelling(false);
+        return;
+      }
+      leavingRef.current = true;
+      router.push(backToList);
+    } catch (e) {
+      // Same unhandled-rejection risk as pay() below: a rejection would
+      // otherwise leave the button disabled with no explanation.
+      console.error(`[waiting] cancel failed for ${sessionId}:`, e);
+      setError("Couldn't cancel — try again.");
+      setCancelling(false);
+    }
   }
 
   async function pay() {
@@ -210,14 +230,30 @@ export function WaitingClient({
           Pay ₹{Math.round(amountPaise / 100)} to start your session.
         </p>
         {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
-        <button
-          type="button"
-          onClick={pay}
-          disabled={paying}
-          className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold px-8 py-3 rounded-lg disabled:opacity-50"
-        >
-          {paying ? "Opening…" : `Pay ₹${Math.round(amountPaise / 100)}`}
-        </button>
+        {/* Cancel belongs here, not only before the teacher answers. M3 spec
+            §3.1 lists `accepted -> cancelled | student`, but until now the
+            product offered no way to make it: a student who changed their
+            mind had to wait out the whole 120 seconds, and their teacher was
+            held for all of it. Disabled while a checkout is being opened, so
+            the two cannot be fired at once. */}
+        <div className="flex gap-3 justify-center">
+          <button
+            type="button"
+            onClick={pay}
+            disabled={paying || cancelling}
+            className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold px-8 py-3 rounded-lg disabled:opacity-50"
+          >
+            {paying ? "Opening…" : `Pay ₹${Math.round(amountPaise / 100)}`}
+          </button>
+          <button
+            type="button"
+            onClick={cancel}
+            disabled={paying || cancelling}
+            className="bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-8 py-3 rounded-lg disabled:opacity-50"
+          >
+            {cancelling ? "Cancelling…" : "Cancel"}
+          </button>
+        </div>
       </Shell>
     );
   }

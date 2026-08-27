@@ -423,8 +423,33 @@ Baseline to beat: 57 tests green, `tsc --noEmit` clean, eslint clean.
   M3 does not have. **The reconciliation script (§8) is the backstop for all
   four, and its `paid`-is-never-terminal assertion is what surfaces them.**
 
-- **M3 REGRESSION AGAINST A SPEC RULE: a teacher in the payment window is not
-  hidden from the online list.** Parent spec §125 and M2 design §3.1 both
+- **CLOSED 2026-08-27 (was: M3 regression against a spec rule) — a teacher in
+  the payment window is now hidden from the online list.** The root fix
+  described below was taken, not the symptom patch: presence follows the
+  *commitment*, not the navigation. `IncomingRequest` reports whether the
+  teacher is committed (its `accepted`/`paid` card states), `DashboardLive`
+  holds that one fact for the two siblings that need it, and
+  `AvailabilityToggle` untracks — **without unsubscribing**, so the channel
+  and the teacher's remembered intent both survive and they reappear
+  automatically when the window resolves. The toggle now reads three states
+  rather than two: Offline · In a session (amber, hidden) · Available now.
+  Saying "Offline" would have invited the teacher to toggle back on
+  mid-window and undo it.
+
+  Two further defects in the same code, found while fixing it and fixed here:
+  the dashboard's catch-up query took `limit(1)` on `created_at desc`, so a
+  newer pending row from a second student masked the teacher's own in-flight
+  session — `pickOpenRequest` (unit-tested, `src/lib/session.ts`) now ranks
+  commitment above recency; and the card collapsed `paid` into `accepted`,
+  which let the payment-window countdown clear a card whose student had
+  already paid, stranding the teacher out of a session they had been paid
+  for. `paid` is now its own card state with no countdown.
+
+  **Not yet proven in a browser.** Presence is client-side realtime: types,
+  lint, tests and the build say nothing about it. Task 13 Step 3b carries the
+  run that proves it. The original diagnosis is kept below.
+
+  **The original finding:** Parent spec §125 and M2 design §3.1 both
   require that busy teachers are *hidden, not greyed* — "every visible card is
   genuinely startable" — implemented by a teacher untracking from presence for
   the duration of a session. That untracking is tied to navigating into the
@@ -445,8 +470,27 @@ Baseline to beat: 57 tests green, `tsc --noEmit` clean, eslint clean.
   the availability toggle and the presence lifecycle, not this milestone's
   payment path.
 
-- **`accepted → cancelled` is in the spec and in the database, but no app code
-  can make it.** §3.1's table lists `accepted | cancelled | student`, `ALLOWED`
+- **CLOSED 2026-08-27 — `accepted → cancelled` is now reachable.** The
+  decision recorded below was taken in the direction of the product following
+  the spec: `cancelSession` accepts `.in("status", ["pending", "accepted"])`
+  and the waiting screen renders Cancel beside Pay. Two things make it safe,
+  and both are load-bearing:
+
+  - **The status filter decides in Postgres, not in the client.** If the
+    webhook has already written `paid`, the update matches zero rows.
+  - **`cancelSession` now returns `{ cancelled: boolean }` and the caller must
+    not navigate on a false.** Previously it returned void and the screen
+    navigated unconditionally — which, once Cancel exists during the payment
+    window, would walk a student off the very screen their paid room is about
+    to open on. The screen now stays put and lets the realtime update move it.
+
+  The opposite side of the race was already handled and was verified before
+  making the change: a payment landing on a row that is no longer `accepted`
+  is refunded by the webhook's `payment arrived while status was ...` branch,
+  so cancel-in-one-tab / pay-in-another returns the money rather than losing
+  it. Task 13 Step 3b runs that race deliberately.
+
+  **The original finding:** §3.1's table lists `accepted | cancelled | student`, `ALLOWED`
   permits it, and migration 0005's trigger permits it — proved live by
   `probe-happy-path.mjs`, which performs the write with a real student JWT.
   The *product* does not offer it: `cancelSession` filters
@@ -457,16 +501,10 @@ Baseline to beat: 57 tests green, `tsc --noEmit` clean, eslint clean.
   is held for that whole time, which compounds the busy-teacher regression
   above.
 
-  Not fixed inside M3 because it is a UI change on a UI the user has already
-  decided is temporary, and because the safe version depends on the webhook
-  behaviour that makes it safe: a payment arriving for a row that is no longer
-  `accepted` is refunded automatically (`route.ts`, the
-  `payment arrived while status was ${actual}` branch), so a student who
-  cancels in one tab and pays in another gets their money back rather than
-  losing it. **Decision owed: widen `cancelSession` to
-  `.in("status", ["pending", "accepted"])` and show Cancel alongside Pay, or
-  narrow §3.1's table to match the product.** One of the two must move; today
-  the spec and the code disagree.
+  It was parked at first as a UI change on a UI already decided to be
+  temporary, with the decision — widen `cancelSession`, or narrow §3.1's table
+  to match the product — put to the user. **The user chose to widen it
+  (2026-08-27)**, which is what the block above implements.
 
 - **Payouts stay manual.** Stripe Connect remains deferred (parent spec §13, a
   2–4 week project). The teacher dashboard's "Payouts are made manually while
