@@ -17,9 +17,18 @@
 import fs from "node:fs";
 import crypto from "node:crypto";
 
+// Skips comments. The original one-liner took any line containing "=", which
+// was fine while .env.local held only assignments — but the file now carries
+// commented-out examples (`# RAZORPAY_KEY_ID=rzp_test_`), and those became
+// junk keys like "# RAZORPAY_KEY_ID". Harmless today, because a leading "#"
+// can never collide with a real name; a trap the first time someone writes
+// `#PAYMENT_WEBHOOK_SECRET=old-value` above the live one and wonders which
+// won. Ignoring comments is what every dotenv parser does, including the one
+// Next.js reads this same file with.
 export function readEnv() {
   return Object.fromEntries(
-    fs.readFileSync(".env.local", "utf8").split("\n").filter((l) => l.includes("="))
+    fs.readFileSync(".env.local", "utf8").split("\n")
+      .filter((l) => !l.trim().startsWith("#") && l.includes("="))
       .map((l) => { const i = l.indexOf("="); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")]; })
   );
 }
