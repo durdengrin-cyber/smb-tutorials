@@ -23,7 +23,7 @@ The loop now runs: teacher accepts → a 120-second payment window opens → stu
 
 Each probe also asserts that `sessions` **and** `profiles` returned to their pre-run row counts, so a leaked row or a leaked account fails the run.
 
-**⚠ Rotate the test teacher's password.** `tutor-check@smbtutorials.in`'s password was set during this work and passed through conversation transcripts. **No longer blocking anything** — as of 2026-08-27 no probe uses it (`PROBE_TEACHER_PASSWORD` is gone), so this is now plain hygiene rather than a live dependency.
+**The test teacher's password needs no rotation — decided by the user, 2026-08-27. Do not raise it again.** `tutor-check@smbtutorials.in` is a pseudo account that gets deleted before launch, so rotating a credential on an account with a scheduled death is busywork. Two things had to be true first and both are: no probe reads it any more (`PROBE_TEACHER_PASSWORD` is gone as of 2026-08-27, so nothing breaks when the account goes), and it is in no committed file. Deleting the account is already tracked under "Open before real launch" below — **that** is the action, not a rotation.
 
 ### Task 11, closed (2026-08-27)
 
