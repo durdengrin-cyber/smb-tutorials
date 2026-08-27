@@ -3,9 +3,9 @@
 ## ▶ Resume here (next session)
 1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + `CLAUDE.md` + the M3 spec (`docs/superpowers/specs/2026-08-26-m3-payments-design.md`).
-3. **You are mid-milestone on branch `m3-payments`, 35 commits ahead of `main`, nothing pushed.** Confirm with `git branch --show-current`. The tree is clean; 83 tests, `tsc --noEmit`, eslint and `npm run build` are all green.
+3. **You are mid-milestone on branch `m3-payments`, ~37 commits ahead of `main`, nothing pushed.** Confirm with `git branch --show-current`. The tree is clean; 83 tests, `tsc --noEmit`, eslint and `npm run build` are all green.
 4. **The full SDD ledger is at `.superpowers/sdd/2026-08-26-m3-payments/progress.md`** — every commit, all 26 rulings, every parked finding. It is gitignored, lives only on this machine, and is the authoritative record. **Read it before doing anything.** Tasks with a `Task <N>: complete` line are done; do not re-dispatch them.
-5. **M3 is 11 of 13 tasks complete.** Payments work end to end against a development stub. What remains:
+5. **M3 is 10 of 13 tasks complete** (Tasks 1-10). Payments work end to end against a development stub. What remains, in order:
    - **Task 12 — the Razorpay adapter. BLOCKED on the user** supplying test-mode keys: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `PAYMENT_WEBHOOK_SECRET`, plus `PAYMENT_PROVIDER=razorpay`. The plan's Task 12 carries the concrete call shapes.
    - **Task 13 — verify and deploy.** Needs the user's two-browser run with Razorpay test cards, then rebase onto `origin/main` and push.
    - **Task 11 is NOT complete — start here.** Its review came back *changes requested* and the fix round died on a quota limit having changed nothing. Three findings, all recorded verbatim in the ledger's addendum: (a) `accepted → cancelled` by the student is untested and is the one legitimate write the suite cannot prove, because the trigger gates it on the student's own uid with no service-role escape — fix by minting a throwaway student via the admin API rather than asking for a password; (b) the malformed-insert probes leak a row if one ever unexpectedly succeeds, which is exactly when it matters; (c) the attack probe should also run as the student, per spec §8's own wording.
