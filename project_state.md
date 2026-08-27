@@ -11,6 +11,18 @@
    - **Task 13 — verify and deploy. THE AUTOMATED HALF IS DONE AND GREEN (2026-08-27); only the browser work is left.** Step 1 (113 tests / tsc 0 / eslint / build), Step 2 (the `effectiveStatus` call-site audit — run for the first time, passes: every real call site selects `payment_deadline`; the two apparent gaps are comments, not calls), Step 4 (reconciliation exit 0), the three live DB probes (all exit 0) and Step 8b (deployed webhook: signed 200, tampered 400) are all clear.** Needs the user's two-browser run with Razorpay test cards, then rebase onto `origin/main` and push. **Step 3b is new and is not optional:** the presence fix and the payment-window Cancel added on 2026-08-27 are client-side realtime, so nothing automated proves either — the plan spells out exactly what to click.
 6. **Resume with `superpowers:subagent-driven-development`**, plan `docs/superpowers/plans/2026-08-26-m3-payments.md`.
 
+### ⚠ THE RUN FOUND A REAL BUG (2026-08-27) — FIXED, NEEDS RE-TESTING
+
+**The money path is PROVEN.** The first Razorpay-signed webhook was received and handled correctly: two real ₹500 test payments, one `completed`, one `active`, nothing stuck at `paid`, no refunds owed. Signature, room minting and the money columns all behaved.
+
+**What broke: the teacher was never taken into the room their student had paid for.** Student landed in the call alone; the teacher's card showed "paid → opening your room" and then nothing; a reload lost the card entirely and the toggle went back to Available, with no route into the paid session.
+
+Two stacked defects, both fixed in `dashboard/incoming-request.tsx`:
+1. **The navigation never fired.** `matched` was set *inside* a `setRequest` updater and read on the next line. React only evaluates an updater eagerly when the fiber has no pending update — the `paid` event queued one, the `active` event arrived milliseconds later, its updater was deferred to render, `matched` stayed `false`. Before M3 there was a single `accepted → active` update, so it could not appear. Now decided against `showingRef`, a ref we control, and the `active` branch navigates first and unconditionally.
+2. **No recovery.** The catch-up query excluded `active`, so a reload found nothing. It now includes `active` and pushes straight into the call — filtered through `effectiveStatus` so an expired row cannot cause a redirect loop. This was the safety net that should have masked defect 1; same class as M2's Critical 1.
+
+**RE-RUN scenario 01 to confirm, then continue the checklist from 02.**
+
 ### ▶▶ THE ONE THING LEFT IN M3: the user's two-browser run (Task 13)
 
 **Everything automated is done and green. Nothing in the codebase blocks the merge.** The remaining work is a manual gate only the user can perform, and until it runs, two things in this milestone have NEVER executed: a webhook that **Razorpay itself signed**, and a **refund against a genuinely captured payment**.

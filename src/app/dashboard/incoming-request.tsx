@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createRealtimeClient } from "@/lib/supabase/client";
-import { pickOpenRequest, secondsRemaining, type SessionStatus } from "@/lib/session";
+import { effectiveStatus, pickOpenRequest, secondsRemaining, type SessionStatus } from "@/lib/session";
 import { acceptSession, declineSession } from "./actions";
 
 interface PendingRequest {
@@ -59,6 +59,15 @@ export function IncomingRequest({
   // while router.push is still resolving) can't call push a second time.
   // Mirrors leavingRef in the student's waiting-client.tsx.
   const navigatedRef = useRef(false);
+  // Which row the card is showing, tracked by us rather than inferred from
+  // React's committed state. The previous code set a `matched` flag INSIDE a
+  // setRequest updater and read it on the next line; React only evaluates an
+  // updater eagerly when the fiber has no pending update, so the `active`
+  // event — arriving milliseconds after `paid` queued one — had its updater
+  // deferred to render, `matched` stayed false, and the teacher was never
+  // navigated into the room their student had just paid for. Before M3 there
+  // was a single accepted -> active update and the bug could not appear.
+  const showingRef = useRef<string | null>(null);
 
   useEffect(() => {
     // An ack or a query can land after this effect is torn down (React
@@ -106,18 +115,42 @@ export function IncomingRequest({
         // drops rows whose clock has already run out.
         const { data: rows } = await supabase
           .from("sessions")
-          .select("id, subject, hourly_rate, accept_deadline, student_name, status, payment_deadline")
+          .select("id, subject, hourly_rate, accept_deadline, student_name, status, payment_deadline, started_at, duration_minutes")
           .eq("teacher_id", teacherId)
-          .in("status", ["pending", "accepted", "paid"])
+          .in("status", ["pending", "accepted", "paid", "active"])
           .order("created_at", { ascending: false })
           .limit(3);
         if (!mounted || !rows) return;
+
+        // `active` is in that list because this is the ONLY route back into a
+        // session after a reload, and M3 made reloads reachable here: accept
+        // no longer redirects, so the teacher sits on this page while the row
+        // goes accepted -> paid -> active. Without it, a teacher who reloaded
+        // (or whose realtime navigation failed) found nothing, went back to
+        // "Available", and had no way into a room their student had already
+        // paid for — money taken, nothing delivered.
+        //
+        // Filtered through effectiveStatus, not the stored column: an `active`
+        // row past its hour reads as completed, and pushing into it would have
+        // the call page bounce straight back here and start again.
+        const now = new Date();
+        const live = rows.find(
+          (r) => effectiveStatus({ ...r, status: r.status as SessionStatus }, now) === "active"
+        );
+        if (live) {
+          navigatedRef.current = true;
+          router.push(`/call/${live.id}`);
+          return;
+        }
+
         const row = pickOpenRequest(
           rows.map((r) => ({ ...r, status: r.status as SessionStatus })),
-          new Date()
+          now
         );
         if (!row) return;
         // A live INSERT/UPDATE that arrived while this query was in flight is newer.
+        if (showingRef.current) return;
+        showingRef.current = row.id;
         setRequest((prev) => prev ?? toRequest(row));
       })();
 
@@ -135,6 +168,7 @@ export function IncomingRequest({
             const row = payload.new as SessionRow;
             if (!mounted || row.status !== "pending") return;
             setError(null);
+            showingRef.current = row.id;
             setRequest(toRequest(row));
           }
         )
@@ -153,41 +187,40 @@ export function IncomingRequest({
               status: string;
               payment_deadline: string | null;
             };
-            // matched tells us, after the functional update below has run
-            // against the latest committed state, whether this event was
-            // actually about the card on screen — needed because the update
-            // to "active" is handled as a navigation, not a state change.
-            let matched = false;
-            setRequest((prev) => {
-              if (!prev || prev.id !== row.id) return prev;
-              matched = true;
-              // Accepting does not end the prompt any more — it becomes the
-              // "waiting for payment" state until the student pays or the
-              // window closes. "paid" and "active" also leave the prompt
-              // alone: "paid" is a brief in-between the webhook passes
-              // through on its way to minting the room, and "active" is
-              // handled below by navigating away instead of clearing state
-              // out from under the card mid-transition.
-              if (row.status === "accepted") {
-                return { ...prev, status: "accepted", payment_deadline: row.payment_deadline };
-              }
-              // `paid` stops the countdown: the money is in and only the
-              // webhook moves the row from here. `active` is left alone
-              // because it is handled below by navigating away, rather than
-              // by clearing state out from under the card mid-transition.
-              if (row.status === "paid") return { ...prev, status: "paid" };
-              if (row.status === "active") return prev;
-              // Any other status is genuinely terminal from here (declined,
-              // timed_out, cancelled, payment_expired) — the student
-              // cancelled, the window lapsed, or this teacher answered in
-              // another tab. Leaving the prompt up would offer an action
-              // that can only fail.
-              return null;
-            });
-            if (matched && row.status === "active") {
+            // Decided against our own ref, never against React's committed
+            // state — see showingRef above for why that distinction cost a
+            // paid session.
+            if (showingRef.current !== row.id) return;
+
+            // Navigate FIRST and unconditionally. This is the branch that
+            // moves a teacher into a room their student has paid for, so it
+            // must not sit behind a state update landing.
+            if (row.status === "active") {
               navigatedRef.current = true;
               router.push(`/call/${row.id}`);
+              return;
             }
+
+            // Accepting does not end the prompt any more — it becomes the
+            // "waiting for payment" state until the student pays or the
+            // window closes.
+            if (row.status === "accepted") {
+              setRequest((prev) =>
+                prev ? { ...prev, status: "accepted", payment_deadline: row.payment_deadline } : prev
+              );
+              return;
+            }
+            // `paid` stops the countdown: the money is in and only the webhook
+            // moves the row from here.
+            if (row.status === "paid") {
+              setRequest((prev) => (prev ? { ...prev, status: "paid" } : prev));
+              return;
+            }
+            // Anything else is terminal (declined, timed_out, cancelled,
+            // payment_expired) — leaving the prompt up would offer an action
+            // that can only fail.
+            showingRef.current = null;
+            setRequest(null);
           }
         )
         .subscribe();
@@ -226,7 +259,10 @@ export function IncomingRequest({
     const tick = () => {
       const remaining = secondsRemaining(deadline, new Date());
       setLeft(remaining);
-      if (remaining === 0) setRequest(null);
+      if (remaining === 0) {
+        showingRef.current = null;
+        setRequest(null);
+      }
     };
     tick();
     const id = setInterval(tick, 250);
