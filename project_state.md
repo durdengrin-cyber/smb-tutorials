@@ -5,10 +5,13 @@
 2. Read this file + `CLAUDE.md`. **You are on `main`, and it is clean and deployed.**
 3. **M3 IS COMPLETE AND SHIPPED TO PRODUCTION (2026-08-28, `cad3783`+).** All 13 tasks, all seven manual scenarios, verified against the live provider. `main` == `origin/main`, tree clean, 113 tests / 3 skipped / tsc 0 / eslint / build all green.
 
-### ⚠ TWO THINGS OWED BEFORE ANYTHING ELSE
+### NOTHING IS OWED. M3 IS FULLY VERIFIED.
 
-1. **Verify the refund MESSAGE** (`02a15f0`) — deferred by the user from the 28th. The refund itself is proven at Razorpay (`rfnd_TUuTEnxMKT6aTM`); what has never been seen is the student being *told*. Reproduce: request → accept → **Pay** → browser-back → **Cancel**, then read that session's `payment_checkout_url` from the database and pay it. The student should land on `/teachers` being told their ₹500 is coming back. **This is the only unverified change in M3.**
-2. **Confirm Razorpay's webhook points at production** — `https://smb-tutorials.vercel.app/api/payments/webhook`. The user was walked through this on the 28th; confirm it rather than assume. Then `node scripts/probe-deployed-webhook.mjs <url>` must print signed 200 / tampered 400.
+Both items that were outstanding on 2026-08-28 are closed:
+- **The refund message is confirmed in a browser.** Refund `rfnd_TUulXyfwSwtSAJ` against `pay_TUulMYdWou9GUf`, ₹500, `processed` at Razorpay and recorded on the row; the student saw the banner. The same screenshot also confirmed the criteria-recovery fix — search preserved, "Start now" live.
+- **Razorpay's webhook points at production** (`https://smb-tutorials.vercel.app/api/payments/webhook`), updated by the user and verified signed 200 / tampered 400.
+
+**One known limitation, recorded not fixed:** the refund banner depends on the webhook having stamped `refund_ref` before the student's browser lands back. Razorpay's redirect and the webhook are independent, so a fast redirect can show no banner. The refund still happens and reconciliation still accounts for it — only the *telling* is unreliable. Revisit in the redesign cycle, where the fix is a state the waiting screen can hold rather than a redirect that races.
 
 ### THEN: the next milestone is the REDESIGN CYCLE
 
