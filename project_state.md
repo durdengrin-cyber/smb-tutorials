@@ -21,7 +21,9 @@ Two stacked defects, both fixed in `dashboard/incoming-request.tsx`:
 1. **The navigation never fired.** `matched` was set *inside* a `setRequest` updater and read on the next line. React only evaluates an updater eagerly when the fiber has no pending update — the `paid` event queued one, the `active` event arrived milliseconds later, its updater was deferred to render, `matched` stayed `false`. Before M3 there was a single `accepted → active` update, so it could not appear. Now decided against `showingRef`, a ref we control, and the `active` branch navigates first and unconditionally.
 2. **No recovery.** The catch-up query excluded `active`, so a reload found nothing. It now includes `active` and pushes straight into the call — filtered through `effectiveStatus` so an expired row cannot cause a redirect loop. This was the safety net that should have masked defect 1; same class as M2's Critical 1.
 
-**RE-RUN scenario 01 to confirm, then continue the checklist from 02.**
+**Defect 2's fix is BROWSER-CONFIRMED (2026-08-27):** after redeploy, reloading `/dashboard` took the teacher straight into the paid session's room. The recovery path works.
+
+**Defect 1's fix is NOT yet browser-confirmed** — the *live* navigation at the moment payment clears, with no reload. It needs one clean run of scenario 01 end to end. Then continue the checklist from 02.
 
 ### ▶▶ THE ONE THING LEFT IN M3: the user's two-browser run (Task 13)
 
