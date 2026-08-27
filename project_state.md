@@ -8,7 +8,7 @@
 5. **M3 is 11 of 13 tasks complete.** Payments work end to end against a development stub. What remains:
    - **Task 12 — the Razorpay adapter. BLOCKED on the user** supplying test-mode keys: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `PAYMENT_WEBHOOK_SECRET`, plus `PAYMENT_PROVIDER=razorpay`. The plan's Task 12 carries the concrete call shapes.
    - **Task 13 — verify and deploy.** Needs the user's two-browser run with Razorpay test cards, then rebase onto `origin/main` and push.
-   - Task 11's task review was **in flight when this session ended** — check whether findings came back and whether a fix round is owed before treating Task 11 as closed.
+   - **Task 11 is NOT complete — start here.** Its review came back *changes requested* and the fix round died on a quota limit having changed nothing. Three findings, all recorded verbatim in the ledger's addendum: (a) `accepted → cancelled` by the student is untested and is the one legitimate write the suite cannot prove, because the trigger gates it on the student's own uid with no service-role escape — fix by minting a throwaway student via the admin API rather than asking for a password; (b) the malformed-insert probes leak a row if one ever unexpectedly succeeds, which is exactly when it matters; (c) the attack probe should also run as the student, per spec §8's own wording.
 6. **Resume with `superpowers:subagent-driven-development`**, plan `docs/superpowers/plans/2026-08-26-m3-payments.md`.
 
 ## What M3 built, and what proves it
