@@ -42,7 +42,6 @@ export function WaitingClient({
   deadline,
   paymentDeadline,
   amountPaise,
-  returnTo,
   backToList,
 }: {
   sessionId: string;
@@ -51,11 +50,10 @@ export function WaitingClient({
   deadline: string;
   paymentDeadline: string | null;
   amountPaise: number;
-  // Both carry the student's original search so they land back on the same
+  // Carries the student's original search so they land back on the same
   // filtered list. Sending them to a bare /teachers made them re-pick the
   // subject before they could try anyone else — pure friction after a failed
   // attempt, and "Start now" on an unfiltered list can only error.
-  returnTo: string;
   backToList: string;
 }) {
   const router = useRouter();
@@ -113,7 +111,12 @@ export function WaitingClient({
               newStatus !== "paid"
             ) {
               leavingRef.current = true;
-              router.push(returnTo);
+              // Carry the status we actually observed, so /teachers can say
+              // what happened instead of always blaming the teacher.
+              router.push(
+                `${backToList}&outcome=${encodeURIComponent(newStatus)}` +
+                  `&teacher=${encodeURIComponent(teacherName)}`
+              );
             } else {
               // accepted or paid: stay on this screen, but pick up the new
               // status (and its deadline) via a fresh server read.
@@ -132,7 +135,7 @@ export function WaitingClient({
       mounted = false;
       channel?.unsubscribe();
     };
-  }, [sessionId, returnTo, router]);
+  }, [sessionId, backToList, teacherName, router]);
 
   // On arrival back from checkout (or a lost webhook), nudge our own
   // verification path rather than waiting on the provider's webhook alone.

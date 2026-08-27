@@ -11,20 +11,45 @@ import {
 import { TeacherCard, type TeacherCardData } from "./teacher-card";
 import { requestSession } from "./actions";
 
+// What actually happened, in the student's words. One fixed message used to
+// serve every terminal status, so a student whose own payment window lapsed
+// was told their teacher had ignored them. Anything unrecognised shows no
+// banner at all rather than a wrong one — and `cancelled` is deliberately
+// silent, because the student did it on purpose and does not need telling.
+function outcomeMessage(outcome?: string, teacher?: string): string | null {
+  const who = teacher || "That teacher";
+  switch (outcome) {
+    case "timed_out":
+      return `${who} didn't respond — these teachers are free now`;
+    case "declined":
+      return `${who} couldn't take this session — these teachers are free now`;
+    case "payment_expired":
+      return "The payment window closed before your payment came through. You have not been charged — pick a teacher to try again.";
+    case "refunded":
+      return `Your payment has been refunded — we couldn't open the room with ${who}. These teachers are free now.`;
+    case "completed":
+      return "That session has ended.";
+    default:
+      return null;
+  }
+}
+
 export function OnlineList({
   eligible,
   subject,
   curriculum,
   grade,
   stream,
-  didNotRespond,
+  outcome,
+  teacherName,
 }: {
   eligible: TeacherCardData[];
   subject: string;
   curriculum: string;
   grade: string;
   stream: string;
-  didNotRespond?: string;
+  outcome?: string;
+  teacherName?: string;
 }) {
   const [roster, setRoster] = useState<OnlineTeacher[]>([]);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -147,9 +172,9 @@ export function OnlineList({
 
   return (
     <>
-      {didNotRespond && (
+      {outcomeMessage(outcome, teacherName) && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
-          {didNotRespond} didn&apos;t respond — these teachers are free now
+          {outcomeMessage(outcome, teacherName)}
         </div>
       )}
       {error && <p className="text-red-600 text-sm mb-4">{error}</p>}

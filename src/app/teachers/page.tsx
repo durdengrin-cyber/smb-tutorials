@@ -115,7 +115,8 @@ export default async function TeachersPage({
               curriculum={curriculum}
               grade={grade}
               stream={stream}
-              didNotRespond={one(params.didNotRespond) || undefined}
+              outcome={one(params.outcome) || undefined}
+              teacherName={one(params.teacher) || undefined}
             />
           )}
 

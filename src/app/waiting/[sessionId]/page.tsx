@@ -40,10 +40,13 @@ export default async function WaitingPage({
     subject: session.subject,
   };
   const backToList = `/teachers?${new URLSearchParams(criteria)}`;
-  const returnTo = `/teachers?${new URLSearchParams({
-    ...criteria,
-    didNotRespond: teacherName,
-  })}`;
+  // The student is told WHICH thing went wrong. This used to be a fixed
+  // `didNotRespond=<teacher>`, sent for every terminal status — so an expired
+  // payment window, a decline and a refund all accused the teacher of
+  // ignoring the student, which for the expiry case is both false and the
+  // student's own doing. The outcome travels; the wording lives on /teachers.
+  const exitTo = (outcome: string) =>
+    `/teachers?${new URLSearchParams({ ...criteria, outcome, teacher: teacherName })}`;
 
   const status = effectiveStatus(
     { ...session, status: session.status as SessionStatus },
@@ -51,7 +54,7 @@ export default async function WaitingPage({
   );
   if (status === "active") redirect(`/call/${sessionId}`);
   if (status !== "pending" && status !== "accepted" && status !== "paid") {
-    redirect(returnTo);
+    redirect(exitTo(status));
   }
 
   return (
@@ -64,7 +67,6 @@ export default async function WaitingPage({
       deadline={session.accept_deadline!}
       paymentDeadline={session.payment_deadline}
       amountPaise={amountPaiseFor(session.hourly_rate, session.duration_minutes)}
-      returnTo={returnTo}
       backToList={backToList}
     />
   );
