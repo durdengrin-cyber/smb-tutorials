@@ -139,6 +139,8 @@ Scheduled tier (Cal.com later) · Stripe Connect · search/ranking · chat.
 ## Open before real launch
 No-show/refund policy · trust & safety (minors) escalation path · delete test teacher · rewrite `/terms`.
 
+**⚠ ROTATE `SUPABASE_SERVICE_ROLE_KEY` (raised 2026-08-27).** It was printed into a conversation transcript by an assistant command that dumped `.env.local` while showing an appended block. It is in no committed file and `.env.local` is gitignored, but this key bypasses every RLS policy and is the credential the payment webhook holds — it is the one thing migration 0005's whole security boundary assumes only the server has. Not disposable like the test teacher account. Roll it in Supabase → Project Settings → API, then update `.env.local` and the Vercel env var for Production, Preview and Development. **Do this before Task 13's two-browser run**, which puts real webhook traffic on it. The `NEXT_PUBLIC_SUPABASE_ANON_KEY` printed alongside it needs nothing — it is public by design.
+
 **Needs an admin surface before launch (see the post-M3 section):** manual payouts · no-show/refund policy · trust & safety (minors) escalation.
 
 **Carried forward from the M2 review (logged, not blocking):** `getOrCreateRoom` in `daily.ts` survives with no caller and still creates *public* rooms — delete it or make it private-by-default before anything calls it (spec §15) · only one incoming request is displayed at a time, a second overwrites the first · `sessions.subject` has no CHECK constraint (the insert trigger blocks the forged-insert route to it) · `didNotRespond` on `/teachers` is unvalidated text (React escapes it, so content-injection not XSS).
