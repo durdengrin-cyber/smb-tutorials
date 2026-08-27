@@ -11,6 +11,8 @@ Both items that were outstanding on 2026-08-28 are closed:
 - **The refund message is confirmed in a browser.** Refund `rfnd_TUulXyfwSwtSAJ` against `pay_TUulMYdWou9GUf`, ₹500, `processed` at Razorpay and recorded on the row; the student saw the banner. The same screenshot also confirmed the criteria-recovery fix — search preserved, "Start now" live.
 - **Razorpay's webhook points at production** (`https://smb-tutorials.vercel.app/api/payments/webhook`), updated by the user and verified signed 200 / tampered 400.
 
+**Reusable technique, worth knowing before testing payments again:** to force the webhook's refund branch without winning a race — request → accept → **Pay** (mints the link and stamps `payment_checkout_url`) → browser-back → **Cancel**, then pay that stored URL. The link survives the cancel, so the webhook arrives for a row that is no longer `accepted`, which is the branch that must refund. It proved the refund arm twice. Always verify both sides: the row's `refund_ref` **and** `GET api.razorpay.com/v1/refunds/{id}` showing `processed`.
+
 **One known limitation, recorded not fixed:** the refund banner depends on the webhook having stamped `refund_ref` before the student's browser lands back. Razorpay's redirect and the webhook are independent, so a fast redirect can show no banner. The refund still happens and reconciliation still accounts for it — only the *telling* is unreliable. Revisit in the redesign cycle, where the fix is a state the waiting screen can hold rather than a redirect that races.
 
 ### THEN: the next milestone is the REDESIGN CYCLE
