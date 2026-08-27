@@ -2,45 +2,23 @@
 
 ## ▶ Resume here (next session)
 1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
-2. Read this file + `CLAUDE.md` + the M3 spec (`docs/superpowers/specs/2026-08-26-m3-payments-design.md`).
-3. **You are mid-milestone on branch `m3-payments`, 53 commits ahead of `main`, and it IS pushed** — `origin/m3-payments` @ `4b417ba`, upstream tracked. (Earlier copies of this file said "nothing pushed"; that was already stale — the remote held the branch at `98b36ab` before this session's push fast-forwarded it.) `main` is untouched at `5f1cc24`, so **production is not affected** — pushing this branch only produces a Vercel *preview* deployment. Confirm with `git branch --show-current`. The tree is clean; **113 tests** (3 skipped — the live Razorpay probe, correctly gated behind `RAZORPAY_LIVE_PROBE=1`), `tsc --noEmit`, eslint and `npm run build` are all green.
-4. **The full SDD ledger is at `.superpowers/sdd/2026-08-26-m3-payments/progress.md`** — every commit, all 26 rulings, every parked finding. It is gitignored, lives only on this machine, and is the authoritative record. **Read it before doing anything.** Tasks with a `Task <N>: complete` line are done; do not re-dispatch them.
-5. **M3 is 12 of 13 tasks complete** (Tasks 1-12). Payments work end to end against a development stub. **Task 11's owed fix round is done** — all three review findings closed and re-verified live on 2026-08-27; see "Task 11, closed" below. What remains, in order:
-   - ~~Task 12 — the Razorpay adapter.~~ **DONE 2026-08-27** (`4facdf3`), unblocked by the user's test-mode keys. `src/lib/payments/razorpay.ts` — four `fetch` calls, no SDK. Proven against the real test-mode API, which immediately caught a constraint every mock had agreed with: **`reference_id` is capped at 40 characters**, and a session UUID is 36, so it fits only while nothing prefixes it. The plan's flagged identifier trap (link id vs payment id) resolved **without a migration** — `refund()` resolves the `pay_…` from the `plink_…` via `GET /v1/payment_links/{id}`. Spec §11.1 has the detail.
-   - ~~Add the payment env vars to Vercel.~~ **DONE 2026-08-27, and verified on the deployed preview.** Five, not four — `NEXT_PUBLIC_SITE_URL` was unset everywhere, so `createCheckout` fell back to `http://localhost:3000` and handed that to Razorpay as `callback_url`; a deployed payment would have redirected the student to localhost on their own machine. It is the only var that differs per environment (production URL / branch alias / localhost) — do not set it to "All Environments". **`scripts/probe-deployed-webhook.mjs` is the check**: an unsigned curl cannot tell a configured deployment from a broken one, because `getPaymentPort()`'s construction throw is caught by the same `try/catch` that rejects a bad signature — both answer `400`. The probe sends a correctly signed body and expects **200**; it returned 200 against the preview.
-   - **Task 13 — verify and deploy. THE AUTOMATED HALF IS DONE AND GREEN (2026-08-27); only the browser work is left.** Step 1 (113 tests / tsc 0 / eslint / build), Step 2 (the `effectiveStatus` call-site audit — run for the first time, passes: every real call site selects `payment_deadline`; the two apparent gaps are comments, not calls), Step 4 (reconciliation exit 0), the three live DB probes (all exit 0) and Step 8b (deployed webhook: signed 200, tampered 400) are all clear.** Needs the user's two-browser run with Razorpay test cards, then rebase onto `origin/main` and push. **Step 3b is new and is not optional:** the presence fix and the payment-window Cancel added on 2026-08-27 are client-side realtime, so nothing automated proves either — the plan spells out exactly what to click.
-6. **Resume with `superpowers:subagent-driven-development`**, plan `docs/superpowers/plans/2026-08-26-m3-payments.md`.
+2. Read this file + `CLAUDE.md`. **You are on `main`, and it is clean and deployed.**
+3. **M3 IS COMPLETE AND SHIPPED TO PRODUCTION (2026-08-28, `cad3783`+).** All 13 tasks, all seven manual scenarios, verified against the live provider. `main` == `origin/main`, tree clean, 113 tests / 3 skipped / tsc 0 / eslint / build all green.
 
-### ⚠ THE RUN FOUND A REAL BUG (2026-08-27) — FIXED, NEEDS RE-TESTING
+### ⚠ TWO THINGS OWED BEFORE ANYTHING ELSE
 
-**The money path is PROVEN.** The first Razorpay-signed webhook was received and handled correctly: two real ₹500 test payments, one `completed`, one `active`, nothing stuck at `paid`, no refunds owed. Signature, room minting and the money columns all behaved.
+1. **Verify the refund MESSAGE** (`02a15f0`) — deferred by the user from the 28th. The refund itself is proven at Razorpay (`rfnd_TUuTEnxMKT6aTM`); what has never been seen is the student being *told*. Reproduce: request → accept → **Pay** → browser-back → **Cancel**, then read that session's `payment_checkout_url` from the database and pay it. The student should land on `/teachers` being told their ₹500 is coming back. **This is the only unverified change in M3.**
+2. **Confirm Razorpay's webhook points at production** — `https://smb-tutorials.vercel.app/api/payments/webhook`. The user was walked through this on the 28th; confirm it rather than assume. Then `node scripts/probe-deployed-webhook.mjs <url>` must print signed 200 / tampered 400.
 
-**What broke: the teacher was never taken into the room their student had paid for.** Student landed in the call alone; the teacher's card showed "paid → opening your room" and then nothing; a reload lost the card entirely and the toggle went back to Available, with no route into the paid session.
+### THEN: the next milestone is the REDESIGN CYCLE
 
-Two stacked defects, both fixed in `dashboard/incoming-request.tsx`:
-1. **The navigation never fired.** `matched` was set *inside* a `setRequest` updater and read on the next line. React only evaluates an updater eagerly when the fiber has no pending update — the `paid` event queued one, the `active` event arrived milliseconds later, its updater was deferred to render, `matched` stayed `false`. Before M3 there was a single `accepted → active` update, so it could not appear. Now decided against `showingRef`, a ref we control, and the `active` branch navigates first and unconditionally.
-2. **No recovery.** The catch-up query excluded `active`, so a reload found nothing. It now includes `active` and pushes straight into the call — filtered through `effectiveStatus` so an expired row cannot cause a redirect loop. This was the safety net that should have masked defect 1; same class as M2's Critical 1.
+Four spec → plan → implement cycles, in this order, decided by the user on 2026-08-26 (see "Post-M3" below, which is still the live scope):
+1. **IA + design system** — the shell, role-aware nav, post-login routing, the component layer that was never built, the visual language. Everything else is built *in* it, so it goes first.
+2. **Student dashboard** · 3. **Admin** (gated on policy answers only the user can give) · 4. **Polish pass**.
 
-**Defect 2's fix is BROWSER-CONFIRMED (2026-08-27):** after redeploy, reloading `/dashboard` took the teacher straight into the paid session's room. The recovery path works.
+**Start with `superpowers:brainstorming`, architectural path.** Do NOT invoke `ui-ux-pro-max` or any implementation skill during the brainstorm; the only terminal state is `writing-plans`. **Re-ask the withdrawn question first: primary device per role** — "online" means a visible dashboard tab, and a backgrounded phone browser drops the teacher offline silently. Also still open: is the SMB teal/cyan brand fixed, does "every screen" include the marketing surface, and is there a visual reference to work from.
 
-**Defect 1's fix is ALSO browser-confirmed (2026-08-27): the teacher went into the room automatically at the moment payment cleared, no reload. SCENARIO 01 PASSES END TO END and both defects are closed.** Superseded note: it was previously — the *live* navigation at the moment payment clears, with no reload. It needs one clean run of scenario 01 end to end. Then continue the checklist from 02.
-
-### ▶▶ THE ONE THING LEFT IN M3: the user's two-browser run (Task 13)
-
-**Everything automated is done and green. Nothing in the codebase blocks the merge.** The remaining work is a manual gate only the user can perform, and until it runs, two things in this milestone have NEVER executed: a webhook that **Razorpay itself signed**, and a **refund against a genuinely captured payment**.
-
-**The run checklist is published as an artifact — hand the user this link, do not rewrite it:**
-`https://claude.ai/code/artifact/0331a670-26e3-4299-90f2-adf55bbd5331`
-Source: `docs/superpowers/m3-task13-two-browser-run.html` (edit + republish with `url` to keep the same link). Seven scenarios, each with the exact row state it must produce, plus the post-run steps.
-
-**Two facts a fresh session will otherwise get wrong:**
-- **`payment_expired` is written by `acceptSession` alone** (`dashboard/actions.ts:87`). After a payment window lapses the stored column stays `accepted` at `0s to pay` until that teacher next accepts something. The screens are already correct — that is the read-time rule. **This is not a bug and not a failed test.**
-- **Razorpay's webhook currently points at the PREVIEW url.** Correct for the run; wrong the instant M3 merges. It must move to `https://smb-tutorials.vercel.app/api/payments/webhook`, and then `scripts/probe-deployed-webhook.mjs` must be re-run against production — nothing that passed on preview says anything about that deployment.
-
-**After the user reports the run passed**, the controller finishes plan Steps 5-9: reconcile → rebase onto `origin/main` → merge/push → move the webhook URL → probe production → confirm `/dev/checkout` 404s.
-
-**Do NOT re-raise with the user (all decided 2026-08-27):** rotating `tutor-check`'s password (pseudo account, deleted pre-launch) · rotating `SUPABASE_SERVICE_ROLE_KEY` (deferred to pre-launch; see "Open before real launch") · writing to `.env.local` (their file — propose lines, never edit).
-
+**Do NOT re-raise (all decided):** rotating `tutor-check`'s password · rotating `SUPABASE_SERVICE_ROLE_KEY` (deferred to pre-launch — see "Open before real launch") · writing to `.env.local` (the user's file; propose lines).
 
 ## What M3 built, and what proves it
 
