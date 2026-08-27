@@ -553,7 +553,49 @@ should be confirmed against Razorpay's contract before going live.
 payment keys exist in `.env.local` or in Vercel (verified 2026-08-26 — only
 `DAILY_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
 `SUPABASE_SERVICE_ROLE_KEY`). A provider account, API keys and a webhook
-signing secret are needed before any of this runs.
+signing secret are needed before any of this runs. **Test-mode keys were
+supplied by the user on 2026-08-27** and the adapter is built. No SDK was
+added — the adapter is four `fetch` calls with an injected `fetchImpl`,
+following `daily.ts`. Vercel env vars are still outstanding.
+
+### 11.1 What building it actually taught (2026-08-27)
+
+**The identifier trap resolved without a migration.** The plan flagged this as
+"the one most likely to bite": `createCheckout` learns the payment LINK id
+(`plink_…`) and stamps it as `payment_ref`, but refunds go against the PAYMENT
+id (`pay_…`), which does not exist until the student pays — and `payment_ref`
+is a single write-once column. Rather than add a second column, `refund()`
+resolves one from the other at call time: `GET /v1/payment_links/{id}` returns
+the payments made against that link. One extra request, on the rare path, and
+`payment_ref` keeps its write-once guarantee. Confirmed live that an unpaid
+link already carries the `payments` field the resolution reads — its *absence*
+would have broken refunds only after money had moved.
+
+**`reference_id` is capped at 40 characters — found by the live call, not by
+reading.** A session id is a 36-character UUID, so it fits with four to spare
+and only while nothing prefixes it. The evidence-step probe used
+`probe-<uuid>` (42) and Razorpay answered
+`400 reference_id: the length must be no more than 40`. This is exactly the
+class of defect §8 says a mock cannot catch: every unit test agreed with the
+wrong shape. The constraint is now commented at the call site.
+
+**The port gained `"ignored"` as an event kind.** Razorpay delivers events we
+never asked to act on — `payment.captured` arrives alongside
+`payment_link.paid`, plus `refund.processed` and disputes. `verifyWebhook`
+must not throw for those: the route answers 400 on a throw, the provider
+reads that as failure, and it redelivers an event we were never going to act
+on, indefinitely. The stub never needed this because it only ever sent back
+what we handed it.
+
+**§3.6's dual path is now real, and is one implementation rather than two.**
+The webhook route's entire body after the signature check moved, byte for
+byte, into `src/lib/payments/settle.ts` as `settleVerifiedEvent`. The route
+now does one thing — verify the signature — and `verifyPaymentNow` calls the
+same function after asking the provider directly via the port's new
+`fetchPayment`. Two confirmation paths must not mean two implementations:
+that logic took four fix rounds and nine Criticals to get right, and a second
+copy would have drifted from it silently, in the only part of the product
+that moves money.
 
 ---
 

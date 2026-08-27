@@ -27,7 +27,14 @@ export interface WebhookEvent {
   sessionId: string;
   amountPaise: number;
   paymentRef: string;
-  kind: "succeeded" | "failed";
+  // "ignored" was added for the first real adapter (Task 12) and is not
+  // decoration. A provider sends events we never asked to act on — Razorpay
+  // delivers payment.captured alongside payment_link.paid, plus
+  // refund.processed and dispute events. verifyWebhook must not throw for
+  // those: the route answers 400 on a throw, the provider reads that as a
+  // failure, and it retries an event we were never going to act on, forever.
+  // The stub never needed this because it only ever sent what we handed it.
+  kind: "succeeded" | "failed" | "ignored";
 }
 
 export interface RefundResult {
@@ -39,4 +46,14 @@ export interface PaymentPort {
   // Throws on a bad or missing signature. Never returns a partial event.
   verifyWebhook(rawBody: string, signature: string): Promise<WebhookEvent>;
   refund(paymentRef: string, amountPaise: number): Promise<RefundResult>;
+  // Ask the provider directly what happened to a charge — design spec §3.6's
+  // SECOND confirmation path, for when a webhook never arrives. Returns the
+  // same event shape the webhook produces, so one code path can settle a
+  // payment whichever way the news reaches us; null means "no payment yet",
+  // which is the ordinary answer while a student is still at checkout.
+  //
+  // Returns null rather than throwing on a provider outage: this runs on a
+  // page the student is looking at, and an outage must not surface as a
+  // crash on the waiting screen.
+  fetchPayment(paymentRef: string): Promise<WebhookEvent | null>;
 }

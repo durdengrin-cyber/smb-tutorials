@@ -57,6 +57,15 @@ export function stubPort(secret: string): StubPaymentPort {
       return { refundRef: `stubref_${paymentRef}` };
     },
 
+    // There is no provider to ask. Null is the honest answer, and it is the
+    // same answer the real adapter gives for an unpaid charge, so
+    // verifyPaymentNow behaves identically against both — it simply never
+    // finds anything here. The dev checkout page drives the webhook directly,
+    // so the stub never needs a second path.
+    async fetchPayment(): Promise<WebhookEvent | null> {
+      return null;
+    },
+
     signForTest: sign,
   };
 }

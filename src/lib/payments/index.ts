@@ -1,5 +1,6 @@
 import type { PaymentPort } from "./port";
 import { stubPort, type StubPaymentPort } from "./stub";
+import { razorpayPort } from "./razorpay";
 
 export * from "./port";
 export type { StubPaymentPort } from "./stub";
@@ -18,6 +19,18 @@ export function getPaymentPort(): PaymentPort {
       );
     }
     return stubPort(process.env.PAYMENT_WEBHOOK_SECRET ?? "");
+  }
+
+  if (provider === "razorpay") {
+    // razorpayPort throws on any missing credential rather than deferring the
+    // failure to the first charge. A missing webhook secret is the dangerous
+    // one: checkout would work, the student would pay, and every webhook
+    // would fail verification — money taken, nothing delivered.
+    return razorpayPort(
+      process.env.RAZORPAY_KEY_ID ?? "",
+      process.env.RAZORPAY_KEY_SECRET ?? "",
+      process.env.PAYMENT_WEBHOOK_SECRET ?? ""
+    );
   }
 
   throw new Error(`Unknown PAYMENT_PROVIDER: ${provider}`);
