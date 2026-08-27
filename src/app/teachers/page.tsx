@@ -29,12 +29,45 @@ export default async function TeachersPage({
   const one = (v: string | string[] | undefined) =>
     Array.isArray(v) ? v[0] ?? "" : v ?? "";
 
-  const curriculum = one(params.curriculum);
-  const grade = one(params.grade);
-  const stream = one(params.stream);
-  const subject = one(params.subject);
-
   const supabase = await createClient();
+
+  let curriculum = one(params.curriculum);
+  let grade = one(params.grade);
+  let stream = one(params.stream);
+  let subject = one(params.subject);
+
+  // The student's search used to live ONLY in the url, so any route back here
+  // that dropped it stranded them: the teachers still listed, but every
+  // "Start now" greyed out, and the only way forward was to walk /find again
+  // and re-pick what they had already picked. Found in the Task 13 run after
+  // cancelling out of a payment window.
+  //
+  // Recovered from their own last request rather than by patching whichever
+  // navigation dropped it — browser back, a bookmark, a shared link and any
+  // future redirect all land here the same way, and the criteria are already
+  // recorded on the row. Only fills a COMPLETE set of gaps: a partly-specified
+  // url is the student narrowing their own search, and overwriting that would
+  // be worse than the dead end.
+  if (!(curriculum && grade && stream && subject)) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: last } = await supabase
+        .from("sessions")
+        .select("curriculum, grade, stream, subject")
+        .eq("student_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (last) {
+        curriculum = curriculum || last.curriculum;
+        grade = grade || last.grade;
+        stream = stream || last.stream;
+        subject = subject || last.subject;
+      }
+    }
+  }
   // Kept as one string literal: Supabase parses the select at the type level,
   // and a concatenated string defeats that inference.
   let query = supabase
