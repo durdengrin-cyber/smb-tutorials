@@ -101,7 +101,8 @@ export function WaitingClient({
           },
           (payload) => {
             if (!mounted || leavingRef.current) return;
-            const newStatus = (payload.new as { status: string }).status;
+            const changed = payload.new as { status: string; refund_ref: string | null };
+            const newStatus = changed.status;
             if (newStatus === "active") {
               leavingRef.current = true;
               router.push(`/call/${sessionId}`);
@@ -113,8 +114,11 @@ export function WaitingClient({
               leavingRef.current = true;
               // Carry the status we actually observed, so /teachers can say
               // what happened instead of always blaming the teacher.
+              // A refund is what the student most needs told, whatever the
+              // status ended up as — see the note in page.tsx.
+              const outcome = changed.refund_ref ? "refunded" : newStatus;
               router.push(
-                `${backToList}&outcome=${encodeURIComponent(newStatus)}` +
+                `${backToList}&outcome=${encodeURIComponent(outcome)}` +
                   `&teacher=${encodeURIComponent(teacherName)}`
               );
             } else {

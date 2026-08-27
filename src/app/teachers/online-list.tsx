@@ -26,7 +26,10 @@ function outcomeMessage(outcome?: string, teacher?: string): string | null {
     case "payment_expired":
       return "The payment window closed before your payment came through. You have not been charged — pick a teacher to try again.";
     case "refunded":
-      return `Your payment has been refunded — we couldn't open the room with ${who}. These teachers are free now.`;
+      // Reached both when room minting failed after payment, and when a
+      // payment landed late on a session that had already ended. The student
+      // does not care which: they care that the money is on its way back.
+      return `Your ₹500 has been refunded — that session didn't go ahead. It can take a few days to show on your statement.`;
     case "completed":
       return "That session has ended.";
     default:

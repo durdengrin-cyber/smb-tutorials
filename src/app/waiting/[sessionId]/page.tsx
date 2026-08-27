@@ -16,7 +16,7 @@ export default async function WaitingPage({
   const { data: session } = await supabase
     .from("sessions")
     .select(
-      "id, student_id, teacher_id, curriculum, grade, stream, subject, status, accept_deadline, payment_deadline, started_at, duration_minutes, hourly_rate"
+      "id, student_id, teacher_id, curriculum, grade, stream, subject, status, accept_deadline, payment_deadline, started_at, duration_minutes, hourly_rate, refund_ref"
     )
     .eq("id", sessionId)
     .single();
@@ -54,7 +54,13 @@ export default async function WaitingPage({
   );
   if (status === "active") redirect(`/call/${sessionId}`);
   if (status !== "pending" && status !== "accepted" && status !== "paid") {
-    redirect(exitTo(status));
+    // A refund outranks the status for what the STUDENT needs told. Money
+    // arriving late on a session they cancelled is refunded automatically and
+    // leaves the row `cancelled` — for which we deliberately show no banner,
+    // because they cancelled on purpose. That reasoning stops holding the
+    // moment money moved: their bank shows a debit and a credit and the
+    // product would say nothing at all.
+    redirect(exitTo(session.refund_ref ? "refunded" : status));
   }
 
   return (
