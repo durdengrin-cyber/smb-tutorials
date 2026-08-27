@@ -1,0 +1,741 @@
+<title>Two-Browser Payment Run</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --paper:      #EDF0F3;
+    --surface:    #FFFFFF;
+    --surface-2:  #F6F8FA;
+    --slab:       #1B2129;
+    --slab-ink:   #DCE3EA;
+    --ink:        #0F151B;
+    --ink-2:      #3B4652;
+    --muted:      #636F7B;
+    --rule:       #D5DCE3;
+    --rule-soft:  #E4EAEF;
+    --accent:     #0E7C86;
+    --accent-deep:#0A5A61;
+    --accent-wash:#DFF0F1;
+
+    --s-wait:      #855D10; --s-wait-bg:  #FAEFD6;
+    --s-money:     #76338F; --s-money-bg: #F2E4F7;
+    --s-live:      #22662A; --s-live-bg:  #DBEFDC;
+    --s-done:      #0A6A7C; --s-done-bg:  #D9EEF2;
+    --s-dead:      #9E1E16; --s-dead-bg:  #FAE1DF;
+    --s-quiet:     #5C6772; --s-quiet-bg: #E5E9EE;
+    --danger:      #9E1E16; --danger-bg:  #FCE9E7; --danger-rule: #E9A9A3;
+
+    --shadow: 0 1px 2px rgba(15,21,27,.05), 0 8px 24px -14px rgba(15,21,27,.22);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0D1116;
+      --surface:    #151B22;
+      --surface-2:  #1A2129;
+      --slab:       #0A0E12;
+      --slab-ink:   #C6D2DE;
+      --ink:        #E8EDF2;
+      --ink-2:      #B4C0CC;
+      --muted:      #8695A3;
+      --rule:       #2A333D;
+      --rule-soft:  #222A33;
+      --accent:     #4FC5CE;
+      --accent-deep:#7FDCE2;
+      --accent-wash:#12333A;
+
+      --s-wait:      #E8B75A; --s-wait-bg:  #35290F;
+      --s-money:     #D79BEC; --s-money-bg: #2E1738;
+      --s-live:      #7CC983; --s-live-bg:  #142C17;
+      --s-done:      #5EC4D8; --s-done-bg:  #0D2C33;
+      --s-dead:      #F0918A; --s-dead-bg:  #351512;
+      --s-quiet:     #92A0AD; --s-quiet-bg: #1E252D;
+      --danger:      #F0918A; --danger-bg:  #2C1310; --danger-rule: #6B2C26;
+
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px -16px rgba(0,0,0,.8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0D1116;
+    --surface:    #151B22;
+    --surface-2:  #1A2129;
+    --slab:       #0A0E12;
+    --slab-ink:   #C6D2DE;
+    --ink:        #E8EDF2;
+    --ink-2:      #B4C0CC;
+    --muted:      #8695A3;
+    --rule:       #2A333D;
+    --rule-soft:  #222A33;
+    --accent:     #4FC5CE;
+    --accent-deep:#7FDCE2;
+    --accent-wash:#12333A;
+
+    --s-wait:      #E8B75A; --s-wait-bg:  #35290F;
+    --s-money:     #D79BEC; --s-money-bg: #2E1738;
+    --s-live:      #7CC983; --s-live-bg:  #142C17;
+    --s-done:      #5EC4D8; --s-done-bg:  #0D2C33;
+    --s-dead:      #F0918A; --s-dead-bg:  #351512;
+    --s-quiet:     #92A0AD; --s-quiet-bg: #1E252D;
+    --danger:      #F0918A; --danger-bg:  #2C1310; --danger-rule: #6B2C26;
+
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px -16px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---------- masthead ---------- */
+  .mast {
+    padding: 56px 0 32px;
+    border-bottom: 2px solid var(--ink);
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px; font-weight: 600;
+    letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent-deep);
+  }
+  h1 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700; font-size: clamp(2.1rem, 5.5vw, 3.1rem);
+    line-height: 1.02; letter-spacing: -.025em;
+    margin: 0; text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.075rem; color: var(--ink-2);
+    max-width: 62ch; margin: 0;
+  }
+  .standfirst em { color: var(--ink); font-style: italic; }
+
+  .facts {
+    display: grid; gap: 1px;
+    grid-template-columns: repeat(auto-fit, minmax(184px, 1fr));
+    background: var(--rule); border: 1px solid var(--rule);
+    margin-top: 6px;
+  }
+  .fact { background: var(--surface); padding: 12px 14px; }
+  .fact dt {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 600; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 4px;
+  }
+  .fact dd {
+    margin: 0; font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums;
+    word-break: break-word;
+  }
+
+  /* ---------- sections ---------- */
+  section { margin-top: 56px; }
+  h2 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-size: 1.5rem; font-weight: 700; letter-spacing: -.015em;
+    margin: 0 0 6px; text-wrap: balance;
+  }
+  .sec-note { color: var(--muted); margin: 0 0 22px; max-width: 66ch; }
+
+  /* ---------- setup ---------- */
+  .setup { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .panel {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 3px; padding: 18px 20px; box-shadow: var(--shadow);
+  }
+  .panel h3 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-size: .95rem; font-weight: 600; margin: 0 0 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel h3::before {
+    content: ""; width: 3px; height: 15px; background: var(--accent); flex: none;
+  }
+  .panel p { margin: 0 0 10px; font-size: .93rem; color: var(--ink-2); }
+  .panel p:last-child { margin-bottom: 0; }
+  .panel ul { margin: 0; padding-left: 18px; font-size: .93rem; color: var(--ink-2); }
+  .panel li { margin-bottom: 6px; }
+  .panel li:last-child { margin-bottom: 0; }
+
+  code, .mono {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .875em;
+  }
+  code {
+    background: var(--surface-2); border: 1px solid var(--rule-soft);
+    border-radius: 2px; padding: .08em .34em; color: var(--ink);
+  }
+  pre {
+    background: var(--slab); color: var(--slab-ink);
+    border-radius: 3px; padding: 13px 15px; margin: 0 0 10px;
+    overflow-x: auto; font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px; line-height: 1.65;
+  }
+  pre:last-child { margin-bottom: 0; }
+  pre .c { color: #7E8B99; }
+
+  /* ---------- danger ---------- */
+  .stop {
+    background: var(--danger-bg); border: 1px solid var(--danger-rule);
+    border-left: 4px solid var(--danger); border-radius: 3px;
+    padding: 18px 22px;
+  }
+  .stop h3 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-size: 1.05rem; font-weight: 700; color: var(--danger);
+    margin: 0 0 8px; letter-spacing: -.01em;
+  }
+  .stop p { margin: 0 0 8px; color: var(--ink-2); font-size: .95rem; }
+  .stop p:last-child { margin-bottom: 0; }
+  .stop strong { color: var(--ink); }
+
+  /* ---------- legend ---------- */
+  .legend { display: flex; flex-wrap: wrap; gap: 7px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
+    padding: 3px 9px; border-radius: 2px; white-space: nowrap;
+  }
+  .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+  .c-wait  { color: var(--s-wait);  background: var(--s-wait-bg); }
+  .c-money { color: var(--s-money); background: var(--s-money-bg); }
+  .c-live  { color: var(--s-live);  background: var(--s-live-bg); }
+  .c-done  { color: var(--s-done);  background: var(--s-done-bg); }
+  .c-dead  { color: var(--s-dead);  background: var(--s-dead-bg); }
+  .c-quiet { color: var(--s-quiet); background: var(--s-quiet-bg); }
+  .legend .lbl { font-size: .87rem; color: var(--muted); align-self: center; margin-right: 2px; }
+
+  /* ---------- scenarios ---------- */
+  .runs { display: flex; flex-direction: column; gap: 18px; }
+
+  .run {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 3px; box-shadow: var(--shadow); overflow: hidden;
+  }
+  .run-head {
+    display: flex; gap: 14px; align-items: baseline;
+    padding: 16px 20px 14px; border-bottom: 1px solid var(--rule-soft);
+    background: var(--surface-2);
+  }
+  .run-n {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px; font-weight: 600; color: var(--accent-deep);
+    background: var(--accent-wash); border-radius: 2px;
+    padding: 2px 7px; flex: none; font-variant-numeric: tabular-nums;
+  }
+  .run-title {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-size: 1.075rem; font-weight: 600; letter-spacing: -.012em;
+    margin: 0; flex: 1 1 auto; min-width: 0;
+  }
+  .run-proves {
+    font-size: .8rem; color: var(--muted); font-style: italic;
+    flex: 0 1 auto; text-align: right; min-width: 0;
+  }
+  .new-flag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--accent-deep);
+    border: 1px solid var(--accent); border-radius: 2px;
+    padding: 1px 5px; margin-left: 8px; white-space: nowrap;
+  }
+
+  .tracks { display: grid; grid-template-columns: 1fr 1fr; }
+  .track { padding: 16px 20px 18px; min-width: 0; }
+  .track + .track { border-left: 1px solid var(--rule-soft); background: var(--surface-2); }
+  .track h4 {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted);
+    margin: 0 0 11px;
+  }
+  .track ol, .track ul { margin: 0; padding-left: 17px; }
+  .track li { margin-bottom: 7px; font-size: .91rem; color: var(--ink-2); }
+  .track li:last-child { margin-bottom: 0; }
+  .track li strong { color: var(--ink); font-weight: 600; }
+  .who {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; padding: 1px 5px; border-radius: 2px;
+    background: var(--s-quiet-bg); color: var(--s-quiet); margin-right: 5px;
+  }
+  .who.t { background: var(--accent-wash); color: var(--accent-deep); }
+
+  .rowstate { display: flex; flex-direction: column; gap: 9px; }
+  .rowline {
+    display: flex; gap: 9px; align-items: flex-start;
+    font-size: .89rem; color: var(--ink-2);
+  }
+  .rowline .k {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px; color: var(--muted); flex: none; width: 128px;
+    padding-top: 2px;
+  }
+  .rowline .v { min-width: 0; }
+  .rowline .v .mono { color: var(--ink); }
+
+  .caveat {
+    margin-top: 13px; padding: 10px 12px;
+    background: var(--s-wait-bg); border-left: 3px solid var(--s-wait);
+    border-radius: 2px; font-size: .855rem; color: var(--ink-2);
+  }
+  .caveat b { color: var(--s-wait); }
+
+  /* ---------- after ---------- */
+  .after { display: flex; flex-direction: column; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .step { background: var(--surface); padding: 15px 20px; display: grid; grid-template-columns: 74px 1fr; gap: 16px; align-items: start; }
+  .step .sn {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; font-weight: 600; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--muted); padding-top: 3px;
+  }
+  .step .sb { min-width: 0; }
+  .step h4 {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-size: .98rem; font-weight: 600; margin: 0 0 5px;
+  }
+  .step p { margin: 0 0 8px; font-size: .91rem; color: var(--ink-2); }
+  .step p:last-child { margin-bottom: 0; }
+
+  footer {
+    margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--rule);
+    font-size: .84rem; color: var(--muted);
+  }
+
+  a { color: var(--accent-deep); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+  @media (max-width: 720px) {
+    .tracks { grid-template-columns: 1fr; }
+    .track + .track { border-left: none; border-top: 1px solid var(--rule-soft); }
+    .run-head { flex-wrap: wrap; }
+    .run-proves { text-align: left; flex-basis: 100%; }
+    .rowline { flex-direction: column; gap: 2px; }
+    .rowline .k { width: auto; }
+    .step { grid-template-columns: 1fr; gap: 6px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div class="eyebrow">M3 payments · Task 13 · manual gate</div>
+    <h1>Two-Browser Payment Run</h1>
+    <p class="standfirst">
+      Everything automated is already green. What follows is the part no test can stand in for:
+      the first webhook <em>Razorpay itself</em> signs, and the first refund against a genuinely
+      captured payment. Work top to bottom — each scenario leaves the table in a state the next one assumes.
+    </p>
+    <dl class="facts">
+      <div class="fact"><dt>Test against</dt><dd>preview, not production</dd></div>
+      <div class="fact"><dt>Branch</dt><dd>m3-payments</dd></div>
+      <div class="fact"><dt>Session price</dt><dd>₹500 · 50000 paise</dd></div>
+      <div class="fact"><dt>Payment window</dt><dd>120 seconds</dd></div>
+      <div class="fact"><dt>Accept window</dt><dd>30 seconds</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <h2>Before you start</h2>
+    <p class="sec-note">
+      Five minutes of setup that prevents three quarters of the false failures.
+    </p>
+    <div class="setup">
+
+      <div class="panel">
+        <h3>Two browsers, not two tabs</h3>
+        <p>Tabs in the same browser share one auth session — signing in as the student would silently
+        sign the teacher out. Use two different browsers, or one plus a private window.</p>
+        <ul>
+          <li><span class="who t">Teacher</span> Dr. Rao · <code>tutor-check@smbtutorials.in</code> · ₹500/hr</li>
+          <li><span class="who">Student</span> Tyler · <code>durden.grin@gmail.com</code></li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h3>The URL</h3>
+        <p>Use the branch preview. <strong>Production 404s the webhook route</strong> — M3 has not merged,
+        so nothing about payments exists there yet.</p>
+        <pre>smb-tutorials-git-m3-payments
+  -durdengrin-6266s-projects
+  .vercel.app</pre>
+        <p>Razorpay's webhook already points here. Verified live: signed → 200, tampered → 400.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Watch the table, not the screen</h3>
+        <p>The UI can lie to you; the row cannot. Keep this running in a terminal throughout —
+        it now shows the payment clock, whether a charge was opened, what was collected, and any refund.</p>
+        <pre>node scripts/watch-sessions.mjs</pre>
+        <p>Have a second terminal ready for <code>scripts/reconcile-payments.mjs</code> at the end.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Search these exact criteria</h3>
+        <p>Dr. Rao only teaches four combinations. Anything else returns an empty list, which looks
+        identical to a bug.</p>
+        <ul>
+          <li>CBSE · <strong>11th or 12th</strong> · Science · <strong>Physics or Chemistry</strong></li>
+        </ul>
+        <p>And the teacher must have <code>/dashboard</code> open in a <em>visible</em> tab, or they are
+        not online at all.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Test instruments</h3>
+        <ul>
+          <li>UPI success — <code>success@razorpay</code></li>
+          <li>UPI failure — <code>failure@razorpay</code></li>
+          <li>Card — <code>4111 1111 1111 1111</code>, any future expiry, any CVV</li>
+        </ul>
+        <p>Test mode only. No real money moves, and no real money can.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Status language</h3>
+        <p>These are the same colours <code>watch-sessions</code> prints, so the terminal and this page agree.</p>
+        <div class="legend">
+          <span class="chip c-wait">pending</span>
+          <span class="chip c-wait">accepted</span>
+          <span class="chip c-money">paid</span>
+          <span class="chip c-live">active</span>
+          <span class="chip c-done">completed</span>
+          <span class="chip c-done">refunded</span>
+          <span class="chip c-dead">payment_expired</span>
+          <span class="chip c-dead">timed_out</span>
+          <span class="chip c-quiet">cancelled</span>
+          <span class="chip c-quiet">declined</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>The one condition that stops the run</h2>
+    <div class="stop">
+      <h3>A student returned to the teacher list while holding a paid session</h3>
+      <p>
+        If a payment succeeds and the student ends up back on <code>/teachers</code> rather than in the call —
+        <strong>stop immediately and tell me.</strong> That is money taken with nothing delivered, and it is the
+        single failure this whole milestone is built to make impossible.
+      </p>
+      <p>
+        Everything else is recoverable and worth finishing the run for. A row sitting at
+        <span class="chip c-money">paid</span> for more than a few seconds is the visible form of the same problem —
+        <code>watch-sessions</code> prints a warning when it sees one.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The run</h2>
+    <p class="sec-note">
+      Seven scenarios. The first is the one that matters most; the rest are the ways it can go wrong.
+      Two are marked <span class="new-flag">new</span> — they were built today and have never run in a browser.
+    </p>
+
+    <div class="runs">
+
+      <!-- 1 -->
+      <article class="run">
+        <div class="run-head">
+          <span class="run-n">01</span>
+          <h3 class="run-title">Happy path — pay, and land in the call</h3>
+          <span class="run-proves">the first Razorpay-signed webhook ever received</span>
+        </div>
+        <div class="tracks">
+          <div class="track">
+            <h4>Do this</h4>
+            <ol>
+              <li><span class="who t">Teacher</span> Open <code>/dashboard</code>, toggle <strong>Available now</strong>. Leave the tab visible.</li>
+              <li><span class="who">Student</span> <code>/find</code> → CBSE · 11th · Science · Physics → <strong>Start now</strong> on Dr. Rao.</li>
+              <li><span class="who t">Teacher</span> Accept within 30s.</li>
+              <li><span class="who">Student</span> The screen offers <strong>Pay ₹500</strong> and <strong>Cancel</strong>. Pay, using <code>success@razorpay</code>.</li>
+            </ol>
+          </div>
+          <div class="track">
+            <h4>The row must say</h4>
+            <div class="rowstate">
+              <div class="rowline"><span class="k">on accept</span><span class="v"><span class="chip c-wait">accepted</span> with a <span class="mono">120s to pay</span> clock</span></div>
+              <div class="rowline"><span class="k">on Pay click</span><span class="v"><span class="mono">chg✓</span> — a charge was opened before the student left</span></div>
+              <div class="rowline"><span class="k">after payment</span><span class="v"><span class="chip c-money">paid</span> then <span class="chip c-live">active</span> within seconds, <span class="mono">room✓</span>, <span class="mono">₹500</span></span></div>
+              <div class="rowline"><span class="k">both browsers</span><span class="v">land in the video call together</span></div>
+              <div class="rowline"><span class="k">on leaving</span><span class="v"><span class="chip c-done">completed</span>, and ₹500 appears in the teacher's earnings</span></div>
+            </div>
+            <div class="caveat">
+              <b>Watch the handoff.</b> <span class="chip c-money">paid</span> should flash past in about a second.
+              If it sticks, the room mint failed — the honest exit is <span class="chip c-done">refunded</span>, and you should see that instead.
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 2 -->
+      <article class="run">
+        <div class="run-head">
+          <span class="run-n">02</span>
+          <h3 class="run-title">The student never pays</h3>
+          <span class="run-proves">the teacher is released without a timer or a cron</span>
+        </div>
+        <div class="tracks">
+          <div class="track">
+            <h4>Do this</h4>
+            <ol>
+              <li>Request and accept as before.</li>
+              <li><span class="who">Student</span> Do nothing at all. Watch the countdown run out.</li>
+              <li><span class="who t">Teacher</span> Confirm the waiting card clears and the toggle returns to <strong>Available now</strong> on its own.</li>
+            </ol>
+          </div>
+          <div class="track">
+            <h4>The row must say</h4>
+            <div class="rowstate">
+              <div class="rowline"><span class="k">student screen</span><span class="v">returns to the filtered teacher list</span></div>
+              <div class="rowline"><span class="k">teacher screen</span><span class="v">card gone, available again, no clicking required</span></div>
+              <div class="rowline"><span class="k">money</span><span class="v"><span class="mono">₹—</span> — nothing charged, nothing to refund</span></div>
+            </div>
+            <div class="caveat">
+              <b>Expect the stored status to lag, and don't call it a failure.</b>
+              <code>watch-sessions</code> will keep showing <span class="chip c-wait">accepted</span> at <span class="mono">0s to pay</span>.
+              Only <code>acceptSession</code> writes <span class="chip c-dead">payment_expired</span> back, so the column settles the next time
+              this teacher accepts anything. The screens are already correct — that is the read-time rule working as designed.
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 3 -->
+      <article class="run">
+        <div class="run-head">
+          <span class="run-n">03</span>
+          <h3 class="run-title">Back out of checkout, then pay</h3>
+          <span class="run-proves">a second charge is never opened for one session</span>
+        </div>
+        <div class="tracks">
+          <div class="track">
+            <h4>Do this</h4>
+            <ol>
+              <li>Request, accept, then <span class="who">Student</span> tap <strong>Pay</strong>.</li>
+              <li>On Razorpay's page, press the browser <strong>back</strong> button instead of paying.</li>
+              <li>Tap <strong>Pay</strong> again and complete it this time.</li>
+            </ol>
+          </div>
+          <div class="track">
+            <h4>The row must say</h4>
+            <div class="rowstate">
+              <div class="rowline"><span class="k">after backing out</span><span class="v">still <span class="chip c-wait">accepted</span>, still <span class="mono">chg✓</span> — the charge stayed open</span></div>
+              <div class="rowline"><span class="k">second Pay</span><span class="v">resumes the <em>same</em> charge, not a new one</span></div>
+              <div class="rowline"><span class="k">outcome</span><span class="v"><span class="chip c-live">active</span>, exactly <span class="mono">₹500</span> collected — never ₹1000</span></div>
+            </div>
+            <div class="caveat">
+              <b>The amount is the assertion here.</b> Two charges for one lesson is the failure mode;
+              <code>payment_ref</code> is write-once in the database precisely to make it impossible.
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 4 -->
+      <article class="run">
+        <div class="run-head">
+          <span class="run-n">04</span>
+          <h3 class="run-title">A payment that fails<span class="new-flag">first time</span></h3>
+          <span class="run-proves">a declined payment is not a lost session</span>
+        </div>
+        <div class="tracks">
+          <div class="track">
+            <h4>Do this</h4>
+            <ol>
+              <li>Request, accept, tap <strong>Pay</strong>.</li>
+              <li>Use <code>failure@razorpay</code> so the payment is declined.</li>
+              <li>Return and pay properly, if the window is still open.</li>
+            </ol>
+          </div>
+          <div class="track">
+            <h4>The row must say</h4>
+            <div class="rowstate">
+              <div class="rowline"><span class="k">after failure</span><span class="v">still <span class="chip c-wait">accepted</span> — a failed payment changes nothing</span></div>
+              <div class="rowline"><span class="k">money</span><span class="v"><span class="mono">₹—</span>, no refund reference</span></div>
+              <div class="rowline"><span class="k">retry</span><span class="v">works, and reaches <span class="chip c-live">active</span> normally</span></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 5 -->
+      <article class="run">
+        <div class="run-head">
+          <span class="run-n">05</span>
+          <h3 class="run-title">The student cancels inside the payment window<span class="new-flag">new</span></h3>
+          <span class="run-proves">a transition the spec required and no code could make</span>
+        </div>
+        <div class="tracks">
+          <div class="track">
+            <h4>Do this</h4>
+            <ol>
+              <li>Request and accept.</li>
+              <li><span class="who">Student</span> Confirm <strong>Cancel</strong> now sits beside <strong>Pay</strong> — until today it disappeared the moment the teacher accepted.</li>
+              <li>Click <strong>Cancel</strong>.</li>
+            </ol>
+          </div>
+          <div class="track">
+            <h4>The row must say</h4>
+            <div class="rowstate">
+              <div class="rowline"><span class="k">status</span><span class="v"><span class="chip c-quiet">cancelled</span></span></div>
+              <div class="rowline"><span class="k">student</span><span class="v">back on their filtered list</span></div>
+              <div class="rowline"><span class="k">teacher</span><span class="v">card clears and they go available <strong>immediately</strong> — not after the full 120 seconds</span></div>
+            </div>
+            <div class="caveat">
+              <b>The teacher's release is the real assertion.</b> Before today a student who changed their
+              mind had no exit, and their teacher was held for the whole window.
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 6 -->
+      <article class="run">
+        <div class="run-head">
+          <span class="run-n">06</span>
+          <h3 class="run-title">A busy teacher disappears from the list<span class="new-flag">new</span></h3>
+          <span class="run-proves">presence follows the commitment, not the navigation</span>
+        </div>
+        <div class="tracks">
+          <div class="track">
+            <h4>Do this</h4>
+            <ol>
+              <li><span class="who">Student</span> Sit on <code>/teachers</code> with Dr. Rao's card visible. Leave it there.</li>
+              <li>From a <strong>third</strong> browser or window, send a request as any student and have the teacher accept it.</li>
+              <li>Watch the first student's list without refreshing.</li>
+              <li>Let that payment window lapse, and watch again.</li>
+            </ol>
+          </div>
+          <div class="track">
+            <h4>The row must say</h4>
+            <div class="rowstate">
+              <div class="rowline"><span class="k">on accept</span><span class="v">Dr. Rao's card <strong>disappears</strong> from the first student's list</span></div>
+              <div class="rowline"><span class="k">teacher's toggle</span><span class="v">reads <strong>In a session</strong> in amber — not <em>Offline</em></span></div>
+              <div class="rowline"><span class="k">on expiry</span><span class="v">returns to <strong>Available now</strong> and reappears in the list, with no clicking</span></div>
+            </div>
+            <div class="caveat">
+              <b>If you only have two browsers</b>, skip step 2's third party and just watch the teacher's own
+              toggle go amber on accept and back to green on expiry. That proves the same mechanism, one side of it.
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 7 -->
+      <article class="run">
+        <div class="run-head">
+          <span class="run-n">07</span>
+          <h3 class="run-title">Pay and cancel at the same instant</h3>
+          <span class="run-proves">the only race in the system that can lose money</span>
+        </div>
+        <div class="tracks">
+          <div class="track">
+            <h4>Do this</h4>
+            <ol>
+              <li>Request, accept, and open checkout in one tab.</li>
+              <li>Open the waiting screen in a second tab of the <em>same</em> browser.</li>
+              <li>Complete the payment, and hit <strong>Cancel</strong> in the other tab at the same moment.</li>
+              <li>Check the Razorpay dashboard afterwards either way.</li>
+            </ol>
+          </div>
+          <div class="track">
+            <h4>Exactly two outcomes are acceptable</h4>
+            <div class="rowstate">
+              <div class="rowline"><span class="k">cancel lost</span><span class="v"><span class="chip c-live">active</span> — the student lands in the call, and Cancel reports it could not cancel</span></div>
+              <div class="rowline"><span class="k">cancel won</span><span class="v"><span class="chip c-quiet">cancelled</span> <strong>and a refund appears in Razorpay</strong></span></div>
+              <div class="rowline"><span class="k">anything else</span><span class="v">stop — see the condition at the top of this page</span></div>
+            </div>
+            <div class="caveat">
+              <b>This is the one worth doing deliberately.</b> The refund arm has never executed against a real
+              captured payment — the adapter resolves the <span class="mono">pay_…</span> id from the
+              <span class="mono">plink_…</span> id at refund time, and only a genuine payment proves that path.
+            </div>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>When the run is done</h2>
+    <p class="sec-note">Steps 5 through 9 of the plan. I can take these from here — tell me the run passed.</p>
+    <div class="after">
+
+      <div class="step">
+        <div class="sn">Step 4–5</div>
+        <div class="sb">
+          <h4>Reconcile, and read the statuses</h4>
+          <p>Must exit 0. Then check the spread of statuses is what you actually produced.</p>
+          <pre>node scripts/reconcile-payments.mjs</pre>
+          <p>No row stuck at <span class="chip c-money">paid</span>. No <span class="chip c-done">completed</span> row missing its amount.
+          Every <span class="mono">payment_ref</span> it lists should match a payment in the Razorpay dashboard.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="sn">Step 6–7</div>
+        <div class="sb">
+          <h4>Merge to main</h4>
+          <p>Rebase onto <code>origin/main</code> first — never push on a stale base. This is the deploy to production.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="sn">Then</div>
+        <div class="sb">
+          <h4>Move Razorpay's webhook to production</h4>
+          <p>It currently points at the preview URL, which is right for this run and wrong the moment M3 merges.
+          Repoint it to <code>https://smb-tutorials.vercel.app/api/payments/webhook</code>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="sn">Step 8b</div>
+        <div class="sb">
+          <h4>Re-prove the webhook against production</h4>
+          <p>Nothing that passed against preview says anything about production — different deployment, different env.</p>
+          <pre>node scripts/probe-deployed-webhook.mjs \
+  https://smb-tutorials.vercel.app/api/payments/webhook</pre>
+          <p>Signed → 200, tampered → 400. An unsigned curl cannot tell configured from broken: both answer 400.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="sn">Step 9</div>
+        <div class="sb">
+          <h4>Confirm the dev checkout is gone</h4>
+          <p>A reachable development checkout is free tutoring for anyone who finds it.</p>
+          <pre>curl -s -o /dev/null -w "%{http_code}\n" \
+  https://smb-tutorials.vercel.app/dev/checkout   <span class="c"># expect 404</span></pre>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    Companion to <span class="mono">docs/superpowers/plans/2026-08-26-m3-payments.md</span>, Task 13.
+    Automated coverage already green: 113 tests · <span class="mono">tsc</span> 0 · eslint · build ·
+    three live database probes · deployed webhook signed 200 / tampered 400.
+  </footer>
+
+</div>
