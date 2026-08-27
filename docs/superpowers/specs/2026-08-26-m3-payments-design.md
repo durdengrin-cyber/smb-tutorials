@@ -445,6 +445,29 @@ Baseline to beat: 57 tests green, `tsc --noEmit` clean, eslint clean.
   the availability toggle and the presence lifecycle, not this milestone's
   payment path.
 
+- **`accepted → cancelled` is in the spec and in the database, but no app code
+  can make it.** §3.1's table lists `accepted | cancelled | student`, `ALLOWED`
+  permits it, and migration 0005's trigger permits it — proved live by
+  `probe-happy-path.mjs`, which performs the write with a real student JWT.
+  The *product* does not offer it: `cancelSession` filters
+  `.eq("status", "pending")`, and the waiting screen renders its Cancel button
+  only in the pre-accept branch, replacing it with Pay once accepted. So a
+  student who changes their mind inside the payment window has no way out but
+  to let the full 120 seconds run down to `payment_expired` — and the teacher
+  is held for that whole time, which compounds the busy-teacher regression
+  above.
+
+  Not fixed inside M3 because it is a UI change on a UI the user has already
+  decided is temporary, and because the safe version depends on the webhook
+  behaviour that makes it safe: a payment arriving for a row that is no longer
+  `accepted` is refunded automatically (`route.ts`, the
+  `payment arrived while status was ${actual}` branch), so a student who
+  cancels in one tab and pays in another gets their money back rather than
+  losing it. **Decision owed: widen `cancelSession` to
+  `.in("status", ["pending", "accepted"])` and show Cancel alongside Pay, or
+  narrow §3.1's table to match the product.** One of the two must move; today
+  the spec and the code disagree.
+
 - **Payouts stay manual.** Stripe Connect remains deferred (parent spec §13, a
   2–4 week project). The teacher dashboard's "Payouts are made manually while
   payments are being set up" note stays true.

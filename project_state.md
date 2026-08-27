@@ -3,12 +3,11 @@
 ## ▶ Resume here (next session)
 1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + `CLAUDE.md` + the M3 spec (`docs/superpowers/specs/2026-08-26-m3-payments-design.md`).
-3. **You are mid-milestone on branch `m3-payments`, ~37 commits ahead of `main`, nothing pushed.** Confirm with `git branch --show-current`. The tree is clean; 83 tests, `tsc --noEmit`, eslint and `npm run build` are all green.
+3. **You are mid-milestone on branch `m3-payments`, 41 commits ahead of `main`, nothing pushed.** Confirm with `git branch --show-current`. The tree is clean; 83 tests, `tsc --noEmit`, eslint and `npm run build` are all green.
 4. **The full SDD ledger is at `.superpowers/sdd/2026-08-26-m3-payments/progress.md`** — every commit, all 26 rulings, every parked finding. It is gitignored, lives only on this machine, and is the authoritative record. **Read it before doing anything.** Tasks with a `Task <N>: complete` line are done; do not re-dispatch them.
-5. **M3 is 10 of 13 tasks complete** (Tasks 1-10). Payments work end to end against a development stub. What remains, in order:
+5. **M3 is 11 of 13 tasks complete** (Tasks 1-11). Payments work end to end against a development stub. **Task 11's owed fix round is done** — all three review findings closed and re-verified live on 2026-08-27; see "Task 11, closed" below. What remains, in order:
    - **Task 12 — the Razorpay adapter. BLOCKED on the user** supplying test-mode keys: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `PAYMENT_WEBHOOK_SECRET`, plus `PAYMENT_PROVIDER=razorpay`. The plan's Task 12 carries the concrete call shapes.
    - **Task 13 — verify and deploy.** Needs the user's two-browser run with Razorpay test cards, then rebase onto `origin/main` and push.
-   - **Task 11 is NOT complete — start here.** Its review came back *changes requested* and the fix round died on a quota limit having changed nothing. Three findings, all recorded verbatim in the ledger's addendum: (a) `accepted → cancelled` by the student is untested and is the one legitimate write the suite cannot prove, because the trigger gates it on the student's own uid with no service-role escape — fix by minting a throwaway student via the admin API rather than asking for a password; (b) the malformed-insert probes leak a row if one ever unexpectedly succeeds, which is exactly when it matters; (c) the attack probe should also run as the student, per spec §8's own wording.
 6. **Resume with `superpowers:subagent-driven-development`**, plan `docs/superpowers/plans/2026-08-26-m3-payments.md`.
 
 ## What M3 built, and what proves it
@@ -17,17 +16,32 @@ The loop now runs: teacher accepts → a 120-second payment window opens → stu
 
 **Migrations `0002`–`0005` are all applied to the live Supabase project.** `0005` is the security boundary: `paid`, `active` and `refunded` require `auth.uid() is null`, so only the service role — held solely by the webhook — can write them.
 
-**Three committed probes prove it against the real database** (`scripts/`), all re-runnable:
-- `probe-session-rls.mjs` — ten attacks with a participant's own JWT. All refused. Needs `PROBE_TEACHER_PASSWORD` in the environment.
-- `probe-happy-path.mjs` — nine legitimate writes plus three malformed inserts. Takes ~60s by design: it waits for a real Postgres deadline to elapse rather than mocking a clock.
+**Three committed probes prove it against the real database** (`scripts/`), all re-runnable with **no arguments and no standing credential** — each mints a throwaway teacher and student via the admin API, uses their real JWTs, and deletes both in a `finally` (`scripts/probe-accounts.mjs`):
+- `probe-session-rls.mjs` — the ten-attack battery run **twice, once as each participant**. All twenty refused.
+- `probe-happy-path.mjs` — sixteen legitimate writes across four rows plus four malformed inserts. Takes ~70s by design: it waits for a real Postgres deadline to elapse rather than mocking a clock.
 - `reconcile-payments.mjs` — asserts the money invariants, exits non-zero on violation so it can gate a deploy.
 
-**⚠ Rotate the test teacher's password.** `tutor-check@smbtutorials.in`'s password was set during this work and passed through conversation transcripts. It is in no committed file (the probes read it from an env var), but rotate it before that account is used beyond internal probing.
+Each probe also asserts that `sessions` **and** `profiles` returned to their pre-run row counts, so a leaked row or a leaked account fails the run.
+
+**⚠ Rotate the test teacher's password.** `tutor-check@smbtutorials.in`'s password was set during this work and passed through conversation transcripts. **No longer blocking anything** — as of 2026-08-27 no probe uses it (`PROBE_TEACHER_PASSWORD` is gone), so this is now plain hygiene rather than a live dependency.
+
+### Task 11, closed (2026-08-27)
+
+Its review had come back *changes requested* and the first fix round died on a quota limit having changed nothing. All three findings are now closed, and every claim below was re-verified by running the scripts against the live database, not by inspection:
+
+1. **`accepted → cancelled` by the student is now proved.** It was the one legitimate M3 write the suite could not make: the trigger gates it on `uid is distinct from old.student_id` with no service-role escape, so only a real student JWT can perform it. `probe-happy-path.mjs` now drives a fourth row — student inserts with their own token → teacher accepts → checkout is stamped → **student cancels with their own token** — and it is PERMITTED.
+2. **The malformed-insert probes can no longer leak a row.** They exist to catch a regression where one *stops* failing, and in that case the created row used to survive in the live table carrying forged data. The id is now captured into the cleanup list *before* the verdict is printed. **Proved by deliberately making one of them a legal insert:** the run went red as it should *and* the table returned to its original 5 rows.
+3. **The attack battery now runs as the student as well as the teacher**, per spec §8, on two independently seeded rows so neither inherits the other's state. Twenty attacks, all refused.
+
+**Beyond the three findings, deliberately:** the probes no longer depend on `PROBE_TEACHER_PASSWORD` or on any fixed account. `scripts/probe-accounts.mjs` mints a throwaway teacher and student per run (admin API, runtime-generated password never logged), and deletes both in a `finally`; a failed deletion fails the run. This is what let the fix round be verified at all in a session that had no teacher password, and it retires the standing credential the ledger flagged for rotation. A fourth malformed insert — a request arriving with payment data already on it — now covers 0005's new insert-trigger ban, which had no probe.
+
+**Green after the round:** 83 tests · `tsc --noEmit` 0 · eslint clean · `npm run build` clean · all three probes exit 0.
 
 ## Known gaps carried out of M3
 
 - **A teacher in the payment window is still visible as available.** Parent spec §125 and M2 design §3.1 both require busy teachers be *hidden*; the untracking that implements it fires on `active`, and M3 inserted `accepted`/`paid` ahead of it. Server-side is safe (the second accept is refused) but a second student can send a request that can only fail, and the teacher's dashboard catch-up query can then mask their own in-flight row. **Root fix is presence — untrack on `accepted`, not `active`.** Recorded in M3 spec §9.
 - **Four ways a row can strand at `paid`**, each requiring our database or the provider to fail *after* money moved. All alarmed, none silent; a durable fix needs a transactional outbox M3 does not have. `reconcile-payments.mjs` is the backstop. M3 spec §9.
+- **`accepted → cancelled` is specified and permitted but unreachable.** M3 spec §3.1 lists it, `ALLOWED` permits it, and the trigger permits it (now proved live with a real student JWT) — but `cancelSession` filters on `status = 'pending'` and the waiting screen swaps Cancel for Pay once accepted. A student who changes their mind mid-payment must wait out the full 120s. Safe either way: a payment landing on a no-longer-`accepted` row is auto-refunded by the webhook. **Decision owed — widen the action, or narrow the spec.** M3 spec §9.
 - **A crossed `payment_ref` alarms rather than auto-refunding** — money sits with the provider until a human acts. Should be impossible (the column is unique and write-once), so its occurrence is itself the signal. M3 spec §9.
 - **The development stub and `/dev/checkout` must not reach production.** Four independent refusals plus a build-time 404. Delete both once Razorpay is live. M3 spec §13.
 - `getOrCreateRoom` in `daily.ts` still has no caller and still mints *public* rooms — the M2 trap, still open.
@@ -106,7 +120,7 @@ The loop now runs: teacher accepts → a 120-second payment window opens → stu
 - Domain: Indian K-12 — CBSE/State Board/ICSE, grades 6–12, streams Science/Commerce/Arts.
 
 ## Build order
-M0 ✅ → M1 ✅ → M2 ✅ → **M3 payments — 11 of 13 tasks done, Razorpay chosen, blocked on test keys** → redesign: IA/design system, student dashboard, admin, polish (4 cycles) → M4 request fallback.
+M0 ✅ → M1 ✅ → M2 ✅ → **M3 payments — 11 of 13 tasks done and reviewed, Razorpay chosen, blocked on test keys** → redesign: IA/design system, student dashboard, admin, polish (4 cycles) → M4 request fallback.
 
 *Ordering note: the redesign sits after M3 by explicit decision, so M3 ships on a UI that is known to be temporary.*
 
