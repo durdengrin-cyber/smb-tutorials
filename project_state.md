@@ -23,7 +23,7 @@ Two stacked defects, both fixed in `dashboard/incoming-request.tsx`:
 
 **Defect 2's fix is BROWSER-CONFIRMED (2026-08-27):** after redeploy, reloading `/dashboard` took the teacher straight into the paid session's room. The recovery path works.
 
-**Defect 1's fix is NOT yet browser-confirmed** — the *live* navigation at the moment payment clears, with no reload. It needs one clean run of scenario 01 end to end. Then continue the checklist from 02.
+**Defect 1's fix is ALSO browser-confirmed (2026-08-27): the teacher went into the room automatically at the moment payment cleared, no reload. SCENARIO 01 PASSES END TO END and both defects are closed.** Superseded note: it was previously — the *live* navigation at the moment payment clears, with no reload. It needs one clean run of scenario 01 end to end. Then continue the checklist from 02.
 
 ### ▶▶ THE ONE THING LEFT IN M3: the user's two-browser run (Task 13)
 
