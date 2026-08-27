@@ -1,39 +1,33 @@
 #!/usr/bin/env node
 // The milestone's most important test (M3 design spec §8). A mock cannot
 // prove a database rule — this attacks the REAL sessions table with a REAL
-// teacher JWT through PostgREST, the exact path a browser uses, and proves
-// migration 0005's trigger refuses every attack it claims to refuse.
+// participant's JWT through PostgREST, the exact path a browser uses, and
+// proves migration 0005's trigger refuses every attack it claims to refuse.
 //
-// Seeds one throwaway session, accepts it as the teacher would, then fires
-// the attacks below with that teacher's own token. Every one must be
-// refused — both by the HTTP layer (non-2xx) and, belt and braces, by
-// re-reading the row afterward to confirm nothing actually moved. Cleans up
-// after itself: the row is deleted and the table's row count is checked
-// against what it was before this script ran.
+// The battery runs TWICE: once as the teacher, once as the student, on two
+// independently seeded rows. Spec §8 asks for both. The trigger's payment
+// gates key on `uid is not null` with no role branching and the RLS UPDATE
+// policy is symmetric, so today this very likely proves the same path twice
+// — that is the point. A future change that DOES branch on role would
+// otherwise go unprobed on one side, and the side left unprobed would be
+// the student: the party with the motive to mark themselves paid.
 //
-// Usage: PROBE_TEACHER_PASSWORD='...' node scripts/probe-session-rls.mjs
-import fs from "node:fs";
+// Both participants are throwaway accounts created and deleted inside this
+// run (see probe-accounts.mjs), so the probe depends on no standing
+// password and leaves nothing behind. It cleans up after itself: the rows
+// and both accounts are deleted, and the sessions and profiles counts are
+// checked against what they were before this script ran.
+//
+// Usage: node scripts/probe-session-rls.mjs
+import {
+  readEnv, jsonHeaders, serviceHeaders, serviceRepr, userHeaders,
+  createThrowawayUser, deleteThrowawayUser, profileCount,
+} from "./probe-accounts.mjs";
 
-const env = Object.fromEntries(
-  fs.readFileSync(".env.local", "utf8").split("\n").filter((l) => l.includes("="))
-    .map((l) => { const i = l.indexOf("="); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")]; })
-);
-
-const TEACHER_ID = "774d5217-7a79-4877-8849-bda795f748df";
-const TEACHER_EMAIL = "tutor-check@smbtutorials.in";
-const STUDENT_ID = "fbc550d4-3d56-4e96-9239-81717fdf5c81";
-const TEACHER_HOURLY_RATE = 500;
-
-const password = process.env.PROBE_TEACHER_PASSWORD;
-if (!password) {
-  console.error("PROBE_TEACHER_PASSWORD is not set. Refusing to run — this script never hard-codes a credential.");
-  console.error("Usage: PROBE_TEACHER_PASSWORD='...' node scripts/probe-session-rls.mjs");
-  process.exit(1);
-}
-
+const env = readEnv();
 const URL = env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
-const jsonHeaders = (h) => ({ ...h, "content-type": "application/json" });
+const SERVICE = serviceHeaders(env);
+const HOURLY_RATE = 500;
 
 let failures = 0;
 const verdict = (refused, label) => {
@@ -41,20 +35,13 @@ const verdict = (refused, label) => {
   console.log(`  ${tag}  ${label}`);
   if (!refused) failures++;
 };
-
-async function signInTeacher() {
-  const res = await fetch(`${URL}/auth/v1/token?grant_type=password`, {
-    method: "POST",
-    headers: jsonHeaders({ apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY }),
-    body: JSON.stringify({ email: TEACHER_EMAIL, password }),
-  });
-  const json = await res.json();
-  if (!res.ok || !json.access_token) {
-    console.error("Teacher sign-in failed — cannot run the probe:", json);
-    process.exit(1);
-  }
-  return json.access_token;
-}
+// Cleanup is not an attack, so it does not get the REFUSED/PERMITTED reading —
+// forcing it through the same verdict prints "REFUSED  sessions returned to
+// its original 5 rows", which reads as the opposite of what happened.
+const cleanedUp = (ok, label) => {
+  console.log(`  ${ok ? "\x1b[32mCLEAN   \x1b[0m" : "\x1b[31mLEFTOVER\x1b[0m"}  ${label}`);
+  if (!ok) failures++;
+};
 
 async function tableCount() {
   const res = await fetch(`${URL}/rest/v1/sessions?select=id`, { headers: SERVICE });
@@ -62,10 +49,10 @@ async function tableCount() {
   return rows.length;
 }
 
-async function seedPending() {
+async function seedPending(studentId, teacherId) {
   const body = {
-    student_id: STUDENT_ID,
-    teacher_id: TEACHER_ID,
+    student_id: studentId,
+    teacher_id: teacherId,
     curriculum: "CBSE",
     grade: "10th",
     stream: "Science",
@@ -73,11 +60,11 @@ async function seedPending() {
     type: "instant",
     status: "pending",
     accept_deadline: new Date(Date.now() + 30_000).toISOString(),
-    hourly_rate: TEACHER_HOURLY_RATE,
+    hourly_rate: HOURLY_RATE,
   };
   const res = await fetch(`${URL}/rest/v1/sessions`, {
     method: "POST",
-    headers: jsonHeaders({ ...SERVICE, prefer: "return=representation" }),
+    headers: jsonHeaders(serviceRepr(env)),
     body: JSON.stringify(body),
   });
   const rows = await res.json();
@@ -85,18 +72,10 @@ async function seedPending() {
   return rows[0];
 }
 
-function teacherHeaders(token) {
-  return jsonHeaders({
-    apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    Authorization: `Bearer ${token}`,
-    prefer: "return=representation",
-  });
-}
-
-async function acceptAsTeacher(id, token) {
+async function acceptAsTeacher(id, teacherToken) {
   const res = await fetch(`${URL}/rest/v1/sessions?id=eq.${id}`, {
     method: "PATCH",
-    headers: teacherHeaders(token),
+    headers: userHeaders(env, teacherToken),
     body: JSON.stringify({ status: "accepted", payment_deadline: new Date(Date.now() + 90_000).toISOString() }),
   });
   const rows = await res.json();
@@ -110,7 +89,7 @@ async function readRow(id) {
   return rows[0];
 }
 
-// Sends the attack with the teacher's own token, then independently re-reads
+// Sends the attack with the attacker's own token, then independently re-reads
 // the row with the service role. A refusal requires BOTH: the HTTP layer
 // said no, AND nothing the attack tried to change actually changed. Trusting
 // the HTTP status alone would miss a trigger that errors but still commits a
@@ -118,7 +97,7 @@ async function readRow(id) {
 async function attack(label, patch, token, id, before) {
   const res = await fetch(`${URL}/rest/v1/sessions?id=eq.${id}`, {
     method: "PATCH",
-    headers: teacherHeaders(token),
+    headers: userHeaders(env, token),
     body: JSON.stringify(patch),
   });
   const httpRefused = !res.ok;
@@ -132,44 +111,81 @@ async function attack(label, patch, token, id, before) {
   return after;
 }
 
+// One battery, run under whichever participant's token is passed in. The row
+// arrives already `accepted` with a payment_deadline, which is the state the
+// student is actually looking at when the Pay button is on screen — the
+// moment they have both the motive and the access to try any of this.
+async function battery(who, token, id, seededRow) {
+  console.log(`\n— attacking ${id} as the ${who} —\n`);
+  let row = seededRow;
+  row = await attack(`[${who}] mark it PAID (free tutoring)`, { status: "paid" }, token, id, row);
+  row = await attack(`[${who}] jump straight to ACTIVE with a chosen started_at and room url`,
+    { status: "active", started_at: new Date().toISOString(), daily_room_url: "https://daily.example/forged-room" },
+    token, id, row);
+  row = await attack(`[${who}] write an amount never charged`, { amount_paid_paise: 1 }, token, id, row);
+  row = await attack(`[${who}] forge a refund reference`, { refund_ref: "stolen" }, token, id, row);
+  row = await attack(`[${who}] mark it REFUNDED outright (never paid)`, { status: "refunded" }, token, id, row);
+  row = await attack(`[${who}] point payment_checkout_url off-platform`,
+    { payment_checkout_url: "https://attacker.example/pay" }, token, id, row);
+  row = await attack(`[${who}] expire the payment window early to dump the student`,
+    { payment_deadline: new Date(Date.now() - 1000).toISOString() }, token, id, row);
+
+  console.log(`\n  — [${who}] attacking the terms of the deal —\n`);
+  row = await attack(`[${who}] rewrite hourly_rate (${HOURLY_RATE} -> 1)`, { hourly_rate: 1 }, token, id, row);
+  row = await attack(`[${who}] rewrite subject`, { subject: "Physics" }, token, id, row);
+  // Last attack in the battery, so its result is not threaded onward.
+  await attack(`[${who}] rewrite accept_deadline (grant an extra hour)`,
+    { accept_deadline: new Date(Date.now() + 3_600_000).toISOString() }, token, id, row);
+}
+
 (async () => {
-  console.log("probe-session-rls — attacking a live session with the teacher's own JWT\n");
+  console.log("probe-session-rls — attacking live sessions with each participant's own JWT\n");
 
-  const countBefore = await tableCount();
-  const token = await signInTeacher();
-  const seeded = await seedPending();
-  let row;
+  const sessionsBefore = await tableCount();
+  const profilesBefore = await profileCount(env);
+
+  let teacher = null;
+  let student = null;
+  const seededIds = [];
+
   try {
-    row = await acceptAsTeacher(seeded.id, token);
-    console.log(`seeded ${seeded.id}, accepted as the teacher (payment_deadline set) — now attacking:\n`);
+    teacher = await createThrowawayUser(env, { role: "teacher", fullName: "Probe Teacher", hourlyRate: HOURLY_RATE });
+    student = await createThrowawayUser(env, { role: "student", fullName: "Probe Student" });
+    console.log(`throwaway teacher ${teacher.id} and student ${student.id} created and signed in`);
 
-    row = await attack("mark it PAID (free tutoring)", { status: "paid" }, token, seeded.id, row);
-    row = await attack("jump straight to ACTIVE with a chosen started_at and room url",
-      { status: "active", started_at: new Date().toISOString(), daily_room_url: "https://daily.example/forged-room" },
-      token, seeded.id, row);
-    row = await attack("write an amount never charged", { amount_paid_paise: 1 }, token, seeded.id, row);
-    row = await attack("forge a refund reference", { refund_ref: "stolen" }, token, seeded.id, row);
-    row = await attack("mark it REFUNDED outright (never paid)", { status: "refunded" }, token, seeded.id, row);
-    row = await attack("point payment_checkout_url off-platform",
-      { payment_checkout_url: "https://attacker.example/pay" }, token, seeded.id, row);
-    row = await attack("expire the payment window early to dump the student",
-      { payment_deadline: new Date(Date.now() - 1000).toISOString() }, token, seeded.id, row);
-
-    console.log("\n  — attacking the terms of the deal —\n");
-    row = await attack("rewrite hourly_rate (500 -> 1)", { hourly_rate: 1 }, token, seeded.id, row);
-    row = await attack("rewrite subject", { subject: "Physics" }, token, seeded.id, row);
-    row = await attack("rewrite accept_deadline (grant an extra hour)",
-      { accept_deadline: new Date(Date.now() + 3_600_000).toISOString() }, token, seeded.id, row);
+    // Two rows, so each battery starts from a pristine `accepted` row. If an
+    // attack ever IS permitted, the first battery leaves its row moved — and
+    // the second must not inherit that state and report a different rule
+    // than the one it is meant to be testing.
+    for (const who of ["teacher", "student"]) {
+      const seeded = await seedPending(student.id, teacher.id);
+      seededIds.push(seeded.id);
+      const accepted = await acceptAsTeacher(seeded.id, teacher.token);
+      const token = who === "teacher" ? teacher.token : student.token;
+      await battery(who, token, seeded.id, accepted);
+    }
   } finally {
-    await fetch(`${URL}/rest/v1/sessions?id=eq.${seeded.id}`, { method: "DELETE", headers: SERVICE });
-    const countAfter = await tableCount();
+    for (const id of seededIds) {
+      await fetch(`${URL}/rest/v1/sessions?id=eq.${id}`, { method: "DELETE", headers: SERVICE });
+    }
+    // Deleting the users cascades profiles and any sessions they took part
+    // in; the explicit session deletes above just make the order deterministic.
+    for (const u of [teacher, student]) {
+      if (u && !(await deleteThrowawayUser(env, u.id))) {
+        console.error(`      could not delete throwaway ${u.role} ${u.id} (${u.email}) — remove it by hand`);
+        failures++;
+      }
+    }
+    const sessionsAfter = await tableCount();
+    const profilesAfter = await profileCount(env);
     console.log();
-    verdict(countAfter === countBefore, `table returned to its original ${countBefore} row(s) (now ${countAfter})`);
+    cleanedUp(sessionsAfter === sessionsBefore, `sessions returned to its original ${sessionsBefore} row(s) (now ${sessionsAfter})`);
+    cleanedUp(profilesAfter === profilesBefore, `profiles returned to its original ${profilesBefore} row(s) (now ${profilesAfter})`);
   }
 
   console.log();
   if (failures === 0) {
-    console.log("ALL ATTACKS REFUSED — migration 0005 holds.");
+    console.log("ALL ATTACKS REFUSED, AS BOTH PARTICIPANTS — migration 0005 holds.");
     process.exit(0);
   } else {
     console.log(`${failures} ATTACK(S) PERMITTED — STOP. The milestone is not shippable.`);
