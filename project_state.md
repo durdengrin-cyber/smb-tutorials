@@ -139,7 +139,13 @@ Scheduled tier (Cal.com later) · Stripe Connect · search/ranking · chat.
 ## Open before real launch
 No-show/refund policy · trust & safety (minors) escalation path · delete test teacher · rewrite `/terms`.
 
-**⚠ ROTATE `SUPABASE_SERVICE_ROLE_KEY` (raised 2026-08-27).** It was printed into a conversation transcript by an assistant command that dumped `.env.local` while showing an appended block. It is in no committed file and `.env.local` is gitignored, but this key bypasses every RLS policy and is the credential the payment webhook holds — it is the one thing migration 0005's whole security boundary assumes only the server has. Not disposable like the test teacher account. Roll it in Supabase → Project Settings → API, then update `.env.local` and the Vercel env var for Production, Preview and Development. **Do this before Task 13's two-browser run**, which puts real webhook traffic on it. The `NEXT_PUBLIC_SUPABASE_ANON_KEY` printed alongside it needs nothing — it is public by design.
+**⚠ ROTATE `SUPABASE_SERVICE_ROLE_KEY` — DEFERRED BY THE USER to the pre-launch pass (decided 2026-08-27). Do not re-raise it before then.** It was printed into a conversation transcript on 2026-08-27 by an assistant command that dumped `.env.local` while showing an appended block. It is in no committed file and `.env.local` is gitignored, but this key bypasses every RLS policy and is the credential the payment webhook holds — the one thing migration 0005's security boundary assumes only the server has.
+
+*Why deferring is defensible:* the exposure is a private transcript, not a public one; the repo is private; the project is pre-launch with a handful of test rows, no real users and no real money. *What makes it stop being defensible:* real users, real money, or a public/production launch — whichever comes first. Rotating it then is the same job, done once, at the point it actually matters.
+
+*The catch to know before doing it:* on legacy Supabase projects `anon` and `service_role` are both JWTs signed by one project JWT secret, so rotating `service_role` regenerates the anon key **and signs out every user**. If the project offers the newer independently-rotatable secret keys (`sb_secret_…`), use those instead — no collateral. Then update `.env.local` and Vercel for Production, Preview and Development, redeploy, and prove it with `reconcile-payments.mjs` and `probe-session-rls.mjs` (both must exit 0). The `NEXT_PUBLIC_SUPABASE_ANON_KEY` exposed alongside it needs nothing — it is public by design.
+
+**`.env.local` is the user's file (2026-08-27).** Do not write to it. Propose lines; let them paste. Reading it is fine — the probes parse it at runtime.
 
 **Needs an admin surface before launch (see the post-M3 section):** manual payouts · no-show/refund policy · trust & safety (minors) escalation.
 
