@@ -49,23 +49,15 @@ export default function TermsPage() {
                 </p>
                 <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
                   <li>
-                    <strong>Tutor No-Show:</strong>
-                    <ul className="list-disc list-inside ml-6 mt-1">
-                      <li>
-                        First Offense: Full refund to the student + a warning
-                        flag on the tutor&apos;s profile
-                      </li>
-                      <li>
-                        Second Offense: Penalty fee deducted from tutor&apos;s
-                        balance
-                      </li>
-                      <li>Third Offense: Immediate suspension from the platform</li>
-                    </ul>
+                    <strong>Tutor No-Show:</strong> Repeatedly failing to attend
+                    confirmed sessions may result in suspension from the
+                    platform. Any refund owed to the student follows the refund
+                    policy above, which is not yet published.
                   </li>
                   <li>
                     <strong>Late Arrival:</strong> Tutors arriving more than 5
-                    minutes late must extend the session by the equivalent time
-                    or offer a partial refund for the missed duration.
+                    minutes late are expected to extend the session by the
+                    equivalent time.
                   </li>
                 </ul>
               </div>
@@ -102,18 +94,8 @@ export default function TermsPage() {
                     permanently removed.
                   </li>
                   <li>
-                    <strong>Unpreparedness:</strong> If a student provides
-                    documented proof of significant unprofessionalism:
-                    <ul className="list-disc list-inside ml-6 mt-1">
-                      <li>
-                        Penalty: Mandatory refund to student and a &quot;Low
-                        Quality&quot; strike
-                      </li>
-                      <li>
-                        Three strikes result in reduced visibility in search
-                        results
-                      </li>
-                    </ul>
+                    <strong>Unpreparedness:</strong> Documented proof of
+                    significant unprofessionalism may result in account action.
                   </li>
                 </ul>
               </div>
@@ -152,15 +134,9 @@ export default function TermsPage() {
                     results in automatic &quot;Offline&quot; status.
                   </li>
                   <li>
-                    <strong>Acceptance Rate Tracking:</strong> We track
-                    acceptance rates. Consistently declining requests while
-                    marked &quot;Live&quot; may result in reduced visibility.
-                  </li>
-                  <li>
-                    <strong>&quot;Ghosting&quot; Penalties:</strong> Accepting a
-                    booking then failing to enter the classroom may incur a
-                    penalty fee, and the student receives a credit at the
-                    platform&apos;s expense.
+                    <strong>&quot;Ghosting&quot;:</strong> Accepting a session and
+                    then failing to join is a serious conduct violation and may
+                    result in account action.
                   </li>
                 </ul>
               </div>
@@ -178,10 +154,6 @@ export default function TermsPage() {
                     <strong>Payment Holding:</strong> Payouts for first 5
                     sessions held for 14 days (instead of standard 7) to ensure
                     no disputes.
-                  </li>
-                  <li>
-                    <strong>Visibility:</strong> Probationary tutors appear with
-                    a &quot;New Tutor&quot; badge.
                   </li>
                   <li>
                     <strong>Mandatory Review:</strong> After the 5th session,
@@ -212,8 +184,7 @@ export default function TermsPage() {
                     <strong>Zero Tolerance for Harassment:</strong> Any form of
                     hate speech, discrimination (based on race, gender, religion,
                     etc.), or sexual harassment toward a tutor will result in
-                    immediate and permanent ban without refund for remaining
-                    credits.
+                    an immediate and permanent ban.
                   </li>
                   <li>
                     <strong>Appropriate Attire:</strong> Students must be dressed

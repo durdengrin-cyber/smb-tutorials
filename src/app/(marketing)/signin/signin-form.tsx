@@ -75,7 +75,7 @@ export function SignInForm({
           </Button>
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
         <Button type="submit" disabled={isPending} className="w-full h-11">
           {isPending ? "Signing in…" : "Sign In"}

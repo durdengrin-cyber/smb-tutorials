@@ -251,7 +251,7 @@ export function TutorForm() {
         </span>
       </div>
 
-      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
 
       <Button type="submit" disabled={isPending} className="w-full h-12 font-bold">
         {isPending ? (

@@ -57,7 +57,7 @@ export function GoogleButton({ label, next }: { label: string; next?: string }) 
         </svg>
         {pending ? "Redirecting to Google…" : label}
       </Button>
-      {error && <p className="text-sm text-destructive -mt-4 mb-4">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive -mt-4 mb-4">{error}</p>}
     </>
   );
 }
