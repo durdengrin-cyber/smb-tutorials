@@ -27,7 +27,7 @@ export async function signUpTutor(
     // created this account as a student (Google sends no role). Upgrade it
     // only if it has no history — an account that has already been used
     // needs an admin action to change role, and admin is cycle 3.
-    const [{ count: sessionCount }, { count: subjectCount }] = await Promise.all([
+    const [sessionRes, subjectRes] = await Promise.all([
       supabase
         .from("sessions")
         .select("id", { count: "exact", head: true })
@@ -37,6 +37,16 @@ export async function signUpTutor(
         .select("teacher_id", { count: "exact", head: true })
         .eq("teacher_id", existingUser.id),
     ]);
+
+    // A failed Postgrest query returns { count: null, error: ... }, which is
+    // indistinguishable from a genuine zero unless the error is inspected
+    // first. Failing open here would let a transient failure, an RLS change,
+    // or schema drift silently convert an account with real history — the
+    // one thing spec §5.1 says must never happen. Fail closed instead.
+    if (sessionRes.error || subjectRes.error) {
+      console.error("[tutorSignUp] history check failed", sessionRes.error ?? subjectRes.error);
+      return { error: "Couldn't verify this account. Try again in a moment." };
+    }
 
     const { data: existing } = await supabase
       .from("profiles")
@@ -48,8 +58,8 @@ export async function signUpTutor(
       !existing ||
       !canBecomeTeacher({
         role: existing.role as Role,
-        sessionCount: sessionCount ?? 0,
-        subjectCount: subjectCount ?? 0,
+        sessionCount: sessionRes.count ?? 0,
+        subjectCount: subjectRes.count ?? 0,
       })
     ) {
       return {
@@ -63,6 +73,7 @@ export async function signUpTutor(
       .update({ role: "teacher", full_name: v.fullName, phone: v.phone, hourly_rate: v.hourlyRate })
       .eq("id", existingUser.id);
     if (upgradeError) {
+      console.error("[tutorSignUp] profile upgrade failed", upgradeError);
       return { error: "Could not upgrade this account to a teacher account." };
     }
 
