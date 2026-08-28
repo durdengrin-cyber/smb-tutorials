@@ -52,7 +52,7 @@
 Component tests are impossible today: `vitest.config.ts` sets `environment: "node"` and there is no JSX transform or DOM. Later tasks unit-test `StatusPill`, `Money` and the shell, so this comes first.
 
 **Files:**
-- Modify: `vitest.config.ts`
+- Modify: `vitest.config.mts`
 - Create: `vitest.setup.ts`, `src/test/harness.test.tsx`
 - Modify: `package.json` (dev dependencies)
 
@@ -63,10 +63,17 @@ Component tests are impossible today: `vitest.config.ts` sets `environment: "nod
 - [ ] **Step 1: Install the test dependencies**
 
 ```bash
-npm install -D @testing-library/react@^16 @testing-library/jest-dom@^6 jsdom@^25 @vitejs/plugin-react@^4
+npm install -D @testing-library/react@^16 @testing-library/jest-dom@^6 jsdom@^25 @vitejs/plugin-react@^5.2.0
 ```
 
-`@testing-library/react` v16 is the first line that supports React 19; an older major will fail against `react@19.2.8`.
+`@testing-library/react` v16 is the first line that supports React 19; an older major will
+fail against `react@19.2.8`.
+
+**`@vitejs/plugin-react` must be v5.2.0 or newer, not v4.** v4 peers on vite `^4 || ^5`, which
+forces npm to downgrade the installed `vite@8.2.2` to 7.x — a major-version downgrade of the
+engine the test runner is built on, for no gain. v5.2.0 peers on vite `^4 || ^5 || ^6 || ^7 || ^8`
+and dedupes onto the vite already present. After installing, confirm with `npm ls vite` that
+8.2.2 is retained.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -102,7 +109,11 @@ Create `vitest.setup.ts`:
 import "@testing-library/jest-dom/vitest";
 ```
 
-Replace `vitest.config.ts` with:
+Replace the contents of `vitest.config.mts` with the following. **The `.mts` extension is
+deliberate and must not be renamed:** `package.json` has no `"type"` field, so the package is
+CommonJS, and this file uses `import.meta.dirname`, which is invalid in a CJS-interpreted
+`.ts`. The extension is what unambiguously marks it ESM to any tool that loads it outside
+Vite's own config bundler. `tsconfig.json`'s `**/*.mts` include glob exists for this file.
 
 ```ts
 import { defineConfig } from "vitest/config";
@@ -129,7 +140,7 @@ Expected: the new harness test PASSES and all 113 existing tests still pass. If 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add vitest.config.ts vitest.setup.ts src/test/harness.test.tsx package.json package-lock.json
+git add vitest.config.mts vitest.setup.ts src/test/harness.test.tsx package.json package-lock.json
 git commit -m "test: add component testing harness (jsdom + Testing Library)"
 ```
 
@@ -264,7 +275,18 @@ Expected: FAIL — `token --primary not found as a hex value`.
 npx shadcn@latest init
 ```
 
-Answer: style **new-york**, base colour **neutral**, CSS variables **yes**. It writes `components.json`, `src/lib/utils.ts`, and a token block into `src/app/globals.css`.
+The CLI is v4.19.0 and no longer prompts for style/base-colour — it uses presets. Run it
+non-interactively as `--preset nova --base radix --css-variables`, which is the accepted
+baseline for this project (`components.json` records `"style": "radix-nova"`). It writes
+`components.json`, `src/lib/utils.ts`, and a token block into `src/app/globals.css`.
+
+**The nova preset renders `destructive` as a 10% tint** (`bg-destructive/10 text-destructive`)
+rather than a solid fill. Override that in `button.tsx` and `badge.tsx` to
+`bg-destructive text-destructive-foreground`: spec §9 makes actionable controls solid, a
+tinted destructive button reads as low-affordance for a destructive action, and without the
+override `--destructive-foreground` is a dead token whose AA test certifies a colour pair
+that appears nowhere on screen. Editing generated primitives is expected — shadcn is copy-in
+and you own the files.
 
 **If this fails against Tailwind v4 / React 19 / Next 16.3.2** — the spec flags this as the cycle's main risk — stop, report the exact error, and fall back to hand-writing the same primitives directly on Radix packages. That changes effort, not architecture, and must not be silently worked around.
 
@@ -733,9 +755,17 @@ export default function NotFound() {
 }
 ```
 
-- [ ] **Step 5: Remove the inlined header from the home page**
+- [ ] **Step 5: Remove every duplicate header in this group**
 
-`src/app/(marketing)/page.tsx` inlines its own `<header>` with a duplicate logo and a Sign In / Sign Out control (roughly lines 74–113). Delete that whole `<header>` block — the group layout now provides it. Leave the rest of the page alone; its copy is Task 13's job.
+`src/app/(marketing)/page.tsx` inlines its own `<header>` with a duplicate logo and a
+Sign In / Sign Out control (roughly lines 74–113). Delete that whole `<header>` block — the
+group layout now provides it. Leave the rest of the page alone; its copy is Task 13's job.
+
+`terms/page.tsx` and `tutor-signup/page.tsx` render `<SiteHeader />`. Delete those usages
+and their imports too. **Do this here, not later:** the group layout added in Step 4 renders
+a header on every page in the group, so leaving these in place would ship a visible double
+header on two pages for the next five tasks. `src/components/site-header.tsx` itself stays
+for now — the `(app)` pages still use it until Task 9.
 
 - [ ] **Step 6: Verify**
 
@@ -948,7 +978,10 @@ export default function NotFound() {
 Run: `npm test && npx tsc --noEmit && npm run lint && npm run build && git checkout next-env.d.ts`
 
 Then `npm run dev` and confirm:
-- Signed out, `/dashboard` → `/signin?next=%2Fdashboard`; signing in returns you to `/dashboard`.
+- Signed out, `/dashboard` → `/signin?next=%2Fdashboard`. **Only the bounce is verifiable in
+  this task.** `signIn` still hardcodes `redirect("/")` and does not read `next` until Task 7,
+  so the return trip cannot work yet — Task 7's Step 5 is where that half is verified. Do not
+  fix `signIn` here; it is out of this task's file list.
 - A student visiting `/dashboard` → `/find`.
 - A teacher visiting `/find` → `/dashboard`.
 - `/call/<id>` renders with no navigation chrome.
@@ -1023,19 +1056,49 @@ git rm -r src/app/dev
 git rm src/lib/payments/stub.ts src/lib/payments/stub.test.ts
 ```
 
-Then remove the `stub` branch from `src/lib/payments/index.ts`, so an unknown or absent `PAYMENT_PROVIDER` throws instead of silently selecting a stub:
+`src/lib/payments/index.ts` is entangled with the stub in **five** places, not one. Remove
+all of them:
+
+1. Line 2 — `import { stubPort, type StubPaymentPort } from "./stub";`
+2. Line 6 — `export type { StubPaymentPort } from "./stub";` (a public re-export)
+3. Lines 13–22 — the `provider === "stub"` branch and its production refusal
+4. Lines 39–46 — `getStubPort()`, whose only caller was `src/app/dev/checkout/actions.ts`,
+   deleted above. Confirm with `grep -rn "getStubPort" src` before removing.
+5. Line 48 — `paymentProviderName`'s `?? "stub"` default
+
+**The fifth is the dangerous one and the reason this step is not cosmetic.**
+`paymentProviderName()` is written into the `payment_provider` column on real money rows
+(`settle.ts:126`, `settle.ts:248`, `payment-actions.ts:81`). Left as-is with the stub
+deleted, an unset `PAYMENT_PROVIDER` would stamp live payments with the name of a provider
+that no longer exists in the codebase.
+
+Give both functions one shared source of truth, matching the "refuse loudly rather than
+degrade quietly" stance already stated in this file's comments:
 
 ```ts
-export function paymentPort(): PaymentPort {
+function requireProvider(): string {
   const provider = process.env.PAYMENT_PROVIDER;
-  if (provider === "razorpay") {
-    // ...existing razorpay construction, unchanged...
+  if (!provider) {
+    throw new Error("PAYMENT_PROVIDER is unset — configure a real provider");
   }
-  throw new Error(`Unknown or unset PAYMENT_PROVIDER: ${provider ?? "(unset)"}`);
+  return provider;
 }
+
+export function getPaymentPort(): PaymentPort {
+  const provider = requireProvider();
+
+  if (provider === "razorpay") {
+    // ...existing razorpay construction and its comment, unchanged...
+  }
+
+  throw new Error(`Unknown PAYMENT_PROVIDER: ${provider}`);
+}
+
+export const paymentProviderName = () => requireProvider();
 ```
 
-Read the existing file and preserve the Razorpay branch exactly as written — only the stub branch and its production refusal go.
+Read the existing file and preserve the Razorpay branch and its comment exactly as
+written — the comment about a missing webhook secret documents a real failure mode.
 
 - [ ] **Step 4: Propose the env change (do not write it)**
 
@@ -1059,11 +1122,11 @@ git commit -m "test: require every page to live in a route group; delete the pay
 
 **Files:**
 - Create: `src/app/(app)/home/page.tsx`
-- Modify: `src/app/auth/actions.ts`, `src/app/(marketing)/tutor-signup/actions.ts`, `src/app/auth/callback/route.ts`
+- Modify: `src/app/auth/actions.ts`, `src/app/(marketing)/tutor-signup/actions.ts`, `src/app/auth/callback/route.ts`, `src/app/(marketing)/signin/page.tsx`, `src/app/(marketing)/signin/signin-form.tsx`, `src/lib/routes.ts`, `src/lib/routes.test.ts`
 
 **Interfaces:**
 - Consumes: `requireUser` from `@/lib/auth`, `resolveHome` from `@/lib/routes`
-- Produces: `/home` as the single post-login destination
+- Produces: `/home` as the single post-login destination; `safeNext(next, fallback): string`
 
 - [ ] **Step 1: Create the resolver**
 
@@ -1102,6 +1165,159 @@ to:
 ```ts
   const next = searchParams.get("next") ?? "/home";
 ```
+
+- [ ] **Step 3b: Write the failing test for `safeNext`**
+
+`requireUser` sends a bounced visitor to `/signin?next=<attempted path>`, but **nothing reads
+that parameter today** — `signIn` hardcodes `redirect("/")`. So the return trip does not work,
+and the moment it is wired up, `next` becomes attacker-controllable input. `signInRedirect`
+does not constrain its input either: `signInRedirect("//evil.example")` yields
+`/signin?next=%2F%2Fevil.example`. Validate at the point of consumption.
+
+Add to `src/lib/routes.test.ts`:
+
+```ts
+import { safeNext } from "./routes";
+
+describe("safeNext", () => {
+  it("passes through a same-origin path", () => {
+    expect(safeNext("/dashboard", "/home")).toBe("/dashboard");
+  });
+
+  it("keeps the query string", () => {
+    expect(safeNext("/waiting/abc?paid=1", "/home")).toBe("/waiting/abc?paid=1");
+  });
+
+  it("falls back when absent", () => {
+    expect(safeNext(null, "/home")).toBe("/home");
+    expect(safeNext("", "/home")).toBe("/home");
+  });
+
+  it("refuses an absolute URL", () => {
+    expect(safeNext("https://evil.example/x", "/home")).toBe("/home");
+  });
+
+  it("refuses a protocol-relative URL", () => {
+    expect(safeNext("//evil.example", "/home")).toBe("/home");
+  });
+
+  it("refuses a backslash-smuggled protocol-relative URL", () => {
+    expect(safeNext("/\\evil.example", "/home")).toBe("/home");
+  });
+  // The URL parser strips ASCII tab/CR/LF from anywhere in the input before
+  // parsing, so each of these collapses to "//evil.example" in a browser.
+  it("refuses a tab-smuggled protocol-relative URL", () => {
+    expect(safeNext("/\t/evil.example", "/home")).toBe("/home");
+  });
+
+  it("refuses CR- and LF-smuggled protocol-relative URLs", () => {
+    expect(safeNext("/\r/evil.example", "/home")).toBe("/home");
+    expect(safeNext("/\n/evil.example", "/home")).toBe("/home");
+  });
+
+  // Tab-stripping and backslash-normalisation compose: remove the tab and the
+  // backslash becomes the second slash.
+  it("refuses a tab-plus-backslash payload", () => {
+    expect(safeNext("/\t\\evil.example", "/home")).toBe("/home");
+  });
+
+  it("refuses a non-string value such as an uploaded File part", () => {
+    expect(safeNext(new File([""], "x"), "/home")).toBe("/home");
+  });
+
+});
+```
+
+- [ ] **Step 3c: Run it to verify it fails**
+
+Run: `npx vitest run src/lib/routes.test.ts`
+Expected: FAIL — `safeNext` is not exported.
+
+- [ ] **Step 3d: Implement `safeNext`**
+
+Add to `src/lib/routes.ts`:
+
+```ts
+// `next` reaches us from a query string, so it is attacker-controlled, and a
+// redirect built from user input is an open redirect.
+//
+// Do NOT hand-roll this with prefix checks. An earlier version tested for "//"
+// and "/\\" and was defeated four ways, because the WHATWG URL parser strips
+// ASCII tab/CR/LF from ANYWHERE in the input before parsing, and then
+// normalises backslashes to slashes. "/\t/evil.example" becomes
+// "//evil.example" — protocol-relative, off-site — and "/\t\\evil.example"
+// gets there by both routes at once. Enumerating bad characters is a losing
+// game against a parser that rewrites its input.
+//
+// Instead resolve against a placeholder origin using the same parser the
+// browser will use, and reject anything that escapes it. Returning the parsed
+// components rather than the raw input also guarantees that no control
+// character survives into a Location header.
+const SAFE_NEXT_BASE = "https://smb.invalid";
+
+export function safeNext(next: unknown, fallback: string): string {
+  if (typeof next !== "string" || !next) return fallback;
+  if (!next.startsWith("/")) return fallback;
+  try {
+    const url = new URL(next, SAFE_NEXT_BASE);
+    if (url.origin !== SAFE_NEXT_BASE) return fallback;
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return fallback;
+  }
+}
+```
+
+`next` is typed `unknown` rather than `string | null` on purpose: `FormData.get()`
+returns `FormDataEntryValue | null`, which can be a `File`. A raw POST naming `next`
+as a file part would otherwise reach `.startsWith` and throw a 500. The `typeof`
+guard closes that at the root, so no call site needs a cast.
+
+- [ ] **Step 3e: Run it to verify it passes**
+
+Run: `npx vitest run src/lib/routes.test.ts`
+Expected: PASS (12 tests)
+
+- [ ] **Step 3f: Actually wire `next` through the password sign-in path**
+
+Without this the bounce-and-return flow does not exist, and Step 5's manual check cannot pass.
+
+In `src/app/(marketing)/signin/page.tsx`, read `next` alongside the existing `error`
+(`searchParams` is a Promise in this Next version) and pass it to the form:
+
+```tsx
+const { error, next } = await searchParams;
+```
+```tsx
+<SignInForm initialError={initialError} next={typeof next === "string" ? next : undefined} />
+```
+
+In `src/app/(marketing)/signin/signin-form.tsx`, accept the prop and carry it in the form so
+it reaches the server action — the action receives `FormData`, not the URL:
+
+```tsx
+{next && <input type="hidden" name="next" value={next} />}
+```
+
+In `src/app/auth/actions.ts`, have `signIn` honour it, validated:
+
+```ts
+import { safeNext } from "@/lib/routes";
+// ...
+  const target = safeNext(formData.get("next"), "/home");
+  redirect(target);
+```
+
+Also validate the OAuth callback's parameter in `src/app/auth/callback/route.ts` — it is the
+same attacker-controlled input arriving by a different door:
+
+```ts
+const next = safeNext(searchParams.get("next"), "/home");
+```
+
+**Leave `signUpStudent` and `tutorSignUp` going to `/home` unconditionally.** A brand-new
+account has no deep link it was bounced from, and giving them a `next` widens the attack
+surface for no gain.
 
 - [ ] **Step 4: Verify no `redirect("/")` survives on a sign-in path**
 
@@ -1230,10 +1446,20 @@ const { data: { user } } = await supabase.auth.getUser();
 if (user) {
   // Arrived via Google with teacher intent: the account exists and is a
   // student by default. Upgrade it only if it has no history.
-  const [{ count: sessionCount }, { count: subjectCount }] = await Promise.all([
+  // Capture the whole response, not just `count`. Postgrest returns
+  // `count: null` when a query FAILS as well as when it legitimately counts
+  // zero — the error field is the only thing that tells them apart. Coercing
+  // with `?? 0` would turn a transient failure into "this account has no
+  // history" and permit exactly the silent role conversion §5.1 forbids.
+  const [sessionRes, subjectRes] = await Promise.all([
     supabase.from("sessions").select("id", { count: "exact", head: true }).eq("student_id", user.id),
     supabase.from("teacher_subjects").select("teacher_id", { count: "exact", head: true }).eq("teacher_id", user.id),
   ]);
+
+  if (sessionRes.error || subjectRes.error) {
+    console.error("[tutorSignUp] history check failed", sessionRes.error ?? subjectRes.error);
+    return { error: "Couldn't verify this account. Try again in a moment." };
+  }
 
   const { data: existing } = await supabase
     .from("profiles")
@@ -1243,8 +1469,8 @@ if (user) {
 
   if (!existing || !canBecomeTeacher({
     role: existing.role as Role,
-    sessionCount: sessionCount ?? 0,
-    subjectCount: subjectCount ?? 0,
+    sessionCount: sessionRes.count ?? 0,
+    subjectCount: subjectRes.count ?? 0,
   })) {
     return { error: "This account can't be converted to a teacher account. Sign out and register with a different email." };
   }
@@ -1504,13 +1730,15 @@ export default async function AppLayout({
 
 - [ ] **Step 7: Remove the now-duplicated headers**
 
-`SiteHeader` is rendered by `dashboard/page.tsx`, `teachers/page.tsx` and `find/page.tsx`, which now sit inside the shell. Delete those `<SiteHeader ... />` usages and their imports. Then:
+`SiteHeader` is rendered by `dashboard/page.tsx`, `teachers/page.tsx` and `find/page.tsx`,
+which now sit inside the shell. Delete those `<SiteHeader ... />` usages and their imports.
+The `(marketing)` usages were already removed in Task 4, so this leaves the component with
+no callers:
 
 ```bash
+grep -rn "SiteHeader" src   # expect no hits outside site-header.tsx itself
 git rm src/components/site-header.tsx
 ```
-
-`terms/page.tsx` and `tutor-signup/page.tsx` also used it — they are in `(marketing)` and already have that group's header from Task 4, so remove those usages too.
 
 - [ ] **Step 8: Verify**
 
@@ -1912,7 +2140,20 @@ Scheduled booking is deferred and unbuilt. Replace that entry with the loop that
 
 - [ ] **Step 2: Delete the false claims in `/terms`**
 
-Remove every clause describing a messaging/chat system, package or bundle purchases, and ratings or reviews. None exist.
+Remove every clause describing a feature the product does not have. The named categories are a
+messaging/chat system, package or bundle purchases, and ratings or reviews — but the test is
+**does this exist**, not *is it on the list*. Also remove **search-ranking and visibility
+claims** ("reduced visibility in search results", "Acceptance Rate Tracking") and
+**profile-badge claims** ("Probationary tutors appear with a 'New Tutor' badge"). `CLAUDE.md`
+defers search/ranking explicitly and no badge system exists — the same defect wearing
+different words.
+
+**Cut the specific refund and penalty terms too.** Otherwise the page states that the
+no-show and refund policy is unpublished and then, three sections later, specifies mandatory
+refunds and strike penalties for exactly those scenarios. A document that contradicts itself
+is worse than one merely out of date. Keep the general "conduct violations may result in
+account action" framing; delete the specific entitlements. **Deleting is not drafting** —
+that distinction is what keeps this inside scope.
 
 **Do not write replacement policy.** No-show and refund policy is an open pre-launch decision (parent spec §12) and inventing it here would be worse than the current text. Cut the sections; leave a single line saying the policy is not yet published, and leave the pre-launch rewrite tracked where it already is.
 

@@ -1,5 +1,132 @@
 # SMB Tutorials — Project State
 
+## ✅ CYCLE 1 (IA + DESIGN SYSTEM) IMPLEMENTATION COMPLETE — Task 14 verification run 2026-08-28
+
+**All 14 tasks done, all reviewed clean (including the controller-authored 81d20c0 fix, whose
+owed re-review discharged clean).** Branch `redesign/ia-design-system`, tree clean, **nothing
+pushed, `main` untouched**. Full verification report:
+`.superpowers/sdd/2026-08-28-ia-design-system/task-14-report.md`.
+
+**Automated bar, all green:** 153 tests passing / 3 skipped, `tsc --noEmit` clean, `eslint`
+clean, `next build` clean (14 routes, proxy/middleware present).
+
+**Database probes, all exit 0 against the live Supabase project** (throwaway accounts minted
+and deleted each run): `probe-session-rls.mjs` (20 attacks, all refused, both roles),
+`probe-happy-path.mjs` (full lifecycle + refund + cancel + expiry/late-webhook races, all
+permitted; 4 malformed inserts, all refused), `reconcile-payments.mjs` (all 3 money invariants
+hold, ₹3000 earnings across 7 completed sessions). Migration `0006` (unapplied CHECK-only
+widening for the still-nonexistent admin role) changed nothing, as expected.
+
+**Two things NOT fixed here, deliberately, for the whole-branch review to route:**
+1. **`src/app/(marketing)/page.tsx` still hand-rolls gradient CTAs** (`bg-gradient-to-r
+   from-teal-*`, three sites plus one untargeted icon tile) instead of the `Button` primitive
+   — grepped and found by Task 14's Step 1, not migrated by any task (Task 13 touched this
+   file only to delete false scheduling copy, not its CTA markup). Reported per this task's
+   instructions rather than fixed, to preserve the review gate.
+2. **Google OAuth dashboard config is still the user's outstanding task.**
+   `probe-auth-providers.mjs` exits 1 naming `google` — verified 2026-08-28, unchanged from
+   the standing note below. The client code is correct; this is Google Cloud + Supabase
+   dashboard work only.
+
+**Not verified this run: the two-browser manual walk (Step 5).** No browser-driving tool was
+available in this session (no `claude-in-chrome`, no headless-browser package in the repo),
+so client-side realtime — presence, incoming-request delivery, the accept/pay/call handoff —
+is unproven since Task 12's last confirmed walk. This leg goes to the user before any deploy.
+
+**Next spec to write: step 2, "reachability."** This cycle's spec §7 already fixed the vocabulary
+both specs must agree on — four teacher states: **Offline** · **Available** · **In a session**
+(all three shipped in this cycle, `StatusPill`) · **Unreachable** (not built — step 2's job is
+the mechanism that detects and activates this fourth state). Per §7, deliberately: the
+availability toggle stays inside `/dashboard` rather than moving into the shell in this cycle,
+because promoting it now would mean building client plumbing (the `inSession` coupling between
+the toggle and `IncomingRequest`) that step 2 dissolves by making availability server-known.
+
+**Deploy steps NOT run, per this task's explicit stop condition** — push, PR, preview-URL curl
+are the user's decision; see the report for the exact commands staged and not executed.
+
+## ⏸ HALTED ON THE WEEKLY LIMIT — resets Aug 30 07:30 IST
+
+**13 of 14 tasks implemented; 12 fully reviewed.** Branch `redesign/ia-design-system`,
+**153 tests passing / 3 skipped**, tsc + lint + build clean, tree clean, nothing pushed,
+`main` untouched.
+
+**One commit is owed an independent review: `81d20c0`.** I wrote it in the controller session
+because the weekly limit made subagent dispatch impossible and the branch was sitting in a
+regressed state — `/terms` contradicted itself. It applies Task 13's four reviewed findings.
+**Re-review it FIRST on resume, before Task 14.**
+
+**Then:** Task 14 (final verification; do not push without the user), then the whole-branch
+review.
+
+**For the user to decide:** `/terms` still contains two clauses that *deny* refunds for
+serious misconduct (harassment, inappropriate attire). I left them — they state an exclusion
+rather than an entitlement, so they do not contradict the "policy not yet published" line the
+way the deleted clauses did, and softening abuse provisions on a legal page is not mine to do
+unilaterally.
+
+## ⏸ (superseded) HALTED ON A RATE LIMIT — 2026-08-28 18:03 IST
+
+**Tasks 1-10 of 14 are complete and reviewed clean.** Task 11's implementer was killed by an
+HTTP 429 session limit mid-edit — not a code failure. `main` is untouched; nothing is pushed.
+
+- Branch `redesign/ia-design-system`, HEAD `35b11a9`, **153 tests passing / 3 skipped**,
+  tsc + lint + build all clean.
+- **One uncommitted file: `src/app/(app)/(student)/find/page.tsx`** — Task 11's first
+  migration, verified coherent (tsc clean, tags balanced). **Keep it. Do not redo that file.**
+- Resume by re-dispatching Task 11 for the four remaining files. The ledger's HALTED section
+  has the detail, including the money-unit trap that is the real hazard in this task.
+
+## ⏸ PAUSED MID-CYCLE — READ THIS FIRST (2026-08-28)
+
+**The redesign brainstorm is DONE. The spec and plan are written and approved. Implementation
+is UNDERWAY and paused at Task 5 of 14.** Everything below this block that describes the
+redesign as "not started" is historical — it describes the state before 2026-08-28.
+
+- **Branch: `redesign/ia-design-system`** — 11 commits, working tree clean, **not pushed**.
+  `main` is untouched and still matches production.
+- **Spec:** `docs/superpowers/specs/2026-08-28-ia-design-system-design.md` (approved)
+- **Plan:** `docs/superpowers/plans/2026-08-28-ia-design-system.md` (14 tasks)
+- **Ledger — the recovery map, read it before doing anything:**
+  `.superpowers/sdd/2026-08-28-ia-design-system/progress.md`. It records every task's state
+  and 14 numbered rulings (R1-R14) made on the user's behalf. Git-ignored scratch; if
+  `git clean -fdx` destroyed it, recover from `git log`.
+
+**Exact resume point: Task 5 is implemented (`0729c4e`) but its review was never dispatched.**
+Do NOT re-run Task 5's implementer. Dispatch the task review first — the diff package is
+already built. The ledger's PAUSED section has the exact SHAs and the two authorizations the
+reviewer needs.
+
+**Done and reviewed clean:** 1 test harness · 2 shadcn/ui + contrast-checked tokens ·
+3 admin role + identity resolution · 4 `(marketing)` route group.
+**Suite: 127 passing / 3 skipped; tsc, lint, build all clean.**
+
+### Three things waiting on the user
+
+1. **Google OAuth is not configured** — verified 2026-08-28, `/auth/v1/settings` reports
+   `google: false` and `/auth/v1/authorize?provider=google` returns
+   `400 "Unsupported provider: provider is not enabled"`. The client code is correct; this is
+   dashboard work. Google Cloud OAuth client with redirect URI
+   `https://upggvzzzoxqgourjywtd.supabase.co/auth/v1/callback`; client ID + secret into
+   Supabase; both `/auth/callback` origins into the Supabase redirect allowlist (an
+   un-allowlisted `redirect_to` does not error, it silently falls back to the Site URL).
+2. **`PAYMENT_PROVIDER` in `.env.local` must be `razorpay` before Task 6 lands.** Task 6
+   deletes the payment stub, after which an unset provider throws by design. `.env.local` is
+   the user's file and was not touched.
+3. **Migration `0006_roles_admin.sql` is written but deliberately NOT applied** to the live
+   Supabase project (ruling R9). It only widens the `profiles.role` CHECK to allow `'admin'`
+   and is inert until the admin cycle — nothing can hold that role until the constraint
+   widens AND someone sets it.
+
+### Known finding carried forward
+
+`signInRedirect` does not constrain its input, so `signInRedirect("//evil.example")` yields
+`/signin?next=%2F%2Fevil.example`. **No open redirect exists today** — the only caller passes
+a same-origin path from the proxy. **Task 7 is the task that makes `/signin` and
+`/auth/callback` consume `?next=`, and must validate it is a same-origin path (starts with
+`/`, not `//`) before redirecting.** Ruling R11.
+
+---
+
 ## ▶ Resume here (next session)
 1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + `CLAUDE.md`. **You are on `main`, and it is clean and deployed.**

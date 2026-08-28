@@ -347,3 +347,113 @@ Recorded so they are cheap to overturn:
   Installing shadcn is an afternoon; removing duplicated Tailwind from fourteen pages
   without regressing the verified M2/M3 flows is the real cost, and the plan should size it
   honestly.
+
+
+---
+
+## 17. Findings from the whole-branch review (2026-08-28) — READ BEFORE CYCLE 2
+
+The whole-branch review found three defects that originated **in this spec**, not in any
+implementation. Every task passed its own review because every task faithfully executed
+instructions that were themselves incomplete. They are recorded here so the next cycle does
+not inherit them silently.
+
+### 17.1 SECURITY — `profiles.role` is writable by its own owner. Do NOT apply `0006`.
+
+Migration `0001` declares:
+
+```sql
+create policy "update own profile" on public.profiles
+  for update using (id = (select auth.uid())) with check (id = (select auth.uid()));
+```
+
+No column restriction, and nothing in `0002`–`0005` adds one. Any authenticated user can run
+`update({ role: "teacher", hourly_rate: 99999 })` against their own row from a browser holding
+only the anon key.
+
+**This policy is pre-existing. What this cycle changed is what it is worth.** Three things
+compound:
+
+1. §4 elevates `profiles.role` to *the* authority — so the one column any user can write is now
+   the only thing `requireUser` and `requireRole` trust.
+2. §5.1 declares that an account with history must not be silently converted to a teacher, and
+   implements that as `canBecomeTeacher` in a **server action** — a control the client bypasses
+   entirely by writing the row directly.
+3. **`0006` widens the CHECK to include `'admin'`.** The moment it is applied,
+   `update({ role: "admin" })` becomes a legal write, and cycle 3 builds the admin surface on
+   `requireRole("admin")` reading this exact column.
+
+Nothing is exploitable beyond the pre-existing student→teacher promotion **while `0006` stays
+unapplied** — the live CHECK still rejects `'admin'` and no `/admin` route exists. That is not
+a happy accident to rely on: **`0006` being unapplied is currently the only thing holding that
+door shut.**
+
+**Required before `0006` is applied, and therefore before cycle 3 begins:** a `BEFORE UPDATE`
+trigger on `profiles` that raises when `new.role is distinct from old.role`, with the
+legitimate teacher upgrade moved to a `security definer` RPC that re-checks
+`canBecomeTeacher`'s conditions in SQL. Do not solve it by reaching for the service role in a
+user-facing action — this project holds that key solely for the payment webhook.
+
+**Note the trap in the plan that hid this:** Task 8's guidance read "`0001`'s update policy
+allows a profile to update itself, so this write is permitted. If it is refused at runtime,
+stop and report it." It treated RLS permitting the write as *confirmation* rather than as the
+finding. When a plan says a permission check passed, ask what else that permission permits.
+
+### 17.2 §3 relocated two publicly-browsable pages behind a sign-in wall
+
+`/find` and `/teachers` had **no auth check at all** before this cycle, and `0001`'s SELECT
+policy exists specifically to allow anonymous browsing of teacher profiles. §3's route table
+placed both under `(app)/(student)` without noting they were public, so Task 5's instruction to
+"delete the per-page gates" produced no signal that it was *adding* one.
+
+Consequences: a signed-out visitor clicking the homepage's two primary CTAs now hits a sign-in
+wall, and a signed-in **teacher** cannot view `/teachers` at all. §13's regression bar has no
+anonymous-browse check, for the same reason.
+
+**This is a product decision awaiting the owner.** If public browse should stay, `/teachers`
+belongs in `(marketing)` and its criteria-recovery query must degrade when there is no
+identity. If the wall is intended, the homepage CTAs should say so rather than silently
+bouncing.
+
+### 17.3 §5.1's callback branch was never carried into the plan
+
+§5.1 requires the OAuth callback to route a **newly created** profile by intent and to send an
+**existing** account with teacher intent to `/home` rather than converting it. The callback has
+no new-vs-existing branch — it only honours `next`. The plan never asked for one, so the
+requirement is simply unimplemented.
+
+Compounding it, `/tutor-signup` was never made session-aware: it is not `async`, never calls
+`getIdentity`, and still renders `email` and `password` as required with the label "you'll use
+this to sign in" — which will never be true for a Google user, whose password the
+`existingUser` branch discards. That is copy that lies, on the branch whose §11 exists to
+delete copy that lies.
+
+**Invisible today only because Google is disabled** — which is the one outstanding
+configuration task the owner holds. It breaks the day they enable it.
+
+### 17.4 §9's token system is only partly built
+
+§9 requires a primary ramp, a neutral ramp, and semantic **success / warning / danger / info**
+pairs, plus radius, shadow, **spacing** and type scales. What exists is a single `--primary`, a
+single `--destructive`, radius (from shadcn) and a type scale. The plan's Task 2 only ever
+asked for the two brand pairs, so the implementation matches the plan and the plan
+under-delivers the spec.
+
+Visible consequence: `status-pill.tsx` hardcodes `bg-emerald-100` / `bg-amber-100` /
+`bg-red-100` — raw Tailwind palette in the one component built to be the shared vocabulary for
+teacher status, with no contrast assertion. `contrastRatio` already exists; extending
+`tokens.test.ts` to cover semantic pairs is cheap once the tokens are defined.
+
+Sixteen gradients also survive across the marketing and app surfaces (the final verification
+grep searched `bg-gradient-to-r` and missed every `bg-gradient-to-br`). Two CTA violations were
+fixed; the rest is a design-consistency backlog.
+
+### 17.5 The largest standing risk: no component tests on the payment surfaces
+
+The five student-flow files and the three teacher-dashboard files carry the payment and video
+loop and have **zero** component tests. Two task reviews and the whole-branch review all
+flagged it. The test harness exists, and `Money` and `StatusPill` prove the pattern — there is
+no longer a technical reason. A future markup change has no tripwire against exactly the
+money-unit and race-navigation regressions those reviews had to catch by reading code.
+
+**This should be the first item in cycle 2, not a rolling deferral.**
