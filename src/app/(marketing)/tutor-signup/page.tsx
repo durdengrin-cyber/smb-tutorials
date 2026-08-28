@@ -1,21 +1,8 @@
-import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
 import { TutorForm } from "./tutor-form";
 
 export default function TutorSignUpPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50">
-      <SiteHeader
-        action={
-          <Link
-            href="/"
-            className="text-teal-600 hover:text-teal-700 font-medium"
-          >
-            ← Back to Home
-          </Link>
-        }
-      />
-
       <main className="px-8 py-12">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">

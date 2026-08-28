@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { signOut } from "@/app/auth/actions";
-import { createClient } from "@/lib/supabase/server";
 
 const FEATURES = [
   {
@@ -38,15 +36,7 @@ const TUTOR_BENEFITS = [
   },
 ];
 
-export default async function HomePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const displayName =
-    (user?.user_metadata?.full_name as string | undefined) || user?.email;
-
+export default function HomePage() {
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
       {/* Background Pattern */}
@@ -74,48 +64,6 @@ export default async function HomePage() {
       {/* Decorative Background Elements */}
       <div className="absolute top-20 right-10 w-72 h-72 bg-teal-100 rounded-full blur-3xl opacity-30"></div>
       <div className="absolute bottom-20 left-10 w-96 h-96 bg-cyan-100 rounded-full blur-3xl opacity-30"></div>
-
-      {/* Header */}
-      <header className="relative z-10 px-8 py-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-teal-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">SMB</span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">SMB Tutorials</h1>
-              <p className="text-sm text-teal-600 font-medium">
-                One Student, One Teacher
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {user ? (
-              <>
-                <span className="text-gray-700 font-medium hidden sm:inline">
-                  Hi, {displayName}
-                </span>
-                <form action={signOut}>
-                  <button
-                    type="submit"
-                    className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold px-6 py-2 rounded-lg transition-all shadow-md hover:shadow-lg"
-                  >
-                    Sign Out
-                  </button>
-                </form>
-              </>
-            ) : (
-              <Link
-                href="/signin"
-                className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold px-6 py-2 rounded-lg transition-all shadow-md hover:shadow-lg"
-              >
-                Sign In
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
 
       <main className="relative z-10 flex items-center justify-center px-8">
         <div className="max-w-4xl w-full">

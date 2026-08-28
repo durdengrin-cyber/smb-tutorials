@@ -1,20 +1,6 @@
-import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
-
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <SiteHeader
-        action={
-          <Link
-            href="/"
-            className="text-teal-600 hover:text-teal-700 font-medium"
-          >
-            ← Back
-          </Link>
-        }
-      />
-
       <main className="px-8 py-12">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-2xl shadow-sm p-12 border border-gray-100">
