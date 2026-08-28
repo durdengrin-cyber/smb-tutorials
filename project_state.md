@@ -1,6 +1,26 @@
 # SMB Tutorials — Project State
 
-## ⏸ HALTED ON A RATE LIMIT — 2026-08-28 18:03 IST (resets 20:20 IST)
+## ⏸ HALTED ON THE WEEKLY LIMIT — resets Aug 30 07:30 IST
+
+**13 of 14 tasks implemented; 12 fully reviewed.** Branch `redesign/ia-design-system`,
+**153 tests passing / 3 skipped**, tsc + lint + build clean, tree clean, nothing pushed,
+`main` untouched.
+
+**One commit is owed an independent review: `81d20c0`.** I wrote it in the controller session
+because the weekly limit made subagent dispatch impossible and the branch was sitting in a
+regressed state — `/terms` contradicted itself. It applies Task 13's four reviewed findings.
+**Re-review it FIRST on resume, before Task 14.**
+
+**Then:** Task 14 (final verification; do not push without the user), then the whole-branch
+review.
+
+**For the user to decide:** `/terms` still contains two clauses that *deny* refunds for
+serious misconduct (harassment, inappropriate attire). I left them — they state an exclusion
+rather than an entitlement, so they do not contradict the "policy not yet published" line the
+way the deleted clauses did, and softening abuse provisions on a legal page is not mine to do
+unilaterally.
+
+## ⏸ (superseded) HALTED ON A RATE LIMIT — 2026-08-28 18:03 IST
 
 **Tasks 1-10 of 14 are complete and reviewed clean.** Task 11's implementer was killed by an
 HTTP 429 session limit mid-edit — not a code failure. `main` is untouched; nothing is pushed.
