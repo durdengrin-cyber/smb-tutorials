@@ -22,11 +22,21 @@ export const getIdentity = cache(async (): Promise<Identity | null> => {
 
   // profiles.role is authoritative. user_metadata.role is only the seed that
   // handle_new_user() reads at signup (migration 0001) — never read it here.
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("id, role, full_name")
     .eq("id", user.id)
     .single();
+
+  // PGRST116 ("no rows") is the genuine "no profile" case — .single() reports
+  // it as an error even though nothing went wrong. Any other error is a real
+  // query failure (e.g. a transient Supabase outage) and must not be treated
+  // the same as "no profile", or a student mid-payment gets silently signed
+  // out. Throw so the nearest error boundary catches it instead.
+  if (error && error.code !== "PGRST116") {
+    console.error("getIdentity: profile query failed", error);
+    throw new Error("Failed to load user profile");
+  }
 
   if (!profile) return null;
   return {

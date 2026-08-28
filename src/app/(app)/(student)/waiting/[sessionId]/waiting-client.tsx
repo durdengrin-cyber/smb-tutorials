@@ -9,6 +9,7 @@ import { cancelSession, timeOutSession } from "@/app/session/actions";
 import { createCheckout, verifyPaymentNow } from "@/app/session/payment-actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { FormError } from "@/components/form-error";
 import { Money } from "@/components/money";
 
 // The gradient background, card and spinner ring every state shares. Kept as
@@ -239,7 +240,7 @@ export function WaitingClient({
         <p className="text-gray-600 mb-8">
           Pay <Money paise={amountPaise} /> to start your session.
         </p>
-        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+        {error && <FormError className="mb-4">{error}</FormError>}
         {/* Cancel belongs here, not only before the teacher answers. M3 spec
             §3.1 lists `accepted -> cancelled | student`, but until now the
             product offered no way to make it: a student who changed their

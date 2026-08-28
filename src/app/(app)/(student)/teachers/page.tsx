@@ -23,6 +23,15 @@ type TeacherRow = {
   teacher_subjects: SubjectRow[];
 };
 
+// `amount` arrives as a query-string parameter, so it is attacker-controlled.
+// Anything that isn't a clean positive integer is dropped rather than passed
+// on to <Money>, which would otherwise render garbage.
+function parsePositiveInt(v: string): number | undefined {
+  if (!/^\d+$/.test(v)) return undefined;
+  const n = Number(v);
+  return n > 0 ? n : undefined;
+}
+
 export default async function TeachersPage({
   searchParams,
 }: PageProps<"/teachers">) {
@@ -47,10 +56,10 @@ export default async function TeachersPage({
   // Recovered from their own last request rather than by patching whichever
   // navigation dropped it — browser back, a bookmark, a shared link and any
   // future redirect all land here the same way, and the criteria are already
-  // recorded on the row. Only fills a COMPLETE set of gaps: a partly-specified
-  // url is the student narrowing their own search, and overwriting that would
-  // be worse than the dead end.
-  if (!(curriculum && grade && stream && subject)) {
+  // recorded on the row. Only recovers when the criteria are ENTIRELY absent:
+  // a partly-specified url is the student narrowing their own search, and
+  // overwriting that would be worse than the dead end.
+  if (!curriculum && !grade && !stream && !subject) {
     const { data: last } = await supabase
       .from("sessions")
       .select("curriculum, grade, stream, subject")
@@ -59,10 +68,10 @@ export default async function TeachersPage({
       .limit(1)
       .maybeSingle();
     if (last) {
-      curriculum = curriculum || last.curriculum;
-      grade = grade || last.grade;
-      stream = stream || last.stream;
-      subject = subject || last.subject;
+      curriculum = last.curriculum;
+      grade = last.grade;
+      stream = last.stream;
+      subject = last.subject;
     }
   }
   // Kept as one string literal: Supabase parses the select at the type level,
@@ -129,6 +138,7 @@ export default async function TeachersPage({
               stream={stream}
               outcome={one(params.outcome) || undefined}
               teacherName={one(params.teacher) || undefined}
+              refundAmountPaise={parsePositiveInt(one(params.amount))}
             />
           )}
 

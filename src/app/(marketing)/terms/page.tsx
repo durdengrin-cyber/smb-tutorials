@@ -8,7 +8,7 @@ export default function TermsPage() {
           <div className="bg-white rounded-2xl shadow-sm p-12 border border-gray-100">
             <PageHeader
               title="Terms & Conditions"
-              description="Last updated: February 7, 2026"
+              description="Last updated: August 28, 2026"
             />
 
             <section className="mb-10">
@@ -77,8 +77,7 @@ export default function TermsPage() {
                     bypass our payment system.
                   </li>
                   <li>
-                    <strong>Penalty:</strong> Zero Tolerance. Permanent ban and
-                    forfeiture of any pending/unpaid earnings.
+                    <strong>Penalty:</strong> Zero Tolerance. Permanent ban.
                   </li>
                 </ul>
               </div>
@@ -137,28 +136,6 @@ export default function TermsPage() {
                     <strong>&quot;Ghosting&quot;:</strong> Accepting a session and
                     then failing to join is a serious conduct violation and may
                     result in account action.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  6. Probationary Period for New Tutors
-                </h3>
-                <p className="text-gray-700 mb-3">
-                  All new tutors enter a Probationary Status for their first 5
-                  completed sessions:
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
-                  <li>
-                    <strong>Payment Holding:</strong> Payouts for first 5
-                    sessions held for 14 days (instead of standard 7) to ensure
-                    no disputes.
-                  </li>
-                  <li>
-                    <strong>Mandatory Review:</strong> After the 5th session,
-                    tutors are reviewed for full status or account
-                    deactivation.
                   </li>
                 </ul>
               </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { FormError } from "@/components/form-error";
 import { Button } from "@/components/ui/button";
 
 export function GoogleButton({ label, next }: { label: string; next?: string }) {
@@ -57,7 +58,7 @@ export function GoogleButton({ label, next }: { label: string; next?: string }) 
         </svg>
         {pending ? "Redirecting to Google…" : label}
       </Button>
-      {error && <p role="alert" className="text-sm text-destructive -mt-4 mb-4">{error}</p>}
+      {error && <FormError className="-mt-4 mb-4">{error}</FormError>}
     </>
   );
 }

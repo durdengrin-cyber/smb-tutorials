@@ -57,10 +57,19 @@ export function safeNext(next: unknown, fallback: string): string {
 // intent may complete teacher onboarding; an account with history may not —
 // changing the role of an account that has already been used is an admin
 // action, and admin is cycle 3. Spec §5.1.
+//
+// The `role === "teacher"` branch covers a half-finished signup: if the
+// `teacher_subjects` insert fails after `profiles.role` is already flipped to
+// "teacher", the account is a teacher with no subjects — invisible to
+// students, and otherwise stuck forever with no admin surface to fix it. A
+// teacher with zero subjects cannot have been picked for a session, so
+// sessionCount === 0 && subjectCount === 0 provably identifies that
+// half-finished state and grants nothing beyond letting onboarding retry.
 export function canBecomeTeacher(account: {
   role: Role;
   sessionCount: number;
   subjectCount: number;
 }): boolean {
-  return account.role === "student" && account.sessionCount === 0 && account.subjectCount === 0;
+  if (account.sessionCount !== 0 || account.subjectCount !== 0) return false;
+  return account.role === "student" || account.role === "teacher";
 }

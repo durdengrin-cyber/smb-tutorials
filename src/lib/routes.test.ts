@@ -93,4 +93,12 @@ describe("canBecomeTeacher", () => {
   it("refuses an admin outright", () => {
     expect(canBecomeTeacher({ role: "admin", sessionCount: 0, subjectCount: 0 })).toBe(false);
   });
+
+  it("allows a teacher with no sessions and no subjects to retry onboarding", () => {
+    // This is the half-finished-signup case: profiles.role flipped to
+    // "teacher" but the teacher_subjects insert failed. A teacher with zero
+    // subjects cannot have been picked for a session, so this state is
+    // provably recoverable, not a loophole.
+    expect(canBecomeTeacher({ role: "teacher", sessionCount: 0, subjectCount: 0 })).toBe(true);
+  });
 });

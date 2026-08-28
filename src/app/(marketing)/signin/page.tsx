@@ -21,16 +21,16 @@ export default async function SignInPage({
         <div className="absolute inset-0 bg-gradient-to-br from-teal-600/95 to-cyan-600/95"></div>
 
         <div className="relative z-10 flex flex-col justify-center p-16 text-white">
-          <h1 className="text-5xl font-bold mb-6">Welcome Back!</h1>
+          <h2 className="text-5xl font-bold mb-6">Welcome Back!</h2>
           <p className="text-xl opacity-90 mb-8">
             Continue your learning journey with expert tutors
           </p>
 
           <div className="space-y-4">
             {[
-              "Access your personalized dashboard",
-              "Book sessions with your favorite tutors",
-              "Track your learning progress",
+              "See which teachers are online right now",
+              "Start a session the moment you're matched",
+              "Pay securely per session, no subscriptions",
             ].map((benefit) => (
               <div key={benefit} className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">

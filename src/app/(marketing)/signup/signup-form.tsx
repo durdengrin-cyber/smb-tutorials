@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { signUpStudent } from "@/app/auth/actions";
+import { FormError } from "@/components/form-error";
 import { GoogleButton } from "@/components/google-button";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ export function SignUpForm() {
         <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
           <span className="text-white font-bold text-2xl">SMB</span>
         </div>
-        <PageHeader as="h2" title="Create Account" description="Start your learning journey" />
+        <PageHeader as="h1" title="Create Account" description="Start your learning journey" />
       </div>
 
       <GoogleButton label="Sign up with Google" />
@@ -101,7 +102,7 @@ export function SignUpForm() {
           </span>
         </div>
 
-        {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
+        {state?.error && <FormError>{state.error}</FormError>}
 
         <Button type="submit" disabled={isPending} className="w-full h-11">
           {isPending ? "Creating account…" : "Create Account"}

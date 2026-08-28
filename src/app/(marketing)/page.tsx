@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 const FEATURES = [
   {
@@ -26,13 +27,13 @@ const TUTOR_BENEFITS = [
   },
   {
     icon: "💼",
-    title: "Grow your business",
-    body: "Set your own rates and schedule. Work from anywhere",
+    title: "Teach on your terms",
+    body: "Go online when you're free and take sessions as they come in",
   },
   {
     icon: "💰",
-    title: "Get paid securely",
-    body: "Receive payments safely and on time, every time",
+    title: "Get paid per session",
+    body: "Students pay upfront before each session starts",
   },
 ];
 
@@ -74,13 +75,13 @@ export default function HomePage() {
                 🎓 Your Personal Learning Platform
               </div>
 
-              <h2 className="text-6xl font-bold text-gray-900 mb-6 leading-tight">
+              <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight">
                 Learn Anything,
                 <br />
                 <span className="bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
                   Anytime
                 </span>
-              </h2>
+              </h1>
 
               <p className="text-xl text-gray-600 mb-8">
                 Connect with expert teachers for hourly sessions. See who&apos;s
@@ -88,12 +89,12 @@ export default function HomePage() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                <Link
-                  href="/find"
-                  className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold px-8 py-4 rounded-xl text-lg transition-all duration-200 shadow-lg hover:shadow-xl text-center"
+                <Button
+                  asChild
+                  className="h-auto px-8 py-4 rounded-xl text-lg font-bold shadow-lg hover:shadow-xl"
                 >
-                  Find a Teacher →
-                </Link>
+                  <Link href="/find">Find a Teacher →</Link>
+                </Button>
                 <Link
                   href="/teachers"
                   className="bg-white border-2 border-teal-600 text-teal-600 hover:bg-teal-50 font-semibold px-8 py-4 rounded-xl text-lg transition-all duration-200 text-center"
@@ -243,12 +244,12 @@ export default function HomePage() {
                     ))}
                   </div>
 
-                  <Link
-                    href="/tutor-signup"
-                    className="inline-block bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-bold px-8 py-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
+                  <Button
+                    asChild
+                    className="h-auto px-8 py-4 rounded-xl font-bold shadow-lg hover:shadow-xl"
                   >
-                    Become a tutor →
-                  </Link>
+                    <Link href="/tutor-signup">Become a tutor →</Link>
+                  </Button>
                 </div>
               </div>
             </div>

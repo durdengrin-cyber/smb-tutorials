@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { signUpTutor } from "./actions";
 import { SubjectPicker } from "./subject-picker";
+import { FormError } from "@/components/form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -251,7 +252,7 @@ export function TutorForm() {
         </span>
       </div>
 
-      {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
+      {state?.error && <FormError>{state.error}</FormError>}
 
       <Button type="submit" disabled={isPending} className="w-full h-12 font-bold">
         {isPending ? (

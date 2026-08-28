@@ -3,7 +3,7 @@ import { SignUpForm } from "./signup-form";
 
 const BENEFITS = [
   { icon: "🎯", text: "Learn any subject from qualified experts" },
-  { icon: "📅", text: "Flexible scheduling that fits your life" },
+  { icon: "⚡", text: "See who's online now and start right away" },
   { icon: "💪", text: "Achieve your learning goals faster" },
 ];
 
@@ -21,9 +21,9 @@ export default function SignUpPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-600/95 to-teal-600/95"></div>
 
         <div className="relative z-10 flex flex-col justify-center p-16 text-white">
-          <h1 className="text-5xl font-bold mb-6">Start Learning Today!</h1>
+          <h2 className="text-5xl font-bold mb-6">Start Learning Today!</h2>
           <p className="text-xl opacity-90 mb-8">
-            Join thousands of students achieving their goals with expert tutors
+            Connect with expert tutors and start learning right away
           </p>
 
           <div className="space-y-4">

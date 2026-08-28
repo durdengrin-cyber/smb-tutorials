@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PRESENCE_CHANNEL } from "@/lib/presence";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/form-error";
 import { StatusPill, STATUS_COPY, type TeacherStatus } from "@/components/status-pill";
 
 export function AvailabilityToggle({
@@ -195,7 +196,7 @@ export function AvailabilityToggle({
               Keep this tab open — closing it takes you offline.
             </p>
           )}
-          {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+          {error && <FormError className="mt-1">{error}</FormError>}
         </div>
         <Button
           type="button"

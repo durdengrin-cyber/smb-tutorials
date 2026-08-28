@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { signIn } from "@/app/auth/actions";
+import { FormError } from "@/components/form-error";
 import { GoogleButton } from "@/components/google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,7 @@ export function SignInForm({
         <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
           <span className="text-white font-bold text-2xl">SMB</span>
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Sign In</h2>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Sign In</h1>
         <p className="text-gray-600">Access your account</p>
       </div>
 
@@ -75,7 +76,7 @@ export function SignInForm({
           </Button>
         </div>
 
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {error && <FormError>{error}</FormError>}
 
         <Button type="submit" disabled={isPending} className="w-full h-11">
           {isPending ? "Signing in…" : "Sign In"}
