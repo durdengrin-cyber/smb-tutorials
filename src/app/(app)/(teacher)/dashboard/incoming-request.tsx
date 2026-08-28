@@ -6,6 +6,8 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createRealtimeClient } from "@/lib/supabase/client";
 import { effectiveStatus, pickOpenRequest, secondsRemaining, type SessionStatus } from "@/lib/session";
 import { acceptSession, declineSession } from "./actions";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface PendingRequest {
   id: string;
@@ -274,16 +276,17 @@ export function IncomingRequest({
   // the very events that clear `request`, so an error rendered inside the
   // prompt would unmount in the same tick it was set.
   const banner = error && (
-    <section className="bg-red-50 border border-red-200 rounded-2xl px-6 py-4 flex items-start justify-between gap-4">
+    <Card className="flex flex-row items-start justify-between gap-4 border-red-200 bg-red-50 px-6 py-4">
       <p className="text-red-700 text-sm">{error}</p>
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => setError(null)}
-        className="text-red-700 text-sm font-semibold hover:underline shrink-0"
+        className="shrink-0 text-red-700 hover:bg-red-100"
       >
         Dismiss
-      </button>
-    </section>
+      </Button>
+    </Card>
   );
 
   if (!request) return banner ? banner : null;
@@ -332,7 +335,7 @@ export function IncomingRequest({
   return (
     <>
       {banner}
-      <section className="bg-white rounded-2xl shadow-xl border-2 border-teal-500 p-6">
+      <Card className="border-2 border-teal-500 p-6 shadow-xl">
         {request.status === "paid" ? (
           <>
             <p className="text-lg font-bold text-gray-900 mb-1">
@@ -357,26 +360,21 @@ export function IncomingRequest({
             </p>
             <p className="text-sm text-gray-600 mb-4">{left}s to respond</p>
             <div className="flex gap-3">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => accept(request.id)}
-                className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold px-6 py-3 rounded-lg disabled:opacity-50"
-              >
+              <Button type="button" disabled={busy} onClick={() => accept(request.id)}>
                 Accept
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
                 disabled={busy}
                 onClick={() => decline(request.id)}
-                className="bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-6 py-3 rounded-lg disabled:opacity-50"
               >
                 Decline
-              </button>
+              </Button>
             </div>
           </>
         )}
-      </section>
+      </Card>
     </>
   );
 }

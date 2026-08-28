@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { PRESENCE_CHANNEL } from "@/lib/presence";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { StatusPill, STATUS_COPY, type TeacherStatus } from "@/components/status-pill";
 
 export function AvailabilityToggle({
   teacherId, fullName, hourlyRate, inSession = false,
@@ -170,46 +173,40 @@ export function AvailabilityToggle({
     rememberIntent(false);
   }
 
+  // Three readings, not two. "In a session" is not "Offline": the teacher is
+  // hidden from the list but still online and still intending to be
+  // available, and saying "Offline" would invite them to toggle back on
+  // mid-payment-window and undo it. "unreachable" has no mechanism behind it
+  // yet in this cycle, so it is never produced here.
+  const status: TeacherStatus = !online ? "offline" : inSession ? "in_session" : "available";
+
   return (
-    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <Card className="p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-3 h-3 rounded-full ${
-                !online ? "bg-gray-300" : inSession ? "bg-amber-500" : "bg-green-500"
-              }`}
-            />
-            <span className="font-bold text-gray-900">
-              {!online ? "Offline" : inSession ? "In a session" : "Available now"}
-            </span>
-          </div>
-          {/* Three readings, not two. "In a session" is not "Offline": the
-              teacher is hidden from the list but still online and still
-              intending to be available, and saying "Offline" would invite
-              them to toggle back on mid-payment-window and undo it. */}
-          <p className="text-sm text-gray-600 mt-1">
-            {!online
-              ? "You are not visible to students."
-              : inSession
-                ? "Hidden from students while you finish this session. You'll be visible again automatically."
-                : "Students can see you and start a session. Keep this tab open — closing it takes you offline."}
-          </p>
+          <StatusPill status={status} />
+          <p className="mt-1 text-sm text-muted-foreground">{STATUS_COPY[status].description}</p>
+          {/* This warning stays true until reachability detection (a later
+              cycle) lands — presence really does depend on this tab staying
+              open, so it's an extra line here rather than folded into the
+              shared copy, which will outlive it. */}
+          {status === "available" && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Keep this tab open — closing it takes you offline.
+            </p>
+          )}
           {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
         </div>
-        <button
+        <Button
           type="button"
           onClick={online ? goOffline : goOnline}
           disabled={busy}
-          className={`font-semibold px-6 py-3 rounded-lg transition-all shadow-md disabled:opacity-50 ${
-            online
-              ? "bg-white border-2 border-gray-300 text-gray-700 hover:border-gray-400"
-              : "bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white"
-          }`}
+          variant={online ? "outline" : "default"}
+          size="lg"
         >
           {busy ? "…" : online ? "Go offline" : "Available now"}
-        </button>
+        </Button>
       </div>
-    </section>
+    </Card>
   );
 }

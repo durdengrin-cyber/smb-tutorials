@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { effectiveStatus, type SessionStatus } from "@/lib/session";
+import { Card } from "@/components/ui/card";
+import { Money } from "@/components/money";
 
 // This renders on the server, where the timezone is the runtime's (UTC on
 // Vercel) rather than the teacher's. Naming the zone keeps the times right
@@ -58,12 +60,12 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
     .reduce((sum, r) => sum + (r.amount_paid_paise ?? 0), 0);
 
   return (
-    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <Card className="p-6">
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="font-bold text-gray-900">Your sessions</h3>
         <div className="text-right">
           <p className="text-2xl font-bold text-gray-900">
-            {billableError ? "—" : `₹${Math.round(earnedPaise / 100)}`}
+            {billableError ? "—" : <Money paise={earnedPaise} />}
           </p>
           <p className="text-xs text-gray-500">
             {billableError ? "couldn't load earnings" : "earned · pending payout"}
@@ -109,6 +111,6 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
         Payouts are made manually while payments are being set up.
         {rows.length === PAGE && ` Showing your latest ${PAGE} sessions; earnings cover all of them.`}
       </p>
-    </section>
+    </Card>
   );
 }
