@@ -1,156 +1,74 @@
 # SMB Tutorials — Project State
 
-## ✅ CYCLE 1 (IA + DESIGN SYSTEM) IMPLEMENTATION COMPLETE — Task 14 verification run 2026-08-28
+## ▶ START HERE (updated 2026-08-28)
 
-**All 14 tasks done, all reviewed clean (including the controller-authored 81d20c0 fix, whose
-owed re-review discharged clean).** Branch `redesign/ia-design-system`, tree clean, **nothing
-pushed, `main` untouched**. Full verification report:
-`.superpowers/sdd/2026-08-28-ia-design-system/task-14-report.md`.
+**Cycle 1 of the redesign — IA + design system — is COMPLETE and SHIPPED TO PRODUCTION.**
+`main` @ `f5fdb97`, 37 commits merged and pushed, verified live route-by-route against
+https://smb-tutorials.vercel.app (not the Vercel dashboard — this project has shipped a
+"Ready" deployment that 404'd every path).
 
-**Automated bar, all green:** 153 tests passing / 3 skipped, `tsc --noEmit` clean, `eslint`
-clean, `next build` clean (14 routes, proxy/middleware present).
+**Read `docs/superpowers/handoffs/2026-08-28-cycle-1-ia-design-system.md` before doing
+anything.** It is the full handoff: what shipped, the security finding below in detail, the
+cycle-2 backlog, and all 23 rulings made during execution with what each costs if wrong. The
+execution ledger lived in git-ignored scratch and no longer exists; that document is what
+survived.
 
-**Database probes, all exit 0 against the live Supabase project** (throwaway accounts minted
-and deleted each run): `probe-session-rls.mjs` (20 attacks, all refused, both roles),
-`probe-happy-path.mjs` (full lifecycle + refund + cancel + expiry/late-webhook races, all
-permitted; 4 malformed inserts, all refused), `reconcile-payments.mjs` (all 3 money invariants
-hold, ₹3000 earnings across 7 completed sessions). Migration `0006` (unapplied CHECK-only
-widening for the still-nonexistent admin role) changed nothing, as expected.
+### 🛑 DO NOT APPLY MIGRATION `0006`
 
-**Two things NOT fixed here, deliberately, for the whole-branch review to route:**
-1. **`src/app/(marketing)/page.tsx` still hand-rolls gradient CTAs** (`bg-gradient-to-r
-   from-teal-*`, three sites plus one untargeted icon tile) instead of the `Button` primitive
-   — grepped and found by Task 14's Step 1, not migrated by any task (Task 13 touched this
-   file only to delete false scheduling copy, not its CTA markup). Reported per this task's
-   instructions rather than fixed, to preserve the review gate.
-2. **Google OAuth dashboard config is still the user's outstanding task.**
-   `probe-auth-providers.mjs` exits 1 naming `google` — verified 2026-08-28, unchanged from
-   the standing note below. The client code is correct; this is Google Cloud + Supabase
-   dashboard work only.
+`0001`'s update policy on `profiles` has **no column restriction**, so any signed-in user can
+rewrite their own `role` from a browser with only the anon key. That is pre-existing. Cycle 1
+made `profiles.role` the sole authority every auth gate trusts, and `0006` (written, deliberately
+**unapplied**) would add `'admin'` to the permitted values — turning a student→teacher annoyance
+into self-service admin promotion that cycle 3 would build on unknowingly.
 
-**Not verified this run: the two-browser manual walk (Step 5).** No browser-driving tool was
-available in this session (no `claude-in-chrome`, no headless-browser package in the repo),
-so client-side realtime — presence, incoming-request delivery, the accept/pay/call handoff —
-is unproven since Task 12's last confirmed walk. This leg goes to the user before any deploy.
+**`0006` being unapplied is currently the only thing holding that door shut.** Required first: a
+`BEFORE UPDATE` trigger blocking role changes, plus a `security definer` RPC re-checking
+`canBecomeTeacher` in SQL. Not the service role — that key is the payment webhook's alone.
+Detail in spec `2026-08-28-ia-design-system-design.md` §17.1.
 
-**Next spec to write: step 2, "reachability."** This cycle's spec §7 already fixed the vocabulary
-both specs must agree on — four teacher states: **Offline** · **Available** · **In a session**
-(all three shipped in this cycle, `StatusPill`) · **Unreachable** (not built — step 2's job is
-the mechanism that detects and activates this fourth state). Per §7, deliberately: the
-availability toggle stays inside `/dashboard` rather than moving into the shell in this cycle,
-because promoting it now would mean building client plumbing (the `inSession` coupling between
-the toggle and `IncomingRequest`) that step 2 dissolves by making availability server-known.
+### Live behaviour change awaiting ratification
 
-**Deploy steps NOT run, per this task's explicit stop condition** — push, PR, preview-URL curl
-are the user's decision; see the report for the exact commands staged and not executed.
+**`/find` and `/teachers` are now sign-in-gated.** They were publicly browsable before this
+cycle and this is live in production — a signed-out visitor clicking the homepage's primary CTA
+hits a sign-in wall, and a signed-in *teacher* cannot view `/teachers` at all. Ratify or revert.
 
-## ⏸ HALTED ON THE WEEKLY LIMIT — resets Aug 30 07:30 IST
+### Outstanding, not blocking
 
-**13 of 14 tasks implemented; 12 fully reviewed.** Branch `redesign/ia-design-system`,
-**153 tests passing / 3 skipped**, tsc + lint + build clean, tree clean, nothing pushed,
-`main` untouched.
+- **Google OAuth is unconfigured.** `node scripts/probe-auth-providers.mjs` exits 1 naming
+  `google` and will until the dashboard config is done. Steps in the handoff.
+- **`PAYMENT_PROVIDER=razorpay` in `.env.local`** — the stub is deleted; an unset provider throws
+  by design. Production already had it set, so production is unaffected.
+- **The two-browser manual walk was never performed.** Three agents could not drive a browser.
+  Presence, the incoming-request card and the live payment loop are unproven by machine on this
+  branch. Route gating was verified by curl against production.
 
-**One commit is owed an independent review: `81d20c0`.** I wrote it in the controller session
-because the weekly limit made subagent dispatch impossible and the branch was sitting in a
-regressed state — `/terms` contradicted itself. It applies Task 13's four reviewed findings.
-**Re-review it FIRST on resume, before Task 14.**
+### State
 
-**Then:** Task 14 (final verification; do not push without the user), then the whole-branch
-review.
+- **154 tests passing / 3 skipped** (up from 113); `tsc --noEmit`, eslint, `npm run build` clean.
+- All three database probes exit 0 (`probe-session-rls`, `probe-happy-path`, `reconcile-payments`).
+- Migrations `0002`–`0005` applied to the live project; **`0006` written and NOT applied**.
+- Tree clean, `main == origin/main`.
 
-**For the user to decide:** `/terms` still contains two clauses that *deny* refunds for
-serious misconduct (harassment, inappropriate attire). I left them — they state an exclusion
-rather than an entitlement, so they do not contradict the "policy not yet published" line the
-way the deleted clauses did, and softening abuse provisions on a legal page is not mine to do
-unilaterally.
+### Next: cycle 2 — fix what "online" means
 
-## ⏸ (superseded) HALTED ON A RATE LIMIT — 2026-08-28 18:03 IST
+Step 2 of the hardening the user asked for on 2026-08-28 ("cater both but one by one"). Cycle 1
+was step 1. Availability is still held by an open browser tab: lock a phone and the teacher
+silently vanishes from the student list while believing they are available.
 
-**Tasks 1-10 of 14 are complete and reviewed clean.** Task 11's implementer was killed by an
-HTTP 429 session limit mid-edit — not a code failure. `main` is untouched; nothing is pushed.
+The model agreed in the cycle-1 brainstorm but **not yet specced**: a durable declaration as the
+source of truth, with push and the websocket as two independent delivery roads, and honest
+degradation when neither can reach the device. Cycle 1 built the vocabulary deliberately —
+`StatusPill` knows all four states, and **nothing renders `unreachable` because the mechanism
+does not exist yet**. Step 2 changes plumbing, not markup.
 
-- Branch `redesign/ia-design-system`, HEAD `35b11a9`, **153 tests passing / 3 skipped**,
-  tsc + lint + build all clean.
-- **One uncommitted file: `src/app/(app)/(student)/find/page.tsx`** — Task 11's first
-  migration, verified coherent (tsc clean, tags balanced). **Keep it. Do not redo that file.**
-- Resume by re-dispatching Task 11 for the four remaining files. The ledger's HALTED section
-  has the detail, including the money-unit trap that is the real hazard in this task.
+**Start with `superpowers:brainstorming`, architectural path.** The handoff's §5 lists what to
+pick up first — beginning with component tests on the payment surfaces, the largest standing
+risk in the repo and the one thing three separate reviews all flagged.
 
-## ⏸ PAUSED MID-CYCLE — READ THIS FIRST (2026-08-28)
-
-**The redesign brainstorm is DONE. The spec and plan are written and approved. Implementation
-is UNDERWAY and paused at Task 5 of 14.** Everything below this block that describes the
-redesign as "not started" is historical — it describes the state before 2026-08-28.
-
-- **Branch: `redesign/ia-design-system`** — 11 commits, working tree clean, **not pushed**.
-  `main` is untouched and still matches production.
-- **Spec:** `docs/superpowers/specs/2026-08-28-ia-design-system-design.md` (approved)
-- **Plan:** `docs/superpowers/plans/2026-08-28-ia-design-system.md` (14 tasks)
-- **Ledger — the recovery map, read it before doing anything:**
-  `.superpowers/sdd/2026-08-28-ia-design-system/progress.md`. It records every task's state
-  and 14 numbered rulings (R1-R14) made on the user's behalf. Git-ignored scratch; if
-  `git clean -fdx` destroyed it, recover from `git log`.
-
-**Exact resume point: Task 5 is implemented (`0729c4e`) but its review was never dispatched.**
-Do NOT re-run Task 5's implementer. Dispatch the task review first — the diff package is
-already built. The ledger's PAUSED section has the exact SHAs and the two authorizations the
-reviewer needs.
-
-**Done and reviewed clean:** 1 test harness · 2 shadcn/ui + contrast-checked tokens ·
-3 admin role + identity resolution · 4 `(marketing)` route group.
-**Suite: 127 passing / 3 skipped; tsc, lint, build all clean.**
-
-### Three things waiting on the user
-
-1. **Google OAuth is not configured** — verified 2026-08-28, `/auth/v1/settings` reports
-   `google: false` and `/auth/v1/authorize?provider=google` returns
-   `400 "Unsupported provider: provider is not enabled"`. The client code is correct; this is
-   dashboard work. Google Cloud OAuth client with redirect URI
-   `https://upggvzzzoxqgourjywtd.supabase.co/auth/v1/callback`; client ID + secret into
-   Supabase; both `/auth/callback` origins into the Supabase redirect allowlist (an
-   un-allowlisted `redirect_to` does not error, it silently falls back to the Site URL).
-2. **`PAYMENT_PROVIDER` in `.env.local` must be `razorpay` before Task 6 lands.** Task 6
-   deletes the payment stub, after which an unset provider throws by design. `.env.local` is
-   the user's file and was not touched.
-3. **Migration `0006_roles_admin.sql` is written but deliberately NOT applied** to the live
-   Supabase project (ruling R9). It only widens the `profiles.role` CHECK to allow `'admin'`
-   and is inert until the admin cycle — nothing can hold that role until the constraint
-   widens AND someone sets it.
-
-### Known finding carried forward
-
-`signInRedirect` does not constrain its input, so `signInRedirect("//evil.example")` yields
-`/signin?next=%2F%2Fevil.example`. **No open redirect exists today** — the only caller passes
-a same-origin path from the proxy. **Task 7 is the task that makes `/signin` and
-`/auth/callback` consume `?next=`, and must validate it is a same-origin path (starts with
-`/`, not `//`) before redirecting.** Ruling R11.
+Then: student dashboard, admin (gated on the role-write guard above **and** on policy answers),
+polish.
 
 ---
-
-## ▶ Resume here (next session)
-1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
-2. Read this file + `CLAUDE.md`. **You are on `main`, and it is clean and deployed.**
-3. **M3 IS COMPLETE AND SHIPPED TO PRODUCTION (2026-08-28, `cad3783`+).** All 13 tasks, all seven manual scenarios, verified against the live provider. `main` == `origin/main`, tree clean, 113 tests / 3 skipped / tsc 0 / eslint / build all green.
-
-### NOTHING IS OWED. M3 IS FULLY VERIFIED.
-
-Both items that were outstanding on 2026-08-28 are closed:
-- **The refund message is confirmed in a browser.** Refund `rfnd_TUulXyfwSwtSAJ` against `pay_TUulMYdWou9GUf`, ₹500, `processed` at Razorpay and recorded on the row; the student saw the banner. The same screenshot also confirmed the criteria-recovery fix — search preserved, "Start now" live.
-- **Razorpay's webhook points at production** (`https://smb-tutorials.vercel.app/api/payments/webhook`), updated by the user and verified signed 200 / tampered 400.
-
-**Reusable technique, worth knowing before testing payments again:** to force the webhook's refund branch without winning a race — request → accept → **Pay** (mints the link and stamps `payment_checkout_url`) → browser-back → **Cancel**, then pay that stored URL. The link survives the cancel, so the webhook arrives for a row that is no longer `accepted`, which is the branch that must refund. It proved the refund arm twice. Always verify both sides: the row's `refund_ref` **and** `GET api.razorpay.com/v1/refunds/{id}` showing `processed`.
-
-**One known limitation, recorded not fixed:** the refund banner depends on the webhook having stamped `refund_ref` before the student's browser lands back. Razorpay's redirect and the webhook are independent, so a fast redirect can show no banner. The refund still happens and reconciliation still accounts for it — only the *telling* is unreliable. Revisit in the redesign cycle, where the fix is a state the waiting screen can hold rather than a redirect that races.
-
-### THEN: the next milestone is the REDESIGN CYCLE
-
-Four spec → plan → implement cycles, in this order, decided by the user on 2026-08-26 (see "Post-M3" below, which is still the live scope):
-1. **IA + design system** — the shell, role-aware nav, post-login routing, the component layer that was never built, the visual language. Everything else is built *in* it, so it goes first.
-2. **Student dashboard** · 3. **Admin** (gated on policy answers only the user can give) · 4. **Polish pass**.
-
-**Start with `superpowers:brainstorming`, architectural path.** Do NOT invoke `ui-ux-pro-max` or any implementation skill during the brainstorm; the only terminal state is `writing-plans`. **Re-ask the withdrawn question first: primary device per role** — "online" means a visible dashboard tab, and a backgrounded phone browser drops the teacher offline silently. Also still open: is the SMB teal/cyan brand fixed, does "every screen" include the marketing surface, and is there a visual reference to work from.
-
-**Do NOT re-raise (all decided):** rotating `tutor-check`'s password · rotating `SUPABASE_SERVICE_ROLE_KEY` (deferred to pre-launch — see "Open before real launch") · writing to `.env.local` (the user's file; propose lines).
 
 ## What M3 built, and what proves it
 
@@ -260,6 +178,9 @@ Both were recorded gaps, not new work, and both are **app-layer only — no migr
 - Spec: `docs/superpowers/specs/2026-08-24-smb-tutorials-design.md` — all stack + scope decisions.
 - M2 design: `docs/superpowers/specs/2026-08-25-m2-presence-instant-pick-design.md`.
 - **M3 design: `docs/superpowers/specs/2026-08-26-m3-payments-design.md`** — approved 2026-08-26. §11 records the deviation from the locked "Stripe Checkout" to a processor-agnostic port, and the subsequent choice of **Razorpay** with the reasoning. §9 lists every accepted gap; §13 the spike debts.
+- **Cycle 1 handoff: `docs/superpowers/handoffs/2026-08-28-cycle-1-ia-design-system.md`** — READ FIRST. The ledger was git-ignored scratch; this is what survived it.
+- **Cycle 1 spec: `docs/superpowers/specs/2026-08-28-ia-design-system-design.md`** — §17 records the findings that originated in the spec itself, including the role-write security hole.
+- **Cycle 1 plan: `docs/superpowers/plans/2026-08-28-ia-design-system.md`** — amended in flight as reviews found defects in it.
 - **M3 plan: `docs/superpowers/plans/2026-08-26-m3-payments.md`** — 13 tasks. Its code blocks have been synced to the reviewed implementations, so a re-run reproduces what shipped rather than the original drafts.
 
 ## Decided
@@ -271,7 +192,7 @@ Both were recorded gaps, not new work, and both are **app-layer only — no migr
 - Domain: Indian K-12 — CBSE/State Board/ICSE, grades 6–12, streams Science/Commerce/Arts.
 
 ## Build order
-M0 ✅ → M1 ✅ → M2 ✅ → **M3 payments — 11 of 13 tasks done and reviewed, Razorpay chosen, blocked on test keys** → redesign: IA/design system, student dashboard, admin, polish (4 cycles) → M4 request fallback.
+M0 ✅ → M1 ✅ → M2 ✅ → M3 ✅ → **redesign cycle 1 (IA + design system) ✅ SHIPPED 2026-08-28** → **cycle 2: fix what "online" means + student dashboard** → cycle 3: admin (gated on the role-write guard) → cycle 4: polish → M4 request fallback.
 
 *Ordering note: the redesign sits after M3 by explicit decision, so M3 ships on a UI that is known to be temporary.*
 
@@ -279,7 +200,9 @@ M0 ✅ → M1 ✅ → M2 ✅ → **M3 payments — 11 of 13 tasks done and revie
 Scheduled tier (Cal.com later) · Stripe Connect · search/ranking · chat.
 
 ## Open before real launch
-No-show/refund policy · trust & safety (minors) escalation path · delete test teacher · rewrite `/terms`.
+**🛑 ROLE-WRITE GUARD on `profiles` — blocks migration `0006` and therefore cycle 3.** `0001`'s update policy lets any signed-in user rewrite their own `role`. See the cycle-1 handoff §1 and spec §17.1.
+
+No-show/refund policy · trust & safety (minors) escalation path · delete test teacher · finish `/terms` (the false feature claims are gone; the policy itself is still unpublished) · ratify or revert the `/find` + `/teachers` sign-in gate.
 
 **⚠ ROTATE `SUPABASE_SERVICE_ROLE_KEY` — DEFERRED BY THE USER to the pre-launch pass (decided 2026-08-27). Do not re-raise it before then.** It was printed into a conversation transcript on 2026-08-27 by an assistant command that dumped `.env.local` while showing an appended block. It is in no committed file and `.env.local` is gitignored, but this key bypasses every RLS policy and is the credential the payment webhook holds — the one thing migration 0005's security boundary assumes only the server has.
 
