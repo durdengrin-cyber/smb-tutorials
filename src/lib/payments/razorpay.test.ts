@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { createHmac } from "node:crypto";
 import { razorpayPort } from "./razorpay";
+import { getPaymentPort, paymentProviderName } from "./index";
 
 const KEY_ID = "rzp_test_key";
 const KEY_SECRET = "key_secret";
@@ -242,5 +243,76 @@ describe("razorpayPort.fetchPayment — the second confirmation path (spec §3.6
     // A provider outage must not surface as a crash on the waiting screen.
     const fetchImpl = vi.fn(async () => jsonRes({ error: {} }, 500)) as unknown as typeof fetch;
     await expect(port(fetchImpl).fetchPayment(PLINK)).resolves.toBe(null);
+  });
+});
+
+// getPaymentPort() and paymentProviderName() live in ./index, but their only
+// real branch is razorpay now that the stub is gone — so their behaviour is
+// tested alongside the adapter it dispatches to.
+describe("getPaymentPort — the razorpay branch", () => {
+  const saved = {
+    provider: process.env.PAYMENT_PROVIDER,
+    keyId: process.env.RAZORPAY_KEY_ID,
+    keySecret: process.env.RAZORPAY_KEY_SECRET,
+    webhookSecret: process.env.PAYMENT_WEBHOOK_SECRET,
+  };
+  const restore = (k: string, v: string | undefined) => {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  };
+
+  afterEach(() => {
+    restore("PAYMENT_PROVIDER", saved.provider);
+    restore("RAZORPAY_KEY_ID", saved.keyId);
+    restore("RAZORPAY_KEY_SECRET", saved.keySecret);
+    restore("PAYMENT_WEBHOOK_SECRET", saved.webhookSecret);
+  });
+
+  const configure = (overrides: Record<string, string | undefined> = {}) => {
+    process.env.PAYMENT_PROVIDER = "razorpay";
+    process.env.RAZORPAY_KEY_ID = "rzp_test_x";
+    process.env.RAZORPAY_KEY_SECRET = "s";
+    process.env.PAYMENT_WEBHOOK_SECRET = "w";
+    for (const [k, v] of Object.entries(overrides)) restore(k, v);
+  };
+
+  it("returns a working port when every credential is present", () => {
+    configure();
+    const port = getPaymentPort();
+    expect(typeof port.createCheckout).toBe("function");
+    // The §3.6 second path is part of the contract now, not optional.
+    expect(typeof port.fetchPayment).toBe("function");
+  });
+
+  it("refuses at construction when a credential is missing", () => {
+    // Not at the first charge. A missing webhook secret is the dangerous one:
+    // checkout would work, the student would pay, and every webhook would
+    // fail verification — money taken, nothing delivered.
+    for (const missing of ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "PAYMENT_WEBHOOK_SECRET"]) {
+      configure({ [missing]: undefined });
+      expect(() => getPaymentPort(), `missing ${missing}`).toThrow(new RegExp(missing));
+    }
+  });
+
+  it("is not blocked in production", () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    Object.defineProperty(process.env, "NODE_ENV", { value: "production", configurable: true, writable: true, enumerable: true });
+    configure();
+    try {
+      expect(() => getPaymentPort()).not.toThrow();
+    } finally {
+      Object.defineProperty(process.env, "NODE_ENV", { value: originalNodeEnv, configurable: true, writable: true, enumerable: true });
+    }
+  });
+
+  it("refuses loudly rather than defaulting when PAYMENT_PROVIDER is unset", () => {
+    delete process.env.PAYMENT_PROVIDER;
+    expect(() => getPaymentPort()).toThrow(/PAYMENT_PROVIDER is unset/);
+    expect(() => paymentProviderName()).toThrow(/PAYMENT_PROVIDER is unset/);
+  });
+
+  it("paymentProviderName reports the configured provider — this value is written onto real payment rows", () => {
+    configure();
+    expect(paymentProviderName()).toBe("razorpay");
   });
 });
