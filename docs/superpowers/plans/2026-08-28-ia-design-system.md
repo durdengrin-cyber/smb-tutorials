@@ -978,7 +978,10 @@ export default function NotFound() {
 Run: `npm test && npx tsc --noEmit && npm run lint && npm run build && git checkout next-env.d.ts`
 
 Then `npm run dev` and confirm:
-- Signed out, `/dashboard` → `/signin?next=%2Fdashboard`; signing in returns you to `/dashboard`.
+- Signed out, `/dashboard` → `/signin?next=%2Fdashboard`. **Only the bounce is verifiable in
+  this task.** `signIn` still hardcodes `redirect("/")` and does not read `next` until Task 7,
+  so the return trip cannot work yet — Task 7's Step 5 is where that half is verified. Do not
+  fix `signIn` here; it is out of this task's file list.
 - A student visiting `/dashboard` → `/find`.
 - A teacher visiting `/find` → `/dashboard`.
 - `/call/<id>` renders with no navigation chrome.
