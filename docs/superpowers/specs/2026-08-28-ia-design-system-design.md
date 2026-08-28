@@ -146,6 +146,44 @@ the role default, so people return to what they were trying to reach.
 **`/` is not force-redirected for signed-in users.** They keep access to the marketing
 page; it simply offers "Go to your dashboard" instead of "Sign in".
 
+### 5.1 OAuth and role
+
+**Google sign-in does not work today, and the cause is not code.** Verified 2026-08-28:
+`/auth/v1/settings` reports `google: false`, and `/auth/v1/authorize?provider=google`
+returns `400 Unsupported provider: provider is not enabled`. `GoogleButton` renders that
+string in red and the user never leaves for Google. The client is correct — it uses
+`createBrowserClient` from `@supabase/ssr`, so the PKCE verifier is stored in a cookie the
+server callback can read, which is the subtle way this flow breaks in code. Enabling the
+provider is dashboard work: a Google Cloud OAuth client whose authorized redirect URI is
+`https://upggvzzzoxqgourjywtd.supabase.co/auth/v1/callback`, the client ID and secret in
+Supabase, and both `/auth/callback` origins added to Supabase's redirect allowlist — an
+un-allowlisted `redirect_to` does not error, it silently falls back to the Site URL.
+
+**Enabling it exposes a gap that belongs to this cycle.** `handle_new_user()` seeds role
+from `raw_user_meta_data ->> 'role'`, defaulting to `student`. Google sends no role, and
+under OAuth a sign-in *is* a sign-up — so a teacher who has never registered and clicks
+"Continue with Google" is silently created as a student with no phone and no hourly rate,
+and cannot then use `/tutor-signup` because the account already exists.
+
+**Decision: carry the signup intent through the OAuth round trip** rather than letting
+Google be a student-only door.
+
+- The entry point passes its intent via `redirectTo` (`/auth/callback?next=/tutor-signup`).
+  The callback already reads `next`; only its default changes (§5).
+- After exchanging the code, the callback routes a **newly created** profile by intent:
+  teacher intent → `/tutor-signup` to complete the teacher profile; anything else → `/home`.
+- `/tutor-signup` gains an authenticated path: with a session already present it updates the
+  existing profile to `teacher` and writes phone, rate and subjects, instead of calling
+  `signUp` and failing on a duplicate account.
+- **An existing account arriving with teacher intent is not silently converted.** It goes to
+  `/home`. Changing the role of an account that already has history is an admin action, and
+  admin is cycle 3.
+
+**On trust:** a client-supplied role hint is exactly as trustworthy as the current email
+signup, which already takes role from a form and passes it in `signUp` metadata. Declaring
+teacher intent only routes onboarding — it grants nothing, because teaching still requires
+completing `/tutor-signup` and having subjects and a rate.
+
 ## 6. The shell and navigation
 
 `AppShell` is a server component rendered by `(app)/layout.tsx`, taking the resolved
@@ -268,6 +306,11 @@ each lives inside `(marketing)`, `(app)` or `(fullscreen)`. This is what makes "
 because of where it lives" a guarantee rather than a convention — an ungated page cannot be
 added without failing the suite.
 
+**A committed provider probe.** `scripts/probe-auth-providers.mjs`, in the style of the
+existing probes: asserts that `/auth/v1/settings` reports the providers the product depends
+on, and exits non-zero otherwise. Google being off was invisible until someone clicked the
+button; this makes it a check rather than a discovery.
+
 **Regression bar.** The full existing suite, `tsc --noEmit`, eslint and `npm run build` all
 stay green. The route refactor changes no URLs, so the M2/M3 loop must still pass its manual
 run: teacher signs in and lands on `/dashboard`, student signs in and lands on `/find`, a
@@ -287,6 +330,9 @@ Recorded so they are cheap to overturn:
    redesign, every screen).
 5. **Admin role added now, admin surface not** — recommended for the reason in §4.
 6. **No internationalisation** — an earlier tangent, explicitly dropped by the user.
+7. **Google intent is carried, not inferred** (§5.1) — chosen over making Google a
+   student-only door, because the latter creates accounts that can never become teachers
+   without an admin surface that does not exist yet.
 
 ## 15. Risks
 
