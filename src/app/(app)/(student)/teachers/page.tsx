@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { isCurriculum, isGrade, isStream, isSubjectOf } from "@/lib/taxonomy";
 import { type TeacherCardData } from "./teacher-card";
 import { OnlineList } from "./online-list";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
 
 type SubjectRow = {
   curriculum: string;
@@ -102,29 +104,22 @@ export default async function TeachersPage({
     <div className="min-h-screen bg-gray-50">
       <div className="px-8 py-12">
         <div className="max-w-6xl mx-auto">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Available Teachers
-            </h2>
-            <p className="text-gray-600">
-              {criteria ? (
-                <>
-                  Showing teachers for{" "}
-                  <span className="font-semibold text-teal-600">{criteria}</span>
-                </>
-              ) : (
-                "Showing all teachers"
-              )}
-            </p>
-          </div>
+          <PageHeader
+            title="Available Teachers"
+            description={
+              criteria ? `Showing teachers for ${criteria}` : "Showing all teachers"
+            }
+          />
 
           {error ? (
-            <div className="bg-white rounded-2xl p-12 text-center border border-gray-100">
-              <p className="text-gray-900 font-semibold mb-2">
-                Couldn&apos;t load teachers
-              </p>
-              <p className="text-gray-600">Refresh to try again.</p>
-            </div>
+            <Card>
+              <CardContent className="p-12 text-center">
+                <p className="text-gray-900 font-semibold mb-2">
+                  Couldn&apos;t load teachers
+                </p>
+                <p className="text-gray-600">Refresh to try again.</p>
+              </CardContent>
+            </Card>
           ) : (
             <OnlineList
               eligible={teachers}

@@ -7,6 +7,9 @@ import { createRealtimeClient } from "@/lib/supabase/client";
 import { secondsRemaining, type SessionStatus } from "@/lib/session";
 import { cancelSession, timeOutSession } from "@/app/session/actions";
 import { createCheckout, verifyPaymentNow } from "@/app/session/payment-actions";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Money } from "@/components/money";
 
 // The gradient background, card and spinner ring every state shares. Kept as
 // a local component rather than copy-pasted three times — this screen is
@@ -21,7 +24,7 @@ function Shell({
 }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 flex items-center justify-center p-8">
-      <div className="bg-white rounded-2xl shadow-xl p-12 max-w-md w-full text-center border border-gray-100">
+      <Card className="max-w-md w-full p-12 text-center shadow-xl">
         <div className="relative w-28 h-28 mx-auto mb-6">
           <div className="absolute inset-0 rounded-full border-4 border-teal-100" />
           <div className="absolute inset-0 rounded-full border-4 border-teal-500 border-t-transparent animate-spin" />
@@ -30,7 +33,7 @@ function Shell({
           </div>
         </div>
         {children}
-      </div>
+      </Card>
     </div>
   );
 }
@@ -234,7 +237,7 @@ export function WaitingClient({
           {teacherName} accepted
         </h2>
         <p className="text-gray-600 mb-8">
-          Pay ₹{Math.round(amountPaise / 100)} to start your session.
+          Pay <Money paise={amountPaise} /> to start your session.
         </p>
         {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
         {/* Cancel belongs here, not only before the teacher answers. M3 spec
@@ -244,22 +247,12 @@ export function WaitingClient({
             held for all of it. Disabled while a checkout is being opened, so
             the two cannot be fired at once. */}
         <div className="flex gap-3 justify-center">
-          <button
-            type="button"
-            onClick={pay}
-            disabled={paying || cancelling}
-            className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold px-8 py-3 rounded-lg disabled:opacity-50"
-          >
-            {paying ? "Opening…" : `Pay ₹${Math.round(amountPaise / 100)}`}
-          </button>
-          <button
-            type="button"
-            onClick={cancel}
-            disabled={paying || cancelling}
-            className="bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-8 py-3 rounded-lg disabled:opacity-50"
-          >
+          <Button onClick={pay} disabled={paying || cancelling}>
+            {paying ? "Opening…" : <>Pay <Money paise={amountPaise} /></>}
+          </Button>
+          <Button variant="outline" onClick={cancel} disabled={paying || cancelling}>
             {cancelling ? "Cancelling…" : "Cancel"}
-          </button>
+          </Button>
         </div>
       </Shell>
     );
@@ -282,14 +275,9 @@ export function WaitingClient({
       <p className="text-gray-600 mb-8">
         They have a few seconds to accept. Hold tight.
       </p>
-      <button
-        type="button"
-        onClick={cancel}
-        disabled={cancelling}
-        className="bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-8 py-3 rounded-lg disabled:opacity-50"
-      >
+      <Button variant="outline" onClick={cancel} disabled={cancelling}>
         {cancelling ? "Cancelling…" : "Cancel"}
-      </button>
+      </Button>
     </Shell>
   );
 }

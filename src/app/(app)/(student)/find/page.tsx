@@ -9,6 +9,9 @@ import {
   SUBJECTS_BY_STREAM,
   type Stream,
 } from "@/lib/taxonomy";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
 
 export default function FindPage() {
   const router = useRouter();
@@ -48,16 +51,13 @@ export default function FindPage() {
 
       <div className="relative z-10 flex items-center justify-center px-8 py-12">
         <div className="max-w-2xl w-full">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Tell Us What You Need
-            </h2>
-            <p className="text-gray-600">
-              We&apos;ll find the perfect teacher for you
-            </p>
-          </div>
+          <PageHeader
+            title="Tell Us What You Need"
+            description="We'll find the perfect teacher for you"
+          />
 
-          <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+          <Card>
+            <CardContent className="p-8">
             {/* Curriculum */}
             <div className="mb-6">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -65,18 +65,15 @@ export default function FindPage() {
               </label>
               <div className="grid grid-cols-3 gap-3">
                 {CURRICULA.map((c) => (
-                  <button
+                  <Button
                     key={c}
                     type="button"
+                    variant={curriculum === c ? "default" : "outline"}
+                    className="h-auto py-3"
                     onClick={() => setCurriculum(c)}
-                    className={`py-3 px-4 rounded-lg border-2 font-medium transition-all ${
-                      curriculum === c
-                        ? "border-teal-600 bg-teal-50 text-teal-600"
-                        : "border-gray-200 hover:border-teal-300 text-gray-700"
-                    }`}
                   >
                     {c}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -110,21 +107,18 @@ export default function FindPage() {
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   {STREAMS.map((s) => (
-                    <button
+                    <Button
                       key={s}
                       type="button"
+                      variant={stream === s ? "default" : "outline"}
+                      className="h-auto py-3"
                       onClick={() => {
                         setStream(s);
                         setSubject("");
                       }}
-                      className={`py-3 px-4 rounded-lg border-2 font-medium transition-all ${
-                        stream === s
-                          ? "border-teal-600 bg-teal-50 text-teal-600"
-                          : "border-gray-200 hover:border-teal-300 text-gray-700"
-                      }`}
                     >
                       {s}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -153,37 +147,41 @@ export default function FindPage() {
 
             {/* Submit */}
             {subject && (
-              <button
+              <Button
                 type="button"
+                size="lg"
+                className="h-auto w-full py-4 animate-fadeIn"
                 onClick={findTeachers}
-                className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold py-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl animate-fadeIn"
               >
                 Find Available Teachers →
-              </button>
+              </Button>
             )}
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Custom subject request — the request tier arrives in M4 */}
           {grade && !subject && (
-            <div className="mt-12 text-center animate-fadeIn">
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900 mb-3">
-                  Looking for a different {stream ? "subject" : "field"}?
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Can&apos;t find your {stream ? "subject" : "field"} in our
-                  list? Let us know what you&apos;re looking for and we&apos;ll
-                  help you find the right teacher.
-                </p>
-                <button
-                  type="button"
-                  disabled
-                  title="Custom requests arrive with the request tier (M4)"
-                  className="bg-white border-2 border-teal-600 text-teal-600 font-semibold px-8 py-3 rounded-lg opacity-50 cursor-not-allowed"
-                >
-                  Request a Custom Subject
-                </button>
-              </div>
+            <div className="mt-12 animate-fadeIn">
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <h3 className="text-xl font-bold text-gray-900 mb-3">
+                    Looking for a different {stream ? "subject" : "field"}?
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Can&apos;t find your {stream ? "subject" : "field"} in our
+                    list? Let us know what you&apos;re looking for and we&apos;ll
+                    help you find the right teacher.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled
+                    title="Custom requests arrive with the request tier (M4)"
+                  >
+                    Request a Custom Subject
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           )}
         </div>

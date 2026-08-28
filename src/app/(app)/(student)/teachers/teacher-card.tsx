@@ -1,5 +1,8 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+
 export interface TeacherCardData {
   id: string;
   full_name: string;
@@ -20,14 +23,14 @@ export function TeacherCard({
   starting?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 overflow-hidden">
+    <Card className="gap-0 py-0 hover:shadow-lg transition-shadow duration-300">
       <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-6 text-center">
         <div className="text-6xl mb-3">🧑‍🏫</div>
         <h3 className="text-xl font-bold text-gray-900">{teacher.full_name}</h3>
         <p className="text-teal-600 font-medium">{teacher.subject}</p>
       </div>
 
-      <div className="p-6">
+      <CardContent className="p-6">
         {teacher.experience_years !== null && (
           <div className="flex items-center justify-end mb-4">
             <span className="text-sm text-gray-600">
@@ -59,16 +62,11 @@ export function TeacherCard({
             </span>
             <span className="text-sm text-gray-600">/hour</span>
           </div>
-          <button
-            type="button"
-            onClick={onStart}
-            disabled={!onStart || starting}
-            className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold px-6 py-2 rounded-lg transition-all disabled:opacity-50"
-          >
+          <Button type="button" onClick={onStart} disabled={!onStart || starting}>
             {starting ? "Asking…" : "Start now →"}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
