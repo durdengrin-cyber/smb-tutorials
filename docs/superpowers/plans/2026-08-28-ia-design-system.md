@@ -2140,7 +2140,20 @@ Scheduled booking is deferred and unbuilt. Replace that entry with the loop that
 
 - [ ] **Step 2: Delete the false claims in `/terms`**
 
-Remove every clause describing a messaging/chat system, package or bundle purchases, and ratings or reviews. None exist.
+Remove every clause describing a feature the product does not have. The named categories are a
+messaging/chat system, package or bundle purchases, and ratings or reviews — but the test is
+**does this exist**, not *is it on the list*. Also remove **search-ranking and visibility
+claims** ("reduced visibility in search results", "Acceptance Rate Tracking") and
+**profile-badge claims** ("Probationary tutors appear with a 'New Tutor' badge"). `CLAUDE.md`
+defers search/ranking explicitly and no badge system exists — the same defect wearing
+different words.
+
+**Cut the specific refund and penalty terms too.** Otherwise the page states that the
+no-show and refund policy is unpublished and then, three sections later, specifies mandatory
+refunds and strike penalties for exactly those scenarios. A document that contradicts itself
+is worse than one merely out of date. Keep the general "conduct violations may result in
+account action" framing; delete the specific entitlements. **Deleting is not drafting** —
+that distinction is what keeps this inside scope.
 
 **Do not write replacement policy.** No-show and refund policy is an open pre-launch decision (parent spec §12) and inventing it here would be worse than the current text. Cut the sections; leave a single line saying the policy is not yet published, and leave the pre-launch rewrite tracked where it already is.
 
