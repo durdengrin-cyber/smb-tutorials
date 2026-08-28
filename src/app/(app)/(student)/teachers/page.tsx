@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
+import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { isCurriculum, isGrade, isStream, isSubjectOf } from "@/lib/taxonomy";
 import { type TeacherCardData } from "./teacher-card";
@@ -29,6 +30,7 @@ export default async function TeachersPage({
   const one = (v: string | string[] | undefined) =>
     Array.isArray(v) ? v[0] ?? "" : v ?? "";
 
+  const identity = await requireUser();
   const supabase = await createClient();
 
   let curriculum = one(params.curriculum);
@@ -49,23 +51,18 @@ export default async function TeachersPage({
   // url is the student narrowing their own search, and overwriting that would
   // be worse than the dead end.
   if (!(curriculum && grade && stream && subject)) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      const { data: last } = await supabase
-        .from("sessions")
-        .select("curriculum, grade, stream, subject")
-        .eq("student_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (last) {
-        curriculum = curriculum || last.curriculum;
-        grade = grade || last.grade;
-        stream = stream || last.stream;
-        subject = subject || last.subject;
-      }
+    const { data: last } = await supabase
+      .from("sessions")
+      .select("curriculum, grade, stream, subject")
+      .eq("student_id", identity.userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (last) {
+      curriculum = curriculum || last.curriculum;
+      grade = grade || last.grade;
+      stream = stream || last.stream;
+      subject = subject || last.subject;
     }
   }
   // Kept as one string literal: Supabase parses the select at the type level,

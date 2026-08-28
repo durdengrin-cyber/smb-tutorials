@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { amountPaiseFor, effectiveStatus, type SessionStatus } from "@/lib/session";
 import { WaitingClient } from "./waiting-client";
@@ -7,11 +8,8 @@ export default async function WaitingPage({
   params,
 }: PageProps<"/waiting/[sessionId]">) {
   const { sessionId } = await params;
+  const identity = await requireUser();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/signin");
 
   const { data: session } = await supabase
     .from("sessions")
@@ -20,7 +18,9 @@ export default async function WaitingPage({
     )
     .eq("id", sessionId)
     .single();
-  if (!session || session.student_id !== user.id) redirect("/teachers");
+  // Ownership check, not an auth gate: this confirms THIS student owns THIS
+  // session row. The layout above already guarantees a signed-in student.
+  if (!session || session.student_id !== identity.userId) redirect("/teachers");
 
   const { data: teacher } = await supabase
     .from("profiles")

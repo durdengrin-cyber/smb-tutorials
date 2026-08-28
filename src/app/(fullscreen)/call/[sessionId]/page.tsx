@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createMeetingToken, roomNameForSession } from "@/lib/daily";
 import {
@@ -13,11 +14,8 @@ export default async function CallPage({
   params,
 }: PageProps<"/call/[sessionId]">) {
   const { sessionId } = await params;
+  const identity = await requireUser();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/signin");
 
   const { data: session } = await supabase
     .from("sessions")
@@ -28,8 +26,11 @@ export default async function CallPage({
     .single();
   if (!session) redirect("/");
 
-  const isTeacher = session.teacher_id === user.id;
-  const isStudent = session.student_id === user.id;
+  // Ownership check, not an auth gate: this confirms the signed-in user is
+  // one of THIS session's two participants. The layout above already
+  // guarantees a signed-in user; this proves they belong on this row.
+  const isTeacher = session.teacher_id === identity.userId;
+  const isStudent = session.student_id === identity.userId;
   if (!isTeacher && !isStudent) redirect("/");
 
   const returnTo = isTeacher ? "/dashboard" : "/teachers";
@@ -39,12 +40,6 @@ export default async function CallPage({
     new Date()
   );
   if (status !== "active" || !session.daily_room_url) redirect(returnTo);
-
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .single();
 
   // Only the student can read the other party's profile — the policy from
   // migration 0001 hides students from teachers. The teacher reads the name
@@ -69,7 +64,7 @@ export default async function CallPage({
   try {
     token = await createMeetingToken(
       roomNameForSession(sessionId),
-      me?.full_name || "Participant",
+      identity.fullName || "Participant",
       isTeacher,
       process.env.DAILY_API_KEY ?? "",
       fetch,

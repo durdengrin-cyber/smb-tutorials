@@ -1,27 +1,24 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
+import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardLive } from "./dashboard-live";
 import { SessionHistory } from "./session-history";
 
 export default async function DashboardPage() {
+  const identity = await requireRole("teacher");
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/signin");
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role, full_name, hourly_rate")
-    .eq("id", user.id)
+    .select("id, full_name, hourly_rate")
+    .eq("id", identity.userId)
     .single();
-
-  if (!profile || profile.role !== "teacher") redirect("/");
 
   const { data: subjects } = await supabase
     .from("teacher_subjects")
     .select("curriculum, grade, stream, subject")
-    .eq("teacher_id", user.id);
+    .eq("teacher_id", identity.userId);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -32,7 +29,7 @@ export default async function DashboardPage() {
         <div className="max-w-4xl mx-auto space-y-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome, {profile.full_name}
+              Welcome, {identity.fullName}
             </h2>
             <p className="text-gray-600">
               Go available to receive instant student requests.
@@ -40,9 +37,9 @@ export default async function DashboardPage() {
           </div>
 
           <DashboardLive
-            teacherId={profile.id}
-            fullName={profile.full_name}
-            hourlyRate={profile.hourly_rate ?? 0}
+            teacherId={identity.userId}
+            fullName={identity.fullName}
+            hourlyRate={profile?.hourly_rate ?? 0}
           />
 
           <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -65,7 +62,7 @@ export default async function DashboardPage() {
             )}
           </section>
 
-          <SessionHistory teacherId={profile.id} />
+          <SessionHistory teacherId={identity.userId} />
         </div>
       </main>
     </div>
