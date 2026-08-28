@@ -1446,10 +1446,20 @@ const { data: { user } } = await supabase.auth.getUser();
 if (user) {
   // Arrived via Google with teacher intent: the account exists and is a
   // student by default. Upgrade it only if it has no history.
-  const [{ count: sessionCount }, { count: subjectCount }] = await Promise.all([
+  // Capture the whole response, not just `count`. Postgrest returns
+  // `count: null` when a query FAILS as well as when it legitimately counts
+  // zero — the error field is the only thing that tells them apart. Coercing
+  // with `?? 0` would turn a transient failure into "this account has no
+  // history" and permit exactly the silent role conversion §5.1 forbids.
+  const [sessionRes, subjectRes] = await Promise.all([
     supabase.from("sessions").select("id", { count: "exact", head: true }).eq("student_id", user.id),
     supabase.from("teacher_subjects").select("teacher_id", { count: "exact", head: true }).eq("teacher_id", user.id),
   ]);
+
+  if (sessionRes.error || subjectRes.error) {
+    console.error("[tutorSignUp] history check failed", sessionRes.error ?? subjectRes.error);
+    return { error: "Couldn't verify this account. Try again in a moment." };
+  }
 
   const { data: existing } = await supabase
     .from("profiles")
@@ -1459,8 +1469,8 @@ if (user) {
 
   if (!existing || !canBecomeTeacher({
     role: existing.role as Role,
-    sessionCount: sessionCount ?? 0,
-    subjectCount: subjectCount ?? 0,
+    sessionCount: sessionRes.count ?? 0,
+    subjectCount: subjectRes.count ?? 0,
   })) {
     return { error: "This account can't be converted to a teacher account. Sign out and register with a different email." };
   }
