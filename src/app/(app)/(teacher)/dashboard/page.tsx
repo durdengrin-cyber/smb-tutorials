@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardLive } from "./dashboard-live";
@@ -22,10 +20,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <SiteHeader
-        action={<Link href="/" className="text-teal-600 hover:text-teal-700 font-medium">← Home</Link>}
-      />
-      <main className="px-8 py-12">
+      <div className="px-8 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
@@ -64,7 +59,7 @@ export default async function DashboardPage() {
 
           <SessionHistory teacherId={identity.userId} />
         </div>
-      </main>
+      </div>
     </div>
   );
 }

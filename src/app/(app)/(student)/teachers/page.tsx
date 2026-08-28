@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { isCurriculum, isGrade, isStream, isSubjectOf } from "@/lib/taxonomy";
@@ -102,18 +100,7 @@ export default async function TeachersPage({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <SiteHeader
-        action={
-          <Link
-            href="/find"
-            className="text-teal-600 hover:text-teal-700 font-medium"
-          >
-            ← Back to Search
-          </Link>
-        }
-      />
-
-      <main className="px-8 py-12">
+      <div className="px-8 py-12">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
@@ -151,7 +138,7 @@ export default async function TeachersPage({
           )}
 
         </div>
-      </main>
+      </div>
     </div>
   );
 }

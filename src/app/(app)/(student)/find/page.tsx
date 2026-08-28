@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { SiteHeader } from "@/components/site-header";
 import {
   CURRICULA,
   GRADES,
@@ -47,14 +46,7 @@ export default function FindPage() {
         </svg>
       </div>
 
-      <div className="relative z-10">
-        <SiteHeader />
-      </div>
-
-      <main
-        className="relative z-10 flex items-center justify-center px-8 py-12"
-        style={{ minHeight: "calc(100vh - 120px)" }}
-      >
+      <div className="relative z-10 flex items-center justify-center px-8 py-12">
         <div className="max-w-2xl w-full">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
@@ -195,7 +187,7 @@ export default function FindPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
