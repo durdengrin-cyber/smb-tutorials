@@ -733,9 +733,17 @@ export default function NotFound() {
 }
 ```
 
-- [ ] **Step 5: Remove the inlined header from the home page**
+- [ ] **Step 5: Remove every duplicate header in this group**
 
-`src/app/(marketing)/page.tsx` inlines its own `<header>` with a duplicate logo and a Sign In / Sign Out control (roughly lines 74–113). Delete that whole `<header>` block — the group layout now provides it. Leave the rest of the page alone; its copy is Task 13's job.
+`src/app/(marketing)/page.tsx` inlines its own `<header>` with a duplicate logo and a
+Sign In / Sign Out control (roughly lines 74–113). Delete that whole `<header>` block — the
+group layout now provides it. Leave the rest of the page alone; its copy is Task 13's job.
+
+`terms/page.tsx` and `tutor-signup/page.tsx` render `<SiteHeader />`. Delete those usages
+and their imports too. **Do this here, not later:** the group layout added in Step 4 renders
+a header on every page in the group, so leaving these in place would ship a visible double
+header on two pages for the next five tasks. `src/components/site-header.tsx` itself stays
+for now — the `(app)` pages still use it until Task 9.
 
 - [ ] **Step 6: Verify**
 
@@ -1023,19 +1031,49 @@ git rm -r src/app/dev
 git rm src/lib/payments/stub.ts src/lib/payments/stub.test.ts
 ```
 
-Then remove the `stub` branch from `src/lib/payments/index.ts`, so an unknown or absent `PAYMENT_PROVIDER` throws instead of silently selecting a stub:
+`src/lib/payments/index.ts` is entangled with the stub in **five** places, not one. Remove
+all of them:
+
+1. Line 2 — `import { stubPort, type StubPaymentPort } from "./stub";`
+2. Line 6 — `export type { StubPaymentPort } from "./stub";` (a public re-export)
+3. Lines 13–22 — the `provider === "stub"` branch and its production refusal
+4. Lines 39–46 — `getStubPort()`, whose only caller was `src/app/dev/checkout/actions.ts`,
+   deleted above. Confirm with `grep -rn "getStubPort" src` before removing.
+5. Line 48 — `paymentProviderName`'s `?? "stub"` default
+
+**The fifth is the dangerous one and the reason this step is not cosmetic.**
+`paymentProviderName()` is written into the `payment_provider` column on real money rows
+(`settle.ts:126`, `settle.ts:248`, `payment-actions.ts:81`). Left as-is with the stub
+deleted, an unset `PAYMENT_PROVIDER` would stamp live payments with the name of a provider
+that no longer exists in the codebase.
+
+Give both functions one shared source of truth, matching the "refuse loudly rather than
+degrade quietly" stance already stated in this file's comments:
 
 ```ts
-export function paymentPort(): PaymentPort {
+function requireProvider(): string {
   const provider = process.env.PAYMENT_PROVIDER;
-  if (provider === "razorpay") {
-    // ...existing razorpay construction, unchanged...
+  if (!provider) {
+    throw new Error("PAYMENT_PROVIDER is unset — configure a real provider");
   }
-  throw new Error(`Unknown or unset PAYMENT_PROVIDER: ${provider ?? "(unset)"}`);
+  return provider;
 }
+
+export function getPaymentPort(): PaymentPort {
+  const provider = requireProvider();
+
+  if (provider === "razorpay") {
+    // ...existing razorpay construction and its comment, unchanged...
+  }
+
+  throw new Error(`Unknown PAYMENT_PROVIDER: ${provider}`);
+}
+
+export const paymentProviderName = () => requireProvider();
 ```
 
-Read the existing file and preserve the Razorpay branch exactly as written — only the stub branch and its production refusal go.
+Read the existing file and preserve the Razorpay branch and its comment exactly as
+written — the comment about a missing webhook secret documents a real failure mode.
 
 - [ ] **Step 4: Propose the env change (do not write it)**
 
@@ -1504,13 +1542,15 @@ export default async function AppLayout({
 
 - [ ] **Step 7: Remove the now-duplicated headers**
 
-`SiteHeader` is rendered by `dashboard/page.tsx`, `teachers/page.tsx` and `find/page.tsx`, which now sit inside the shell. Delete those `<SiteHeader ... />` usages and their imports. Then:
+`SiteHeader` is rendered by `dashboard/page.tsx`, `teachers/page.tsx` and `find/page.tsx`,
+which now sit inside the shell. Delete those `<SiteHeader ... />` usages and their imports.
+The `(marketing)` usages were already removed in Task 4, so this leaves the component with
+no callers:
 
 ```bash
+grep -rn "SiteHeader" src   # expect no hits outside site-header.tsx itself
 git rm src/components/site-header.tsx
 ```
-
-`terms/page.tsx` and `tutor-signup/page.tsx` also used it — they are in `(marketing)` and already have that group's header from Task 4, so remove those usages too.
 
 - [ ] **Step 8: Verify**
 
