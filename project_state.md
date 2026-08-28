@@ -1,5 +1,56 @@
 # SMB Tutorials — Project State
 
+## ⏸ PAUSED MID-CYCLE — READ THIS FIRST (2026-08-28)
+
+**The redesign brainstorm is DONE. The spec and plan are written and approved. Implementation
+is UNDERWAY and paused at Task 5 of 14.** Everything below this block that describes the
+redesign as "not started" is historical — it describes the state before 2026-08-28.
+
+- **Branch: `redesign/ia-design-system`** — 11 commits, working tree clean, **not pushed**.
+  `main` is untouched and still matches production.
+- **Spec:** `docs/superpowers/specs/2026-08-28-ia-design-system-design.md` (approved)
+- **Plan:** `docs/superpowers/plans/2026-08-28-ia-design-system.md` (14 tasks)
+- **Ledger — the recovery map, read it before doing anything:**
+  `.superpowers/sdd/2026-08-28-ia-design-system/progress.md`. It records every task's state
+  and 14 numbered rulings (R1-R14) made on the user's behalf. Git-ignored scratch; if
+  `git clean -fdx` destroyed it, recover from `git log`.
+
+**Exact resume point: Task 5 is implemented (`0729c4e`) but its review was never dispatched.**
+Do NOT re-run Task 5's implementer. Dispatch the task review first — the diff package is
+already built. The ledger's PAUSED section has the exact SHAs and the two authorizations the
+reviewer needs.
+
+**Done and reviewed clean:** 1 test harness · 2 shadcn/ui + contrast-checked tokens ·
+3 admin role + identity resolution · 4 `(marketing)` route group.
+**Suite: 127 passing / 3 skipped; tsc, lint, build all clean.**
+
+### Three things waiting on the user
+
+1. **Google OAuth is not configured** — verified 2026-08-28, `/auth/v1/settings` reports
+   `google: false` and `/auth/v1/authorize?provider=google` returns
+   `400 "Unsupported provider: provider is not enabled"`. The client code is correct; this is
+   dashboard work. Google Cloud OAuth client with redirect URI
+   `https://upggvzzzoxqgourjywtd.supabase.co/auth/v1/callback`; client ID + secret into
+   Supabase; both `/auth/callback` origins into the Supabase redirect allowlist (an
+   un-allowlisted `redirect_to` does not error, it silently falls back to the Site URL).
+2. **`PAYMENT_PROVIDER` in `.env.local` must be `razorpay` before Task 6 lands.** Task 6
+   deletes the payment stub, after which an unset provider throws by design. `.env.local` is
+   the user's file and was not touched.
+3. **Migration `0006_roles_admin.sql` is written but deliberately NOT applied** to the live
+   Supabase project (ruling R9). It only widens the `profiles.role` CHECK to allow `'admin'`
+   and is inert until the admin cycle — nothing can hold that role until the constraint
+   widens AND someone sets it.
+
+### Known finding carried forward
+
+`signInRedirect` does not constrain its input, so `signInRedirect("//evil.example")` yields
+`/signin?next=%2F%2Fevil.example`. **No open redirect exists today** — the only caller passes
+a same-origin path from the proxy. **Task 7 is the task that makes `/signin` and
+`/auth/callback` consume `?next=`, and must validate it is a same-origin path (starts with
+`/`, not `//`) before redirecting.** Ruling R11.
+
+---
+
 ## ▶ Resume here (next session)
 1. `cd ~/smb-tutorials` (standalone repo, separate from HL-Trader — do not confuse the two).
 2. Read this file + `CLAUDE.md`. **You are on `main`, and it is clean and deployed.**
