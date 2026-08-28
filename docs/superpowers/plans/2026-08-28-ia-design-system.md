@@ -52,7 +52,7 @@
 Component tests are impossible today: `vitest.config.ts` sets `environment: "node"` and there is no JSX transform or DOM. Later tasks unit-test `StatusPill`, `Money` and the shell, so this comes first.
 
 **Files:**
-- Modify: `vitest.config.ts`
+- Modify: `vitest.config.mts`
 - Create: `vitest.setup.ts`, `src/test/harness.test.tsx`
 - Modify: `package.json` (dev dependencies)
 
@@ -63,10 +63,17 @@ Component tests are impossible today: `vitest.config.ts` sets `environment: "nod
 - [ ] **Step 1: Install the test dependencies**
 
 ```bash
-npm install -D @testing-library/react@^16 @testing-library/jest-dom@^6 jsdom@^25 @vitejs/plugin-react@^4
+npm install -D @testing-library/react@^16 @testing-library/jest-dom@^6 jsdom@^25 @vitejs/plugin-react@^5.2.0
 ```
 
-`@testing-library/react` v16 is the first line that supports React 19; an older major will fail against `react@19.2.8`.
+`@testing-library/react` v16 is the first line that supports React 19; an older major will
+fail against `react@19.2.8`.
+
+**`@vitejs/plugin-react` must be v5.2.0 or newer, not v4.** v4 peers on vite `^4 || ^5`, which
+forces npm to downgrade the installed `vite@8.2.2` to 7.x — a major-version downgrade of the
+engine the test runner is built on, for no gain. v5.2.0 peers on vite `^4 || ^5 || ^6 || ^7 || ^8`
+and dedupes onto the vite already present. After installing, confirm with `npm ls vite` that
+8.2.2 is retained.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -102,7 +109,11 @@ Create `vitest.setup.ts`:
 import "@testing-library/jest-dom/vitest";
 ```
 
-Replace `vitest.config.ts` with:
+Replace the contents of `vitest.config.mts` with the following. **The `.mts` extension is
+deliberate and must not be renamed:** `package.json` has no `"type"` field, so the package is
+CommonJS, and this file uses `import.meta.dirname`, which is invalid in a CJS-interpreted
+`.ts`. The extension is what unambiguously marks it ESM to any tool that loads it outside
+Vite's own config bundler. `tsconfig.json`'s `**/*.mts` include glob exists for this file.
 
 ```ts
 import { defineConfig } from "vitest/config";
@@ -129,7 +140,7 @@ Expected: the new harness test PASSES and all 113 existing tests still pass. If 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add vitest.config.ts vitest.setup.ts src/test/harness.test.tsx package.json package-lock.json
+git add vitest.config.mts vitest.setup.ts src/test/harness.test.tsx package.json package-lock.json
 git commit -m "test: add component testing harness (jsdom + Testing Library)"
 ```
 
