@@ -1204,6 +1204,27 @@ describe("safeNext", () => {
   it("refuses a backslash-smuggled protocol-relative URL", () => {
     expect(safeNext("/\\evil.example", "/home")).toBe("/home");
   });
+  // The URL parser strips ASCII tab/CR/LF from anywhere in the input before
+  // parsing, so each of these collapses to "//evil.example" in a browser.
+  it("refuses a tab-smuggled protocol-relative URL", () => {
+    expect(safeNext("/\t/evil.example", "/home")).toBe("/home");
+  });
+
+  it("refuses CR- and LF-smuggled protocol-relative URLs", () => {
+    expect(safeNext("/\r/evil.example", "/home")).toBe("/home");
+    expect(safeNext("/\n/evil.example", "/home")).toBe("/home");
+  });
+
+  // Tab-stripping and backslash-normalisation compose: remove the tab and the
+  // backslash becomes the second slash.
+  it("refuses a tab-plus-backslash payload", () => {
+    expect(safeNext("/\t\\evil.example", "/home")).toBe("/home");
+  });
+
+  it("refuses a non-string value such as an uploaded File part", () => {
+    expect(safeNext(new File([""], "x"), "/home")).toBe("/home");
+  });
+
 });
 ```
 
@@ -1217,24 +1238,40 @@ Expected: FAIL — `safeNext` is not exported.
 Add to `src/lib/routes.ts`:
 
 ```ts
-// `next` reaches us from a query string, so it is attacker-controlled. Anything
-// that is not a single-slash same-origin path is discarded rather than
-// sanitised — there is no legitimate reason for an off-site value here, and a
-// redirect we build from user input is an open redirect.
+// `next` reaches us from a query string, so it is attacker-controlled, and a
+// redirect built from user input is an open redirect.
 //
-// "//evil.example" is protocol-relative and would leave the site; some browsers
-// also normalise a backslash to a slash, so "/\evil.example" smuggles the same
-// attack past a naive startsWith("//") check.
-export function safeNext(
-  next: string | null | undefined,
-  fallback: string
-): string {
-  if (!next) return fallback;
+// Do NOT hand-roll this with prefix checks. An earlier version tested for "//"
+// and "/\\" and was defeated four ways, because the WHATWG URL parser strips
+// ASCII tab/CR/LF from ANYWHERE in the input before parsing, and then
+// normalises backslashes to slashes. "/\t/evil.example" becomes
+// "//evil.example" — protocol-relative, off-site — and "/\t\\evil.example"
+// gets there by both routes at once. Enumerating bad characters is a losing
+// game against a parser that rewrites its input.
+//
+// Instead resolve against a placeholder origin using the same parser the
+// browser will use, and reject anything that escapes it. Returning the parsed
+// components rather than the raw input also guarantees that no control
+// character survives into a Location header.
+const SAFE_NEXT_BASE = "https://smb.invalid";
+
+export function safeNext(next: unknown, fallback: string): string {
+  if (typeof next !== "string" || !next) return fallback;
   if (!next.startsWith("/")) return fallback;
-  if (next.startsWith("//") || next.startsWith("/\\")) return fallback;
-  return next;
+  try {
+    const url = new URL(next, SAFE_NEXT_BASE);
+    if (url.origin !== SAFE_NEXT_BASE) return fallback;
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return fallback;
+  }
 }
 ```
+
+`next` is typed `unknown` rather than `string | null` on purpose: `FormData.get()`
+returns `FormDataEntryValue | null`, which can be a `File`. A raw POST naming `next`
+as a file part would otherwise reach `.startsWith` and throw a 500. The `typeof`
+guard closes that at the root, so no call site needs a cast.
 
 - [ ] **Step 3e: Run it to verify it passes**
 
@@ -1267,7 +1304,7 @@ In `src/app/auth/actions.ts`, have `signIn` honour it, validated:
 ```ts
 import { safeNext } from "@/lib/routes";
 // ...
-  const target = safeNext(formData.get("next") as string | null, "/home");
+  const target = safeNext(formData.get("next"), "/home");
   redirect(target);
 ```
 
