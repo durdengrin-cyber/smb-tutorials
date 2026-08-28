@@ -275,7 +275,18 @@ Expected: FAIL — `token --primary not found as a hex value`.
 npx shadcn@latest init
 ```
 
-Answer: style **new-york**, base colour **neutral**, CSS variables **yes**. It writes `components.json`, `src/lib/utils.ts`, and a token block into `src/app/globals.css`.
+The CLI is v4.19.0 and no longer prompts for style/base-colour — it uses presets. Run it
+non-interactively as `--preset nova --base radix --css-variables`, which is the accepted
+baseline for this project (`components.json` records `"style": "radix-nova"`). It writes
+`components.json`, `src/lib/utils.ts`, and a token block into `src/app/globals.css`.
+
+**The nova preset renders `destructive` as a 10% tint** (`bg-destructive/10 text-destructive`)
+rather than a solid fill. Override that in `button.tsx` and `badge.tsx` to
+`bg-destructive text-destructive-foreground`: spec §9 makes actionable controls solid, a
+tinted destructive button reads as low-affordance for a destructive action, and without the
+override `--destructive-foreground` is a dead token whose AA test certifies a colour pair
+that appears nowhere on screen. Editing generated primitives is expected — shadcn is copy-in
+and you own the files.
 
 **If this fails against Tailwind v4 / React 19 / Next 16.3.2** — the spec flags this as the cycle's main risk — stop, report the exact error, and fall back to hand-writing the same primitives directly on Radix packages. That changes effort, not architecture, and must not be silently worked around.
 
