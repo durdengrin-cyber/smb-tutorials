@@ -1122,11 +1122,11 @@ git commit -m "test: require every page to live in a route group; delete the pay
 
 **Files:**
 - Create: `src/app/(app)/home/page.tsx`
-- Modify: `src/app/auth/actions.ts`, `src/app/(marketing)/tutor-signup/actions.ts`, `src/app/auth/callback/route.ts`
+- Modify: `src/app/auth/actions.ts`, `src/app/(marketing)/tutor-signup/actions.ts`, `src/app/auth/callback/route.ts`, `src/app/(marketing)/signin/page.tsx`, `src/app/(marketing)/signin/signin-form.tsx`, `src/lib/routes.ts`, `src/lib/routes.test.ts`
 
 **Interfaces:**
 - Consumes: `requireUser` from `@/lib/auth`, `resolveHome` from `@/lib/routes`
-- Produces: `/home` as the single post-login destination
+- Produces: `/home` as the single post-login destination; `safeNext(next, fallback): string`
 
 - [ ] **Step 1: Create the resolver**
 
@@ -1165,6 +1165,122 @@ to:
 ```ts
   const next = searchParams.get("next") ?? "/home";
 ```
+
+- [ ] **Step 3b: Write the failing test for `safeNext`**
+
+`requireUser` sends a bounced visitor to `/signin?next=<attempted path>`, but **nothing reads
+that parameter today** — `signIn` hardcodes `redirect("/")`. So the return trip does not work,
+and the moment it is wired up, `next` becomes attacker-controllable input. `signInRedirect`
+does not constrain its input either: `signInRedirect("//evil.example")` yields
+`/signin?next=%2F%2Fevil.example`. Validate at the point of consumption.
+
+Add to `src/lib/routes.test.ts`:
+
+```ts
+import { safeNext } from "./routes";
+
+describe("safeNext", () => {
+  it("passes through a same-origin path", () => {
+    expect(safeNext("/dashboard", "/home")).toBe("/dashboard");
+  });
+
+  it("keeps the query string", () => {
+    expect(safeNext("/waiting/abc?paid=1", "/home")).toBe("/waiting/abc?paid=1");
+  });
+
+  it("falls back when absent", () => {
+    expect(safeNext(null, "/home")).toBe("/home");
+    expect(safeNext("", "/home")).toBe("/home");
+  });
+
+  it("refuses an absolute URL", () => {
+    expect(safeNext("https://evil.example/x", "/home")).toBe("/home");
+  });
+
+  it("refuses a protocol-relative URL", () => {
+    expect(safeNext("//evil.example", "/home")).toBe("/home");
+  });
+
+  it("refuses a backslash-smuggled protocol-relative URL", () => {
+    expect(safeNext("/\\evil.example", "/home")).toBe("/home");
+  });
+});
+```
+
+- [ ] **Step 3c: Run it to verify it fails**
+
+Run: `npx vitest run src/lib/routes.test.ts`
+Expected: FAIL — `safeNext` is not exported.
+
+- [ ] **Step 3d: Implement `safeNext`**
+
+Add to `src/lib/routes.ts`:
+
+```ts
+// `next` reaches us from a query string, so it is attacker-controlled. Anything
+// that is not a single-slash same-origin path is discarded rather than
+// sanitised — there is no legitimate reason for an off-site value here, and a
+// redirect we build from user input is an open redirect.
+//
+// "//evil.example" is protocol-relative and would leave the site; some browsers
+// also normalise a backslash to a slash, so "/\evil.example" smuggles the same
+// attack past a naive startsWith("//") check.
+export function safeNext(
+  next: string | null | undefined,
+  fallback: string
+): string {
+  if (!next) return fallback;
+  if (!next.startsWith("/")) return fallback;
+  if (next.startsWith("//") || next.startsWith("/\\")) return fallback;
+  return next;
+}
+```
+
+- [ ] **Step 3e: Run it to verify it passes**
+
+Run: `npx vitest run src/lib/routes.test.ts`
+Expected: PASS (12 tests)
+
+- [ ] **Step 3f: Actually wire `next` through the password sign-in path**
+
+Without this the bounce-and-return flow does not exist, and Step 5's manual check cannot pass.
+
+In `src/app/(marketing)/signin/page.tsx`, read `next` alongside the existing `error`
+(`searchParams` is a Promise in this Next version) and pass it to the form:
+
+```tsx
+const { error, next } = await searchParams;
+```
+```tsx
+<SignInForm initialError={initialError} next={typeof next === "string" ? next : undefined} />
+```
+
+In `src/app/(marketing)/signin/signin-form.tsx`, accept the prop and carry it in the form so
+it reaches the server action — the action receives `FormData`, not the URL:
+
+```tsx
+{next && <input type="hidden" name="next" value={next} />}
+```
+
+In `src/app/auth/actions.ts`, have `signIn` honour it, validated:
+
+```ts
+import { safeNext } from "@/lib/routes";
+// ...
+  const target = safeNext(formData.get("next") as string | null, "/home");
+  redirect(target);
+```
+
+Also validate the OAuth callback's parameter in `src/app/auth/callback/route.ts` — it is the
+same attacker-controlled input arriving by a different door:
+
+```ts
+const next = safeNext(searchParams.get("next"), "/home");
+```
+
+**Leave `signUpStudent` and `tutorSignUp` going to `/home` unconditionally.** A brand-new
+account has no deep link it was bounced from, and giving them a `next` widens the attack
+surface for no gain.
 
 - [ ] **Step 4: Verify no `redirect("/")` survives on a sign-in path**
 
