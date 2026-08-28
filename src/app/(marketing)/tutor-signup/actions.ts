@@ -49,5 +49,5 @@ export async function signUpTutor(
     return { error: "Account created but subjects save failed — sign in and retry." };
   }
 
-  redirect("/");
+  redirect("/home");
 }

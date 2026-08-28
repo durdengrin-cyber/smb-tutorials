@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseSignIn, parseStudentSignUp } from "@/lib/validation";
 import type { AuthState } from "@/lib/form-state";
+import { safeNext } from "@/lib/routes";
 
 export async function signIn(
   _prev: AuthState,
@@ -16,7 +17,8 @@ export async function signIn(
   const { error } = await supabase.auth.signInWithPassword(parsed.value);
   if (error) return { error: "Invalid email or password." };
 
-  redirect("/");
+  const target = safeNext(formData.get("next") as string | null, "/home");
+  redirect(target);
 }
 
 export async function signUpStudent(
@@ -35,7 +37,7 @@ export async function signUpStudent(
   });
   if (error) return { error: error.message };
 
-  redirect("/");
+  redirect("/home");
 }
 
 export async function signOut(): Promise<void> {

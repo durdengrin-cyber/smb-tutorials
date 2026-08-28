@@ -5,7 +5,13 @@ import { useActionState } from "react";
 import { signIn } from "@/app/auth/actions";
 import { GoogleButton } from "@/components/google-button";
 
-export function SignInForm({ initialError }: { initialError?: string }) {
+export function SignInForm({
+  initialError,
+  next,
+}: {
+  initialError?: string;
+  next?: string;
+}) {
   const [state, formAction, isPending] = useActionState(signIn, null);
   const error = state?.error ?? initialError;
 
@@ -33,6 +39,7 @@ export function SignInForm({ initialError }: { initialError?: string }) {
       </div>
 
       <form action={formAction} className="space-y-4">
+        {next && <input type="hidden" name="next" value={next} />}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Email Address

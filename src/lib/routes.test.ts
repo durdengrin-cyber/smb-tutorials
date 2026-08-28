@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveHome, signInRedirect } from "./routes";
+import { resolveHome, signInRedirect, safeNext } from "./routes";
 
 describe("resolveHome", () => {
   it("sends a teacher to their dashboard", () => {
@@ -26,5 +26,32 @@ describe("signInRedirect", () => {
 
   it("does not loop when the attempted path is already /signin", () => {
     expect(signInRedirect("/signin")).toBe("/signin");
+  });
+});
+
+describe("safeNext", () => {
+  it("passes through a same-origin path", () => {
+    expect(safeNext("/dashboard", "/home")).toBe("/dashboard");
+  });
+
+  it("keeps the query string", () => {
+    expect(safeNext("/waiting/abc?paid=1", "/home")).toBe("/waiting/abc?paid=1");
+  });
+
+  it("falls back when absent", () => {
+    expect(safeNext(null, "/home")).toBe("/home");
+    expect(safeNext("", "/home")).toBe("/home");
+  });
+
+  it("refuses an absolute URL", () => {
+    expect(safeNext("https://evil.example/x", "/home")).toBe("/home");
+  });
+
+  it("refuses a protocol-relative URL", () => {
+    expect(safeNext("//evil.example", "/home")).toBe("/home");
+  });
+
+  it("refuses a backslash-smuggled protocol-relative URL", () => {
+    expect(safeNext("/\\evil.example", "/home")).toBe("/home");
   });
 });

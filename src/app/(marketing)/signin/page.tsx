@@ -4,7 +4,7 @@ import { SignInForm } from "./signin-form";
 export default async function SignInPage({
   searchParams,
 }: PageProps<"/signin">) {
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
   const initialError =
     error === "oauth" ? "Google sign-in failed — try again." : undefined;
 
@@ -55,7 +55,10 @@ export default async function SignInPage({
             </Link>
           </div>
 
-          <SignInForm initialError={initialError} />
+          <SignInForm
+            initialError={initialError}
+            next={typeof next === "string" ? next : undefined}
+          />
         </div>
       </div>
     </div>
