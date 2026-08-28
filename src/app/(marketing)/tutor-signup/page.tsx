@@ -1,3 +1,4 @@
+import { GoogleButton } from "@/components/google-button";
 import { TutorForm } from "./tutor-form";
 
 export default function TutorSignUpPage() {
@@ -13,6 +14,10 @@ export default function TutorSignUpPage() {
             <p className="text-lg text-gray-600">
               Start teaching and making a difference today
             </p>
+          </div>
+
+          <div className="max-w-md mx-auto mb-8">
+            <GoogleButton label="Sign up with Google" next="/tutor-signup" />
           </div>
 
           <TutorForm />

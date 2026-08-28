@@ -51,3 +51,16 @@ export function safeNext(next: unknown, fallback: string): string {
     return fallback;
   }
 }
+
+// Google sends no role, so handle_new_user() creates every OAuth account as a
+// student (migration 0001). A brand-new account that arrived with teacher
+// intent may complete teacher onboarding; an account with history may not —
+// changing the role of an account that has already been used is an admin
+// action, and admin is cycle 3. Spec §5.1.
+export function canBecomeTeacher(account: {
+  role: Role;
+  sessionCount: number;
+  subjectCount: number;
+}): boolean {
+  return account.role === "student" && account.sessionCount === 0 && account.subjectCount === 0;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveHome, signInRedirect, safeNext } from "./routes";
+import { resolveHome, signInRedirect, safeNext, canBecomeTeacher } from "./routes";
 
 describe("resolveHome", () => {
   it("sends a teacher to their dashboard", () => {
@@ -74,5 +74,23 @@ describe("safeNext", () => {
 
   it("refuses a non-string value such as an uploaded File part", () => {
     expect(safeNext(new File([""], "x"), "/home")).toBe("/home");
+  });
+});
+
+describe("canBecomeTeacher", () => {
+  it("allows a brand-new Google account with no history", () => {
+    expect(canBecomeTeacher({ role: "student", sessionCount: 0, subjectCount: 0 })).toBe(true);
+  });
+
+  it("refuses an account that has already taken sessions as a student", () => {
+    expect(canBecomeTeacher({ role: "student", sessionCount: 1, subjectCount: 0 })).toBe(false);
+  });
+
+  it("refuses an account that is already a teacher", () => {
+    expect(canBecomeTeacher({ role: "teacher", sessionCount: 0, subjectCount: 3 })).toBe(false);
+  });
+
+  it("refuses an admin outright", () => {
+    expect(canBecomeTeacher({ role: "admin", sessionCount: 0, subjectCount: 0 })).toBe(false);
   });
 });
