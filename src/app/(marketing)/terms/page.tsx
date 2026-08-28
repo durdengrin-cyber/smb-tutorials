@@ -1,173 +1,31 @@
+import { PageHeader } from "@/components/page-header";
+
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="px-8 py-12">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-2xl shadow-sm p-12 border border-gray-100">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              Terms &amp; Conditions
-            </h1>
-            <p className="text-gray-600 mb-8">Last updated: February 7, 2026</p>
+            <PageHeader
+              title="Terms & Conditions"
+              description="Last updated: February 7, 2026"
+            />
 
             <section className="mb-10">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
                 Refund Policy
               </h2>
-
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  How to Request a Refund
-                </h3>
-                <p className="text-gray-700 mb-3">
-                  To initiate a refund, please email{" "}
-                  <a
-                    href="mailto:support@smbtutorial.com"
-                    className="text-teal-600 hover:text-teal-700 font-medium"
-                  >
-                    support@smbtutorial.com
-                  </a>{" "}
-                  with your:
-                </p>
-                <ol className="list-decimal list-inside space-y-2 text-gray-700 ml-4">
-                  <li>Full Name</li>
-                  <li>Order Number</li>
-                  <li>
-                    Reason for the refund (this helps us improve our content!)
-                  </li>
-                </ol>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  Eligibility for Refunds
-                </h3>
-                <p className="text-gray-700 mb-3">
-                  We offer a 14-day money-back guarantee for most courses,
-                  subject to the following &quot;Fair Use&quot; conditions:
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
-                  <li>
-                    <strong>Consumption Limit:</strong> A refund request will
-                    only be honored if you have viewed or accessed less than 25%
-                    of the course content.
-                  </li>
-                  <li>
-                    <strong>Resource Access:</strong> If you have already
-                    downloaded supplemental materials (e.g., PDFs, proprietary
-                    code, or worksheets), the course is no longer eligible for a
-                    refund.
-                  </li>
-                  <li>
-                    <strong>Timeframe:</strong> Requests must be submitted via
-                    our support portal within exactly 14 days of the purchase
-                    timestamp.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  The 24-Hour Rule
-                </h3>
-                <p className="text-gray-700 mb-3">
-                  Because our tutors reserve specific time slots for students,
-                  cancellations impact their schedule and livelihood.
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
-                  <li>
-                    <strong>Cancellations &gt; 24 Hours:</strong> If a student
-                    cancels a session more than 24 hours in advance, they are
-                    entitled to a full refund or a free reschedule.
-                  </li>
-                  <li>
-                    <strong>Late Cancellations (&lt; 24 Hours):</strong>{" "}
-                    Cancellations made within 24 hours of the session start time
-                    are non-refundable. The tutor will be paid for their reserved
-                    time.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  No-Show Policy
-                </h3>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
-                  <li>
-                    <strong>Student No-Show:</strong> If a student does not show
-                    up within the first 15 minutes of a scheduled session, the
-                    session is considered &quot;Completed.&quot; No refund will
-                    be issued, and the tutor is free to leave the call.
-                  </li>
-                  <li>
-                    <strong>Tutor No-Show:</strong> If a tutor fails to show up,
-                    the student is entitled to a 100% refund or a credit for a
-                    future session, and the tutor may be subject to platform
-                    penalties.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  Satisfaction Guarantee (The &quot;First 15 Minutes&quot;)
-                </h3>
-                <p className="text-gray-700 mb-3">
-                  We want to ensure a good match between student and tutor.
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
-                  <li>
-                    If a student feels the tutor is not a good fit within the
-                    first 15 minutes of their first-ever session, they may leave
-                    the call and request a full refund or a switch to a different
-                    tutor.
-                  </li>
-                  <li>
-                    This &quot;Trial Protection&quot; only applies to the first
-                    session with a specific tutor to prevent users from consuming
-                    full lessons for free.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  Technical Difficulties
-                </h3>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
-                  <li>
-                    <strong>Platform Issues:</strong> If the session cannot be
-                    completed due to a failure of smbtutorial.com tools, a full
-                    refund or reschedule will be provided.
-                  </li>
-                  <li>
-                    <strong>User Issues:</strong> Refunds are generally not
-                    granted for individual internet connectivity issues or
-                    hardware problems on the student&apos;s end. We recommend
-                    testing your setup 10 minutes before the call.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  Package &amp; Bundle Refunds
-                </h3>
-                <p className="text-gray-700 mb-3">
-                  If a student purchases a bundle of hours (e.g., a 10-hour
-                  package):
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
-                  <li>
-                    <strong>Unused Hours:</strong> Refundable within 30 days of
-                    purchase, minus a 10% administrative processing fee.
-                  </li>
-                  <li>
-                    <strong>Used Hours:</strong> Once a session is completed,
-                    those hours are non-refundable.
-                  </li>
-                </ul>
-              </div>
+              <p className="text-gray-700">
+                Our no-show and refund policy has not been published yet.
+                Contact{" "}
+                <a
+                  href="mailto:support@smbtutorial.com"
+                  className="text-teal-600 hover:text-teal-700 font-medium"
+                >
+                  support@smbtutorial.com
+                </a>{" "}
+                with questions in the meantime.
+              </p>
             </section>
 
             <section className="mb-10">

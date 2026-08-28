@@ -6,6 +6,7 @@ import {
   STREAMS,
   SUBJECTS_BY_STREAM,
 } from "@/lib/taxonomy";
+import { Label } from "@/components/ui/label";
 
 // Checkboxes inside labels, so a plain form submission carries repeated
 // entries — no client state needed. The action expands the three selections
@@ -33,9 +34,9 @@ export function SubjectPicker() {
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-3">
+        <Label className="mb-3">
           Curriculum * <span className="font-normal text-gray-500">(select all you teach)</span>
-        </label>
+        </Label>
         <div className="grid grid-cols-3 gap-3">
           {CURRICULA.map((c) => (
             <Chip key={c} name="curricula" value={c} label={c} />
@@ -44,9 +45,9 @@ export function SubjectPicker() {
       </div>
 
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-3">
+        <Label className="mb-3">
           Grades * <span className="font-normal text-gray-500">(select all you teach)</span>
-        </label>
+        </Label>
         <div className="grid grid-cols-4 sm:grid-cols-7 gap-3">
           {GRADES.map((g) => (
             <Chip key={g} name="grades" value={g} label={g} />
@@ -55,9 +56,7 @@ export function SubjectPicker() {
       </div>
 
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-3">
-          Subjects You Teach *
-        </label>
+        <Label className="mb-3">Subjects You Teach *</Label>
         <div className="space-y-4">
           {STREAMS.map((stream) => (
             <div key={stream}>

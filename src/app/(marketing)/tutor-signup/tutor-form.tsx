@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { signUpTutor } from "./actions";
 import { SubjectPicker } from "./subject-picker";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
-const FIELD =
-  "w-full py-3 px-4 rounded-lg border-2 border-gray-200 focus:border-teal-600 focus:outline-none";
-const SELECT = `${FIELD} text-gray-900 font-medium text-base bg-white`;
-const LABEL = "block text-sm font-semibold text-gray-700 mb-2";
+const SELECT =
+  "h-8 w-full rounded-lg border border-input bg-white px-2.5 py-1 text-sm font-medium text-gray-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 export function TutorForm() {
   const [state, formAction, isPending] = useActionState(signUpTutor, null);
@@ -24,61 +25,61 @@ export function TutorForm() {
           Personal Information
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label className={LABEL}>Full Name *</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="tutor-fullName">Full Name *</Label>
+            <Input
+              id="tutor-fullName"
               type="text"
               name="fullName"
               required
               placeholder="Dr. John Doe"
-              className={FIELD}
             />
           </div>
-          <div>
-            <label className={LABEL}>Email Address *</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="tutor-email">Email Address *</Label>
+            <Input
+              id="tutor-email"
               type="email"
               name="email"
               required
               placeholder="your.email@example.com"
-              className={FIELD}
             />
           </div>
-          <div>
-            <label className={LABEL}>
+          <div className="space-y-2">
+            <Label htmlFor="tutor-password">
               Password *{" "}
               <span className="font-normal text-gray-500">
                 (you&apos;ll use this to sign in)
               </span>
-            </label>
-            <input
+            </Label>
+            <Input
+              id="tutor-password"
               type="password"
               name="password"
               required
               minLength={8}
               placeholder="At least 8 characters"
-              className={FIELD}
             />
           </div>
-          <div>
-            <label className={LABEL}>Phone Number *</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="tutor-phone">Phone Number *</Label>
+            <Input
+              id="tutor-phone"
               type="tel"
               name="phone"
               required
               placeholder="10-digit number"
-              className={FIELD}
             />
           </div>
-          <div>
-            <label className={LABEL}>Years of Experience *</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="tutor-experience">Years of Experience *</Label>
+            <Input
+              id="tutor-experience"
               type="number"
               name="experience"
               required
               min={0}
               placeholder="e.g., 5"
-              className={FIELD}
             />
           </div>
         </div>
@@ -90,26 +91,26 @@ export function TutorForm() {
           Education &amp; Qualifications
         </h3>
         <div className="space-y-4">
-          <div>
-            <label className={LABEL}>Highest Qualification *</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="tutor-qualification">Highest Qualification *</Label>
+            <Input
+              id="tutor-qualification"
               type="text"
               name="qualification"
               required
               placeholder="e.g., PhD in Physics, IIT Delhi"
-              className={FIELD}
             />
           </div>
 
           <SubjectPicker />
 
-          <div>
-            <label className={LABEL}>Specialization</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="tutor-specialization">Specialization</Label>
+            <Input
+              id="tutor-specialization"
               type="text"
               name="specialization"
               placeholder="e.g., Mechanics, Thermodynamics"
-              className={FIELD}
             />
           </div>
         </div>
@@ -121,29 +122,35 @@ export function TutorForm() {
           Teaching Preferences
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label className={LABEL}>Preferred Teaching Level</label>
-            <select name="teachingLevel" className={SELECT} defaultValue="">
+          <div className="space-y-2">
+            <Label htmlFor="tutor-teachingLevel">Preferred Teaching Level</Label>
+            <select
+              id="tutor-teachingLevel"
+              name="teachingLevel"
+              className={SELECT}
+              defaultValue=""
+            >
               <option value="">Select level</option>
               <option value="school">School (6th-12th)</option>
               <option value="college">College/University</option>
               <option value="both">Both</option>
             </select>
           </div>
-          <div>
-            <label className={LABEL}>Hourly Rate (₹) *</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="tutor-hourlyRate">Hourly Rate (₹) *</Label>
+            <Input
+              id="tutor-hourlyRate"
               type="number"
               name="hourlyRate"
               required
               min={1}
               placeholder="e.g., 500"
-              className={FIELD}
             />
           </div>
-          <div>
-            <label className={LABEL}>Hours Available per Week *</label>
+          <div className="space-y-2">
+            <Label htmlFor="tutor-hoursPerWeek">Hours Available per Week *</Label>
             <select
+              id="tutor-hoursPerWeek"
               name="hoursPerWeek"
               required
               className={SELECT}
@@ -164,20 +171,20 @@ export function TutorForm() {
       <div>
         <h3 className="text-xl font-bold text-gray-900 mb-4">Demo Video</h3>
         <div className="space-y-3">
-          <label className="block text-sm font-semibold text-gray-700">
+          <Label htmlFor="tutor-demoVideoUrl">
             Demo Video Link (YouTube or Google Drive) *
-          </label>
+          </Label>
           <p className="text-sm text-gray-500 mb-3">
             Upload your 2-5 minute demo video to YouTube or Google Drive, then
             paste the link here. This helps students see your teaching style.
           </p>
 
-          <input
+          <Input
+            id="tutor-demoVideoUrl"
             type="url"
             name="demoVideoUrl"
             required
             placeholder="https://www.youtube.com/watch?v=... or https://drive.google.com/file/d/..."
-            className={FIELD}
           />
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -244,13 +251,9 @@ export function TutorForm() {
         </span>
       </div>
 
-      {state?.error && <p className="text-red-600 text-sm">{state.error}</p>}
+      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-bold py-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-      >
+      <Button type="submit" disabled={isPending} className="w-full h-12 font-bold">
         {isPending ? (
           <span className="flex items-center justify-center gap-2">
             <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -274,7 +277,7 @@ export function TutorForm() {
         ) : (
           "Submit Application"
         )}
-      </button>
+      </Button>
 
       <p className="text-sm text-gray-500 text-center">
         Our team will review your application and contact you within 2-3

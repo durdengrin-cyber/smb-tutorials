@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { signUpStudent } from "@/app/auth/actions";
 import { GoogleButton } from "@/components/google-button";
+import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function SignUpForm() {
   const [state, formAction, isPending] = useActionState(signUpStudent, null);
@@ -14,10 +18,7 @@ export function SignUpForm() {
         <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
           <span className="text-white font-bold text-2xl">SMB</span>
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          Create Account
-        </h2>
-        <p className="text-gray-600">Start your learning journey</p>
+        <PageHeader title="Create Account" description="Start your learning journey" />
       </div>
 
       <GoogleButton label="Sign up with Google" />
@@ -34,57 +35,49 @@ export function SignUpForm() {
       </div>
 
       <form action={formAction} className="space-y-4">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Full Name
-          </label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="signup-fullName">Full Name</Label>
+          <Input
+            id="signup-fullName"
             type="text"
             name="fullName"
             required
             placeholder="John Doe"
-            className="w-full py-3 px-4 rounded-lg border-2 border-gray-200 focus:border-teal-600 focus:outline-none"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Email Address
-          </label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="signup-email">Email Address</Label>
+          <Input
+            id="signup-email"
             type="email"
             name="email"
             required
             placeholder="your.email@example.com"
-            className="w-full py-3 px-4 rounded-lg border-2 border-gray-200 focus:border-teal-600 focus:outline-none"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Password
-          </label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="signup-password">Password</Label>
+          <Input
+            id="signup-password"
             type="password"
             name="password"
             required
             minLength={8}
             placeholder="Create a strong password"
-            className="w-full py-3 px-4 rounded-lg border-2 border-gray-200 focus:border-teal-600 focus:outline-none"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Confirm Password
-          </label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="signup-confirmPassword">Confirm Password</Label>
+          <Input
+            id="signup-confirmPassword"
             type="password"
             name="confirmPassword"
             required
             minLength={8}
             placeholder="Re-enter your password"
-            className="w-full py-3 px-4 rounded-lg border-2 border-gray-200 focus:border-teal-600 focus:outline-none"
           />
         </div>
 
@@ -108,15 +101,11 @@ export function SignUpForm() {
           </span>
         </div>
 
-        {state?.error && <p className="text-red-600 text-sm">{state.error}</p>}
+        {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
 
-        <button
-          type="submit"
-          disabled={isPending}
-          className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
-        >
+        <Button type="submit" disabled={isPending} className="w-full h-11">
           {isPending ? "Creating account…" : "Create Account"}
-        </button>
+        </Button>
       </form>
 
       <div className="mt-6 text-center">

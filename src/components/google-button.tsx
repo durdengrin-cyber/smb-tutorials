@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
 
 export function GoogleButton({ label, next }: { label: string; next?: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -29,11 +30,12 @@ export function GoogleButton({ label, next }: { label: string; next?: string }) 
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={startGoogleSignIn}
         disabled={pending}
-        className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-semibold py-3 px-4 rounded-lg transition-all mb-6 hover:shadow-md disabled:opacity-50"
+        className="w-full h-11 gap-3 mb-6 font-semibold"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path
@@ -54,8 +56,8 @@ export function GoogleButton({ label, next }: { label: string; next?: string }) 
           />
         </svg>
         {pending ? "Redirecting to Google…" : label}
-      </button>
-      {error && <p className="text-red-600 text-sm -mt-4 mb-4">{error}</p>}
+      </Button>
+      {error && <p className="text-sm text-destructive -mt-4 mb-4">{error}</p>}
     </>
   );
 }

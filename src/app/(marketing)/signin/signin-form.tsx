@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { signIn } from "@/app/auth/actions";
 import { GoogleButton } from "@/components/google-button";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function SignInForm({
   initialError,
@@ -40,29 +43,25 @@ export function SignInForm({
 
       <form action={formAction} className="space-y-4">
         {next && <input type="hidden" name="next" value={next} />}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Email Address
-          </label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="signin-email">Email Address</Label>
+          <Input
+            id="signin-email"
             type="email"
             name="email"
             required
             placeholder="your.email@example.com"
-            className="w-full py-3 px-4 rounded-lg border-2 border-gray-200 focus:border-teal-600 focus:outline-none"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Password
-          </label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="signin-password">Password</Label>
+          <Input
+            id="signin-password"
             type="password"
             name="password"
             required
             placeholder="Enter your password"
-            className="w-full py-3 px-4 rounded-lg border-2 border-gray-200 focus:border-teal-600 focus:outline-none"
           />
         </div>
 
@@ -71,23 +70,16 @@ export function SignInForm({
             <input type="checkbox" className="mr-2" />
             <span className="text-gray-600">Remember me</span>
           </label>
-          <button
-            type="button"
-            className="text-teal-600 hover:text-teal-700 font-medium"
-          >
+          <Button type="button" variant="link" className="h-auto p-0">
             Forgot password?
-          </button>
+          </Button>
         </div>
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={isPending}
-          className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
-        >
+        <Button type="submit" disabled={isPending} className="w-full h-11">
           {isPending ? "Signing in…" : "Sign In"}
-        </button>
+        </Button>
       </form>
 
       <div className="mt-6 text-center">

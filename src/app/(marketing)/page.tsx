@@ -7,9 +7,9 @@ const FEATURES = [
     body: "From math to music, find teachers for every topic you want to learn.",
   },
   {
-    icon: "⏰",
-    title: "Your Schedule",
-    body: "Book sessions that fit your time. Learn when it's convenient for you.",
+    icon: "⚡",
+    title: "Start right now",
+    body: "See which teachers are online this minute and start a one-to-one lesson immediately.",
   },
   {
     icon: "👨‍🏫",
@@ -83,8 +83,8 @@ export default function HomePage() {
               </h2>
 
               <p className="text-xl text-gray-600 mb-8">
-                Connect with expert teachers for hourly sessions. Master any
-                concept at your own pace, on your own schedule.
+                Connect with expert teachers for hourly sessions. See who&apos;s
+                online right now and start learning immediately.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -111,9 +111,9 @@ export default function HomePage() {
                   <p className="text-xs text-gray-600">Any topic</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl mb-2">⏰</div>
-                  <p className="text-sm font-semibold text-gray-900">Flexible</p>
-                  <p className="text-xs text-gray-600">Your schedule</p>
+                  <div className="text-3xl mb-2">⚡</div>
+                  <p className="text-sm font-semibold text-gray-900">Instant</p>
+                  <p className="text-xs text-gray-600">Start right now</p>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl mb-2">💯</div>
