@@ -1,5 +1,17 @@
 # SMB Tutorials — Project State
 
+## ⏸ HALTED ON A RATE LIMIT — 2026-08-28 18:03 IST (resets 20:20 IST)
+
+**Tasks 1-10 of 14 are complete and reviewed clean.** Task 11's implementer was killed by an
+HTTP 429 session limit mid-edit — not a code failure. `main` is untouched; nothing is pushed.
+
+- Branch `redesign/ia-design-system`, HEAD `35b11a9`, **153 tests passing / 3 skipped**,
+  tsc + lint + build all clean.
+- **One uncommitted file: `src/app/(app)/(student)/find/page.tsx`** — Task 11's first
+  migration, verified coherent (tsc clean, tags balanced). **Keep it. Do not redo that file.**
+- Resume by re-dispatching Task 11 for the four remaining files. The ledger's HALTED section
+  has the detail, including the money-unit trap that is the real hazard in this task.
+
 ## ⏸ PAUSED MID-CYCLE — READ THIS FIRST (2026-08-28)
 
 **The redesign brainstorm is DONE. The spec and plan are written and approved. Implementation
