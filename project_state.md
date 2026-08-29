@@ -49,7 +49,27 @@ hits a sign-in wall, and a signed-in *teacher* cannot view `/teachers` at all. R
 - Migrations `0002`–`0005` applied to the live project; **`0006` written and NOT applied**.
 - Tree clean, `main == origin/main`.
 
-### ▶ Cycle 2 is IN PROGRESS — brainstorm paused mid-way (2026-08-29)
+### ▶ Cycle 2 — BRAINSTORM COMPLETE, spec written, awaiting user review (2026-08-29)
+
+**Spec: `docs/superpowers/specs/2026-08-29-durable-availability-design.md`** — all five
+design sections approved by the user in conversation; the written spec is the source of
+truth from here and supersedes the brainstorm-state handoff below for everything it covers.
+Next step after the user approves the file: `superpowers:writing-plans`. Implementation then
+runs under `superpowers:subagent-driven-development`, one implementer per task.
+
+Three things the spec's self-review found that the brainstorm had not: students cannot read
+`teacher_devices` at all, so the roster needs a `security definer` RPC that publishes a
+`has_device` boolean and never an endpoint (§4.4); that same RPC must exclude teachers
+already in a session, because a push-only teacher has no presence to drop and would
+otherwise be pushed a new request mid-call; and an installed iOS web app has its own cookie
+jar, so the real iOS path is install → **sign in again** → grant permission (§7.4).
+
+**Still blocking any implementation:** fresh clone — no `node_modules`, no `.env.local`
+(spec §13). This cycle also adds VAPID keys.
+
+---
+
+### Cycle 2 brainstorm state — historical, superseded by the spec above
 
 **Read `docs/superpowers/handoffs/2026-08-29-cycle-2-brainstorm-state.md` before anything
 else.** Nothing is implemented and no spec file exists yet; that document is the entire state of
