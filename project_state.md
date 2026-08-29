@@ -49,21 +49,32 @@ hits a sign-in wall, and a signed-in *teacher* cannot view `/teachers` at all. R
 - Migrations `0002`–`0005` applied to the live project; **`0006` written and NOT applied**.
 - Tree clean, `main == origin/main`.
 
-### Next: cycle 2 — fix what "online" means
+### ▶ Cycle 2 is IN PROGRESS — brainstorm paused mid-way (2026-08-29)
 
-Step 2 of the hardening the user asked for on 2026-08-28 ("cater both but one by one"). Cycle 1
-was step 1. Availability is still held by an open browser tab: lock a phone and the teacher
-silently vanishes from the student list while believing they are available.
+**Read `docs/superpowers/handoffs/2026-08-29-cycle-2-brainstorm-state.md` before anything
+else.** Nothing is implemented and no spec file exists yet; that document is the entire state of
+the design conversation, written down precisely so it does not evaporate the way cycle 1's
+git-ignored ledger did.
 
-The model agreed in the cycle-1 brainstorm but **not yet specced**: a durable declaration as the
-source of truth, with push and the websocket as two independent delivery roads, and honest
-degradation when neither can reach the device. Cycle 1 built the vocabulary deliberately —
-`StatusPill` knows all four states, and **nothing renders `unreachable` because the mechanism
-does not exist yet**. Step 2 changes plumbing, not markup.
+In short: cycle 2 is **durable availability only** (the student dashboard was split back out,
+user's choice). The approach — **B′** — is approved, as are design Sections 1–3 (data model,
+delivery, honest degradation). **Resume at Section 4 of 5** (PWA + onboarding), then Section 5
+(testing), then write the spec, then `superpowers:writing-plans`.
 
-**Start with `superpowers:brainstorming`, architectural path.** The handoff's §5 lists what to
-pick up first — beginning with component tests on the payment surfaces, the largest standing
-risk in the repo and the one thing three separate reviews all flagged.
+Three things settled this session that earlier notes leave open:
+- **Primary device: all devices, first-class.** The question `project_state` flagged as "asked
+  and withdrawn — re-ask it first" is now answered. Do not ask again.
+- **Teachers will onboard via a PWA**, with an App Store build anticipated later — so the push
+  transport is built behind a port, mirroring `src/lib/payments/port.ts`.
+- **Standing user instruction:** *"this is a legit business being developed for scale. So choose
+  accordingly."* Saved to project memory as `build-for-scale`.
+
+**🛑 This machine is a fresh clone: no `node_modules`, no `.env.local`.** Nothing can be built,
+run, tested or probed until both are restored. Every "verified green" claim below was verified
+on the previous machine — re-establish the baseline before trusting it.
+
+The payment-surface component tests (cycle-1 handoff §5) are a **separate bounded task** that
+runs *before* this cycle's implementation, not inside its spec.
 
 Then: student dashboard, admin (gated on the role-write guard above **and** on policy answers),
 polish.
