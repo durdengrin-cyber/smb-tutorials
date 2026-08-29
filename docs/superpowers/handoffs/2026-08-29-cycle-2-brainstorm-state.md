@@ -1,4 +1,15 @@
-# Cycle 2 — Durable Availability — BRAINSTORM IN PROGRESS
+# Cycle 2 — Durable Availability — BRAINSTORM (COMPLETE — SUPERSEDED)
+
+> **🛑 STOP — do not follow §0's "resume at Section 4" instruction. The brainstorm is
+> finished.** Sections 4 and 5 were completed on 2026-08-29 and the whole design is now
+> written, reviewed and committed as
+> **`docs/superpowers/specs/2026-08-29-durable-availability-design.md`** — that spec is the
+> source of truth and supersedes everything below it. This file is kept only as the record
+> of how the design was arrived at, including the approaches that were rejected.
+>
+> The spec corrects two things stated below: the roster read cannot exclude teachers
+> without a device (SQL cannot see presence — spec §4.4), and the push-only half of the
+> list needs a refresh mechanism, which is polling on focus + 30s (spec §4.4.2).
 
 **Paused 2026-08-29, mid-brainstorm, by the user's request to resume in a fresh session.**
 

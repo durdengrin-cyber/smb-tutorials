@@ -49,23 +49,57 @@ hits a sign-in wall, and a signed-in *teacher* cannot view `/teachers` at all. R
 - Migrations `0002`–`0005` applied to the live project; **`0006` written and NOT applied**.
 - Tree clean, `main == origin/main`.
 
-### ▶ Cycle 2 — BRAINSTORM COMPLETE, spec written, awaiting user review (2026-08-29)
+### ▶ Cycle 2 — SPEC WRITTEN AND REVIEWED, awaiting the user's approval (2026-08-29)
 
-**Spec: `docs/superpowers/specs/2026-08-29-durable-availability-design.md`** — all five
-design sections approved by the user in conversation; the written spec is the source of
-truth from here and supersedes the brainstorm-state handoff below for everything it covers.
-Next step after the user approves the file: `superpowers:writing-plans`. Implementation then
-runs under `superpowers:subagent-driven-development`, one implementer per task.
+**Source of truth: `docs/superpowers/specs/2026-08-29-durable-availability-design.md`**
+(16 sections, 762 lines, commits `1bb3937` + `933a2bc`). All five design sections were
+approved by the user in conversation; a review pass over the written spec then found and
+fixed two defects it would otherwise have shipped. The brainstorm handoff below is
+**historical** — it carries a "resume at Section 4" instruction that is no longer true, and
+now says so at the top of the file.
 
-Three things the spec's self-review found that the brainstorm had not: students cannot read
-`teacher_devices` at all, so the roster needs a `security definer` RPC that publishes a
-`has_device` boolean and never an endpoint (§4.4); that same RPC must exclude teachers
-already in a session, because a push-only teacher has no presence to drop and would
-otherwise be pushed a new request mid-call; and an installed iOS web app has its own cookie
-jar, so the real iOS path is install → **sign in again** → grant permission (§7.4).
+**Next step, in order:**
+1. User approves the spec file (the only thing outstanding).
+2. `superpowers:writing-plans`.
+3. Implementation via `superpowers:subagent-driven-development` — one implementer per task,
+   each independently reviewed. Brainstorm and spec work stay in the main conversation with
+   no subagents (ruling, 2026-08-29).
 
-**Still blocking any implementation:** fresh clone — no `node_modules`, no `.env.local`
-(spec §13). This cycle also adds VAPID keys.
+**The plan must sequence these ahead of the cycle's own tasks:**
+- **Fresh clone** — `npm install`, and `.env.local` rebuilt (spec §13). **It is the user's
+  file: propose the lines, let them paste. Never write it.** Nothing can be built, run,
+  tested or probed until this is done, and every "verified green" number below was measured
+  on the *previous* machine.
+- **VAPID keys** — `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`,
+  into `.env.local` and Vercel (Production, Preview, Development).
+- **Payment-surface component tests** (cycle-1 spec §17.5) — a separate bounded task that
+  runs *before* this cycle's implementation, not inside it.
+- New dependencies this cycle introduces: `web-push` (runtime) and `@playwright/test` (dev).
+
+**What the review caught, worth not re-deriving:**
+- The roster RPC **cannot** exclude teachers without a device row — it is SQL and cannot
+  see presence, so doing so would drop a teacher who declared, has the dashboard open, and
+  declined notifications. `has_device` is published, not applied; "can't reach you" is a
+  **client-side join** (spec §4.4).
+- The push-only half of the list needs its own freshness mechanism — presence only streams
+  the live half. **Poll on focus + every 30s** (spec §4.4.2), chosen over Broadcast because
+  polling scales with students rather than `teachers × students`.
+- An installed iOS web app has **its own cookie jar**, so the real iOS path is install →
+  **sign in again** → grant permission. That is why onboarding is a dashboard state machine
+  rather than a wizard after signup (spec §7.2, §7.4).
+
+**Open, and needing the user:**
+- **The dispatcher's credential is deliberately deferred** (spec §12) — a dedicated
+  `sb_secret_*` key, the service role, or `pg_net`. Cannot be chosen until `.env.local`
+  exists and the project's key type is known. Designed so it is one line of config.
+- **The locked-phone walk is the user's to perform.** Playwright covers the two-browser run
+  and real push to desktop Chrome; nothing automatable covers an iPhone installing to the
+  Home Screen, re-signing in, and receiving a notification on a locked screen (spec §9.4).
+  Its harness must run against `channel: "chrome"` — Playwright's bundled Chromium usually
+  cannot register for push, and would go green while proving nothing.
+
+**⚠ Two commits sit on local `main` and are NOT pushed** (`1bb3937`, `933a2bc`, docs only).
+Per CLAUDE.md, `git fetch origin main` and rebase before any push.
 
 ---
 
