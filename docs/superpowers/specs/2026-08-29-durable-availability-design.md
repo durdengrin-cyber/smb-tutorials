@@ -112,7 +112,8 @@ declared ∧ lease-valid ∧ ¬in-session ∧ (live-connection ∨ working-devic
 ```
 
 ranked live-connection first (§6.2). `intersectOnline()` survives as the *live* half of
-that expression; the push-only half is new, and §4.5 is where it comes from.
+that expression; the push-only half is new, and §4.4 is where it comes from — with the
+final `∨` evaluated on the client, because that is the only place both halves exist.
 
 ## 4. Data model
 
@@ -125,7 +126,7 @@ buys the write storm above. **A lease gives the same honesty ~240× cheaper:**
 | Model | Writes/sec at 10,000 teachers |
 |---|---|
 | 15s heartbeat | ~667 |
-| Hourly lease renewal | **~2.8** |
+| 4-hour lease, renewed at the halfway point | **~1.4** |
 
 ```sql
 create table public.teacher_availability (
@@ -142,10 +143,27 @@ create index teacher_availability_live_idx
 ```
 
 Declaring buys a fixed span. **The default lease is 4 hours**, one exported constant
-alongside `ACCEPT_WINDOW_SECONDS`. Any live client renews it
-lazily; accepting work renews it. **The lease is shown to the teacher at the moment they
-declare**, so lapsing is what they agreed to rather than a surprise sprung on them. No
-nagging pre-expiry push — that would be a user-visible notification for our convenience.
+alongside `ACCEPT_WINDOW_SECONDS`.
+
+**The renewal rule, stated exactly** — "renews lazily" is not a specification, and two
+implementers would build two different things from it:
+
+> A live client renews the lease when **less than half of it remains**, and at most **once
+> per 15 minutes** per client. Accepting a session also renews it.
+
+Both halves matter. The halfway trigger is what makes the arithmetic above hold; the
+15-minute floor stops several open tabs, or a remount loop, from turning a rare write into
+a frequent one.
+
+**The lease is shown to the teacher at the moment they declare**, so lapsing is what they
+agreed to rather than a surprise sprung on them. No nagging pre-expiry push — that would be
+a user-visible notification sent for our convenience.
+
+**When a lease lapses**, `declared` stays true with a past `declared_until`; every query
+filters on `declared_until > now()`, so nothing stale is ever listed. The teacher's own
+toggle reads **Offline**, and their next dashboard visit says so plainly — *"Your
+availability ended at 6:00 pm."* — rather than leaving them to infer it from a toggle that
+silently moved.
 
 ### 4.2 `teacher_devices` — the push subscription registry
 
@@ -194,8 +212,23 @@ failure columns exist because a 404/410 at send time is the **only** death signa
 sharing one browser profile produce the same endpoint; a plain upsert would have to update
 a row owned by someone else, which RLS correctly refuses, and the teacher would see setup
 fail for no visible reason. `register_device(endpoint, p256dh, auth, user_agent)`
-reassigns the endpoint to the calling user atomically. That is legitimate: the caller
-demonstrably holds the subscription, having just obtained it from their own browser.
+reassigns the endpoint to the calling user atomically, **matching on all three of
+`endpoint`, `p256dh` and `auth`** — not the endpoint alone.
+
+**The risk this leaves, stated rather than assumed away.** The arguments are supplied by
+the caller; the function cannot *prove* the caller holds the subscription. Someone who
+learned another teacher's full subscription triple could reassign it, which would strip
+that teacher's reachability — a quiet denial of service against a rival — and misroute
+notifications to their device. Three things make that acceptable rather than open:
+
+- Endpoints and keys **never leave the server**: `teacher_devices` is readable only by its
+  owner (§4.3) and the roster RPC publishes a boolean, never a subscription (§4.4). The
+  attack presupposes a leak that would already be the more serious incident.
+- Requiring all three values means an endpoint glimpsed on its own is not enough.
+- Sign-out already deletes the row (§8), which covers the ordinary shared-device case, so
+  reassignment is the rare path rather than the common one.
+
+Recorded here so a later reviewer sees a weighed trade-off, not an oversight.
 
 ### 4.4 The roster read — one `security definer` RPC
 
@@ -216,19 +249,55 @@ exists: the capability stays server-side, and the student receives a boolean.
 It excludes, in SQL:
 
 - teachers who have not declared, or whose lease has lapsed;
-- teachers with **no live device and no working device row** — §6.1's "Can't reach you";
 - **teachers who are already in a session** — any row in `pending`, `accepted`, `paid` or
   `active` whose deadline has not passed, mirroring `hasOpenRequest`.
 
-That last exclusion is **new and load-bearing.** Until now, hiding a busy teacher was a
+That second exclusion is **new and load-bearing.** Until now, hiding a busy teacher was a
 side effect of presence untracking when they navigated into the call. That no longer
 suffices: a push-only teacher has no presence to drop, so without this check a teacher
 would be shown as startable mid-call and pushed a new request while teaching.
 
-The client then intersects the result with the presence roster to split *live* from
-*push-only* for §6.2's ranking. **This function is the "list read behind one function"
-seam** named in §10 — sharding presence, or moving the whole read server-side, happens here
-without touching a caller.
+**It deliberately does NOT exclude teachers without a device.** The function is SQL and
+**cannot see presence** — presence lives in the Realtime service, not in Postgres (§5.3).
+A teacher who declared, has the dashboard open, and declined notifications is genuinely
+reachable *right now*, and excluding them here would refuse work to a teacher who can take
+it — the exact regression §7.3 rejects. So `has_device` is **published, not applied**.
+
+**"Can't reach you" is therefore a client-side join**, and it has to be: it is the only
+place where both facts — the boolean from this function and the presence roster from the
+Realtime channel — exist at the same time. The client drops a teacher only when
+`has_device` is false **and** they are absent from presence, and splits the rest into
+live-first / push-only for §6.2's ranking.
+
+**This function is the "list read behind one function" seam** named in §10 — sharding
+presence, or moving the whole read server-side, happens here without touching a caller.
+
+#### 4.4.1 Keeping the in-session rule from drifting
+
+The in-session exclusion re-implements `hasOpenRequest` (`src/lib/session.ts`) in SQL —
+two expressions of one rule, in two languages, over four statuses and three deadline
+columns. That is a real drift risk and is accepted deliberately, because the check must be
+server-side to be worth anything. **The tripwire is the probe** (§9.2): it seeds a session
+in each status and asserts the RPC's answer matches `hasOpenRequest`'s, so a change to one
+without the other fails a run rather than quietly listing teachers mid-lesson.
+
+#### 4.4.2 Freshness — poll on focus, plus a 30-second interval
+
+Presence pushes live updates for the live tier. The push-only tier comes from this
+function, which is a **snapshot at page load** — so without refreshing, a teacher who
+declares while a student is watching never appears, and one whose lease lapses stays
+listed until reload.
+
+**The list re-runs the RPC on window focus and every 30 seconds while visible** (user's
+decision, 2026-08-29). Chosen over building a Broadcast stream now: at 2,000 concurrent
+students that is ~67 requests/second of plain indexed Postgres reads — unremarkable — and
+it needs no new infrastructure. The pacing is per-client and interval-based, so it scales
+with students rather than with `teachers × students`, which is precisely the trap §3.2
+disqualified `postgres_changes` for.
+
+**The ceiling, stated:** this is comfortable into the low thousands of concurrent students
+and gets re-examined there. Because the read is already behind one function, moving it to
+Broadcast is a swap at that point, not a rewrite (§10).
 
 ### 4.5 Why new tables and not columns on `profiles`
 
@@ -243,7 +312,11 @@ Separate tables get correct column-scoped RLS from day one and inherit nothing.
 
 Student taps **Start** → the session row is inserted exactly as today
 (`src/app/(app)/(student)/teachers/actions.ts`, `requestSession`) → immediately after,
-fan out over **every road**, without making the student wait (Vercel `waitUntil`).
+fan out over **every road**, without making the student wait — via Next's post-response
+work API (`after()` from `next/server` on this version; **confirm against
+`node_modules/next/dist/docs/` before writing it**, per CLAUDE.md's standing warning that
+this Next.js differs from training data). Notably this needs **no new dependency**: the
+earlier note that the fan-out rides Vercel's `waitUntil` would have added one.
 
 - **Road 1 — the live connection.** The existing realtime card in `incoming-request.tsx`.
   Untouched.
@@ -413,8 +486,11 @@ it:
 — the wrong storage container — putting the teacher back exactly where they started. A
 one-time transfer code was considered and judged over-engineering for the volume.
 
-`start_url: "/home"` means the installed app opens on the role router, which sends a
-teacher to `/dashboard`, where the setup card is waiting for them.
+`start_url: "/home"` means the installed app opens on the role router — which, on that
+first launch, finds no session and sends them to `/signin`. That is the step this section
+exists to be honest about, so the sequence is written out in full: **`/signin` → `/home` →
+`/dashboard`, where the setup card is waiting.** Every launch after that goes straight
+through.
 
 ## 8. Registration lifecycle
 
@@ -492,17 +568,43 @@ its own teacher and student via `probe-accounts.mjs`, and asserts `teacher_avail
   security assertion of the cycle and the mirror of `probe-session-rls`'s battery.
 - A student cannot forge a declaration to make a teacher appear available.
 - `register_device` reassigns a shared endpoint without leaking the previous owner's row.
-- **`available_teachers` returns no endpoint column**, and excludes a teacher who is
-  already in a session — the §4.4 exclusion, asserted against a real seeded session row.
+- **`available_teachers` returns no endpoint column** — asserted on the result shape, so
+  a future column addition that leaks a subscription fails the run.
+- **The in-session exclusion matches `hasOpenRequest` in all four statuses.** A session is
+  seeded in `pending`, `accepted`, `paid` and `active`, plus one past its deadline, and the
+  RPC's verdict is compared against the TypeScript function's for each. This is §4.4.1's
+  drift tripwire and the reason the duplication is acceptable.
+- **A declared teacher with no device row is still returned**, carrying
+  `has_device = false` — the §4.4 rule that the RPC publishes reachability rather than
+  applying it. A regression here silently refuses work to every teacher who declined
+  notifications.
 - The dispatcher credential can read devices across teachers (§12).
 
-### 9.3 Encryption proved deterministically
+### 9.3 What the webpush adapter is actually tested for
 
-Web Push payload encryption (RFC 8291, `aes128gcm`) and VAPID signing are tested **against
-the RFC's published test vectors** — fixed inputs, known ciphertext. That is a real
-assertion that runs in CI forever, rather than a live send that can pass for the wrong
-reason. Transport failure handling (404/410 → prune) is exercised through the **stubbed
-port**, which is what the port boundary is for.
+**Decision: the adapter uses the `web-push` library; we do not hand-roll the crypto.**
+RFC 8291 `aes128gcm` payload encryption and RFC 8292 VAPID signing are exactly the code
+nobody should be writing themselves, and the port (§8.1) means swapping the implementation
+later is one file.
+
+**That decision changes what is worth testing, and the earlier draft of this section got it
+wrong.** Asserting the library's output against the RFC's published test vectors would be
+testing *someone else's* code and reporting it as coverage — green tests that prove nothing
+about anything we wrote. What we actually wrote, and therefore what is tested:
+
+- **Status → verdict mapping.** 404 and 410 set `gone: true`; 429, 500 and a network throw
+  set `gone: false`. This is the single most consequential line in the adapter — a wrong
+  mapping either deletes a live device on a transient blip or keeps a dead one forever.
+- **Payload construction** — title, body, url and the `tag` that makes a second request
+  replace rather than stack.
+- **Configuration wiring** — a missing VAPID key fails loudly at construction, the way
+  `razorpayPort` refuses to start without its webhook secret rather than failing at the
+  first charge.
+- **Pruning** driven through the **stubbed port**, which is what the port boundary is for.
+
+The genuine end-to-end proof that encryption works is a **real send to a real subscription**
+— desktop Chrome in the browser walk (§9.4), and the locked phone in the human checklist.
+That is where a broken payload actually surfaces.
 
 ### 9.4 The browser walk — and who performs it
 
@@ -552,8 +654,11 @@ downloads every online teacher and filters client-side. At ~5,000 online teacher
 5,000 entries per sync per student. The fix is sharding the channel by taxonomy; it stays
 behind that module so it remains a swap rather than a rewrite.
 
-**`postgres_changes` is not adopted for the roster** (§3.2). If real-time roster updates are
-ever wanted beyond presence, the answer is Broadcast, not `postgres_changes`.
+**`postgres_changes` is not adopted for the roster** (§3.2). The push-only tier refreshes
+by polling `available_teachers` on focus and every 30s (§4.4.2) — deliberately chosen over
+streaming, because polling scales with *students* while `postgres_changes` scales with
+`teachers × students`. When polling is outgrown, the replacement is **Broadcast**, never
+`postgres_changes`, and it lands behind the same function.
 
 ## 11. Decisions, and what each costs if wrong
 
@@ -566,8 +671,12 @@ ever wanted beyond presence, the answer is Broadcast, not `postgres_changes`.
 | Hide unreachable teachers (§6.1) | Supply looks thinner than it is; the alternative is showing cards that cannot start |
 | Full-screen setup step, never blocking (§7.3) | Some teachers skip setup and stay push-less; the honest card catches them repeatedly |
 | Push-only service worker (§7.1) | No offline; adding caching later is additive and safer done deliberately |
-| Separate tables, not `profiles` columns (§4.4) | One extra join on the roster read; the alternative entangles cycle 3's security debt |
+| Separate tables, not `profiles` columns (§4.5) | One extra join on the roster read; the alternative entangles cycle 3's security debt |
 | `security definer` RPC for registration (§4.3) | A privileged function to review; the alternative is silent setup failure on shared devices |
+| Renew at half the lease, floor 15 min (§4.1) | Write rate drifts from the ~1.4/s estimate; both numbers are constants |
+| Poll the roster on focus + 30s (§4.4.2) | Students see a stale list for up to 30s; the fix is Broadcast behind the same function |
+| `has_device` published, not applied (§4.4) | Nothing — this is the fix for a defect the first draft carried; reversing it refuses work to reachable teachers |
+| `web-push` library, not hand-rolled crypto (§9.3) | A dependency to keep current; hand-rolling it would be the larger risk by far |
 
 ## 12. Deferred decision — the dispatcher's credential
 
@@ -600,6 +709,9 @@ implementer may be dispatched before it.
 - **New this cycle:** `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
   — generated once, pasted by the user into `.env.local` **and** Vercel for Production,
   Preview and Development.
+- **New dependencies:** `web-push` (runtime, §9.3) and `@playwright/test` (dev, §9.4).
+  Playwright's browser download is a one-time step on this machine, and the harness runs
+  against `channel: "chrome"` — see §9.4's caveat.
 
 ## 14. Facts verified against vendor documentation (do not re-derive)
 
@@ -617,8 +729,9 @@ implementer may be dispatched before it.
   tabs with no push. Our market is India, so this is a footnote — but it is a real
   geographic hole in the push road if the market ever widens.
 - Android wakes the service worker outside the browser; Doze can delay delivery.
-- `requestSession` inserts then `redirect()`s — the fan-out slots in between, via
-  `waitUntil`.
+- `requestSession` inserts then `redirect()`s — and `redirect()` throws, so the fan-out
+  must be scheduled **before** it, not after. Post-response scheduling is Next's `after()`
+  on this version; verify in `node_modules/next/dist/docs/` before implementing.
 - `incoming-request.tsx` already runs a catch-up query for open requests on mount.
 - `presence.ts` uses one global channel for all teachers.
 
@@ -634,6 +747,11 @@ implementer may be dispatched before it.
   this spec.
 - **The locked-phone case remains human-verified.** No automation covers it; the checklist
   is the control.
+- **One rule, two languages.** The in-session exclusion lives in SQL *and* in
+  `hasOpenRequest`. §9.2's parity assertion is the only thing keeping them honest; if that
+  probe is ever weakened, teachers get pushed requests mid-lesson and nothing complains.
+- **`register_device` cannot prove the caller owns the subscription** (§4.3). Mitigated by
+  keeping endpoints server-side and matching all three subscription values; not eliminated.
 - **`profiles.role` is still self-writable** (cycle-1 §17.1). Untouched here by design, but
   it means a student could in principle make themselves a teacher and register devices.
   This cycle does not widen that hole; cycle 3 remains blocked on closing it.
