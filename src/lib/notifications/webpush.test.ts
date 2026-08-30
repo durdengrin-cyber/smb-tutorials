@@ -27,21 +27,21 @@ describe("webPushPort.send", () => {
   // death signal a subscription has, so a wrong verdict here either deletes a
   // live device on a transient blip or keeps a dead one forever.
   it.each([404, 410])("treats %i as gone", async (statusCode) => {
-    sendNotification.mockRejectedValue({ statusCode });
+    sendNotification.mockImplementationOnce(async () => { throw { statusCode }; });
     const port = webPushPort("pub", "priv", "mailto:ops@smbtutorials.in");
     const result = await port.send(sub, payload);
     expect(result).toMatchObject({ ok: false, gone: true, status: statusCode });
   });
 
   it.each([429, 500, 502])("treats %i as transient, not gone", async (statusCode) => {
-    sendNotification.mockRejectedValue({ statusCode });
+    sendNotification.mockImplementationOnce(async () => { throw { statusCode }; });
     const port = webPushPort("pub", "priv", "mailto:ops@smbtutorials.in");
     const result = await port.send(sub, payload);
     expect(result).toMatchObject({ ok: false, gone: false, status: statusCode });
   });
 
   it("treats a network throw as transient", async () => {
-    sendNotification.mockRejectedValue(new Error("ECONNRESET"));
+    sendNotification.mockImplementationOnce(async () => { throw new Error("ECONNRESET"); });
     const port = webPushPort("pub", "priv", "mailto:ops@smbtutorials.in");
     const result = await port.send(sub, payload);
     expect(result).toMatchObject({ ok: false, gone: false });
