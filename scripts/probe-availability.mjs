@@ -194,7 +194,99 @@ async function main() {
       { headers: SERVICE }
     ).then((r) => r.json());
     permitted(rows.length === 1, "re-registering the same endpoint does not duplicate");
+
+    console.log("\navailable_teachers — the roster read");
+
+    const taxonomy = {
+      p_curriculum: "CBSE", p_grade: "10th", p_stream: "Science", p_subject: "Mathematics",
+    };
+    await fetch(`${URL}/rest/v1/teacher_subjects`, {
+      method: "POST", headers: jsonHeaders(SERVICE),
+      body: JSON.stringify({
+        teacher_id: teacher.id, curriculum: "CBSE", grade: "10th",
+        stream: "Science", subject: "Mathematics",
+      }),
+    });
+
+    const roster = async () =>
+      fetch(`${URL}/rest/v1/rpc/available_teachers`, {
+        method: "POST",
+        headers: jsonHeaders(userHeaders(env, student.token)),
+        body: JSON.stringify(taxonomy),
+      }).then((r) => r.json());
+
+    let rosterRows = await roster();
+    const mine = rosterRows.find((r) => r.teacher_id === teacher.id);
+    permitted(Boolean(mine), "a declared teacher is returned");
+
+    // An unfiltered browse must NOT come back empty: /teachers renders with
+    // no criteria on a legitimate path, and a strict match would show a
+    // student nothing while teachers sat available.
+    const unfiltered = await fetch(`${URL}/rest/v1/rpc/available_teachers`, {
+      method: "POST",
+      headers: jsonHeaders(userHeaders(env, student.token)),
+      body: JSON.stringify({ p_curriculum: null, p_grade: null, p_stream: null, p_subject: null }),
+    }).then((r) => r.json());
+    permitted(
+      unfiltered.some((r) => r.teacher_id === teacher.id),
+      "an unfiltered browse still returns a declared teacher"
+    );
+
+    // The defect this cycle's review caught: the RPC must PUBLISH
+    // reachability, not APPLY it. A teacher who declared, has the dashboard
+    // open and declined notifications is reachable RIGHT NOW — excluding
+    // them here would refuse work to someone able to take it.
+    permitted(mine?.has_device === true, "has_device is true once a device is registered");
+
+    await fetch(`${URL}/rest/v1/teacher_devices?teacher_id=eq.${teacher.id}`, {
+      method: "DELETE", headers: SERVICE,
+    });
+    rosterRows = await roster();
+    const noDevice = rosterRows.find((r) => r.teacher_id === teacher.id);
+    permitted(Boolean(noDevice), "a declared teacher with NO device is still returned");
+    permitted(noDevice?.has_device === false, "…carrying has_device = false");
+
+    // No endpoint may ever appear in this result, whatever columns are added
+    // later.
+    refused(
+      !Object.keys(noDevice ?? {}).some((k) => /endpoint|p256dh|auth/.test(k)),
+      "the roster result carries a subscription column"
+    );
+
+    // In-session exclusion, one status at a time, against hasOpenRequest.
+    const seed = async (patch) => {
+      const res = await fetch(`${URL}/rest/v1/sessions`, {
+        method: "POST", headers: jsonHeaders(serviceRepr(env)),
+        body: JSON.stringify({
+          student_id: student.id, teacher_id: teacher.id,
+          curriculum: "CBSE", grade: "10th", stream: "Science",
+          subject: "Mathematics", type: "instant", hourly_rate: 500,
+          duration_minutes: 60, ...patch,
+        }),
+      });
+      return (await res.json())[0];
+    };
+    const future = new Date(Date.now() + 60_000).toISOString();
+    const past = new Date(Date.now() - 60_000).toISOString();
+
+    for (const [label, patch, expectListed] of [
+      ["pending, deadline ahead", { status: "pending", accept_deadline: future }, false],
+      ["pending, deadline passed", { status: "pending", accept_deadline: past }, true],
+      ["accepted, window open", { status: "accepted", accept_deadline: past, payment_deadline: future }, false],
+      ["accepted, window lapsed", { status: "accepted", accept_deadline: past, payment_deadline: past }, true],
+    ]) {
+      const row = await seed(patch);
+      const listed = (await roster()).some((r) => r.teacher_id === teacher.id);
+      permitted(listed === expectListed, `${label} -> ${expectListed ? "listed" : "hidden"}`);
+      await fetch(`${URL}/rest/v1/sessions?id=eq.${row.id}`, { method: "DELETE", headers: SERVICE });
+    }
   } finally {
+    await fetch(`${URL}/rest/v1/sessions?teacher_id=eq.${teacher.id}`, {
+      method: "DELETE", headers: SERVICE,
+    });
+    await fetch(`${URL}/rest/v1/teacher_subjects?teacher_id=eq.${teacher.id}`, {
+      method: "DELETE", headers: SERVICE,
+    });
     await fetch(`${URL}/rest/v1/teacher_devices?teacher_id=eq.${teacher.id}`, {
       method: "DELETE", headers: SERVICE,
     });
