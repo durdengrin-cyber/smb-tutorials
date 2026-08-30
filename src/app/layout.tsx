@@ -15,6 +15,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SMB Tutorials",
   description: "Find a teacher online right now for a one-to-one video lesson.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "SMB", statusBarStyle: "default" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
