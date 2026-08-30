@@ -47,8 +47,7 @@ hits a sign-in wall, and a signed-in *teacher* cannot view `/teachers` at all. R
 - **154 tests passing / 3 skipped** (up from 113); `tsc --noEmit`, eslint, `npm run build` clean.
 - All three database probes exit 0 (`probe-session-rls`, `probe-happy-path`, `reconcile-payments`).
 - Migrations `0002`–`0005` applied to the live project; **`0006` written and NOT applied**.
-- Tree clean. **`main` is AHEAD of `origin/main`** — see the cycle-2 block below; the
-  claim that they matched was true when cycle 1 shipped and is no longer.
+- Tree clean, `main == origin/main` (re-established 2026-08-30).
 
 ### ▶ Cycle 2 — SPEC WRITTEN AND REVIEWED, awaiting the user's approval (2026-08-29)
 
@@ -99,10 +98,9 @@ now says so at the top of the file.
   Its harness must run against `channel: "chrome"` — Playwright's bundled Chromium usually
   cannot register for push, and would go green while proving nothing.
 
-**⚠ Local `main` is ahead of `origin/main` and nothing has been pushed.** Docs only, but it
-includes `7879ea8` from the *previous* session — so the brainstorm state and the whole
-cycle-2 spec exist only on this machine. A second clone would find neither. Per CLAUDE.md,
-`git fetch origin main` and rebase before any push; pushing `main` deploys production.
+**Pushed to `origin/main` 2026-08-30.** The brainstorm state, the cycle-2 spec and this
+file all survive a fresh clone now — `7879ea8` from the previous session had also never
+been pushed and went up with them.
 
 ---
 
