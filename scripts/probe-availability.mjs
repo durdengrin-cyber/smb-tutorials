@@ -30,9 +30,15 @@ async function availabilityCount() {
   return (await res.json()).length;
 }
 
+async function deviceCount() {
+  const res = await fetch(`${URL}/rest/v1/teacher_devices?select=id`, { headers: SERVICE });
+  return (await res.json()).length;
+}
+
 async function main() {
   const baselineProfiles = await profileCount(env);
   const baselineAvailability = await availabilityCount();
+  const baselineDevices = await deviceCount();
 
   // hourlyRate is not optional in practice: probe-accounts.mjs:81-84 records
   // that the session insert trigger refuses a teacher whose rate is null, and
@@ -107,7 +113,74 @@ async function main() {
       { headers: userHeaders(env, student.token) }
     );
     permitted(res.ok && (await res.json()).length === 1, "student reads a declaration");
+
+    console.log("\nteacher_devices — endpoints are capabilities, not data");
+
+    // Register through the RPC, the way the app does.
+    res = await fetch(`${URL}/rest/v1/rpc/register_device`, {
+      method: "POST",
+      headers: jsonHeaders(userHeaders(env, teacher.token)),
+      body: JSON.stringify({
+        p_endpoint: `https://push.example.test/${teacher.id}`,
+        p_p256dh: "probe-p256dh",
+        p_auth: "probe-auth",
+        p_user_agent: "probe",
+      }),
+    });
+    permitted(res.ok, "teacher registers their own device");
+
+    // THE assertion. A push endpoint is the ability to wake someone's phone.
+    // If a student can read this row, they can spam a teacher's device.
+    res = await fetch(
+      `${URL}/rest/v1/teacher_devices?teacher_id=eq.${teacher.id}&select=endpoint`,
+      { headers: userHeaders(env, student.token) }
+    );
+    const leaked = res.ok ? await res.json() : [];
+    refused(leaked.length === 0, "student reads a teacher's push endpoint");
+
+    // The owner must still be able to read their own.
+    res = await fetch(
+      `${URL}/rest/v1/teacher_devices?teacher_id=eq.${teacher.id}&select=endpoint`,
+      { headers: userHeaders(env, teacher.token) }
+    );
+    permitted(res.ok && (await res.json()).length === 1, "teacher reads their own device");
+
+    // A student must not be able to insert a row pointing at their own
+    // endpoint under a teacher's id, which would redirect that teacher's
+    // requests to the student's phone.
+    res = await fetch(`${URL}/rest/v1/teacher_devices`, {
+      method: "POST",
+      headers: jsonHeaders(userHeaders(env, student.token)),
+      body: JSON.stringify({
+        teacher_id: teacher.id,
+        transport: "webpush",
+        endpoint: "https://push.example.test/hijack",
+        p256dh: "x",
+        auth: "y",
+      }),
+    });
+    refused(!res.ok, "student inserts a device row for a teacher");
+
+    // Re-registering the same endpoint updates rather than duplicating.
+    await fetch(`${URL}/rest/v1/rpc/register_device`, {
+      method: "POST",
+      headers: jsonHeaders(userHeaders(env, teacher.token)),
+      body: JSON.stringify({
+        p_endpoint: `https://push.example.test/${teacher.id}`,
+        p_p256dh: "probe-p256dh",
+        p_auth: "probe-auth",
+        p_user_agent: "probe-2",
+      }),
+    });
+    const rows = await fetch(
+      `${URL}/rest/v1/teacher_devices?teacher_id=eq.${teacher.id}&select=id`,
+      { headers: SERVICE }
+    ).then((r) => r.json());
+    permitted(rows.length === 1, "re-registering the same endpoint does not duplicate");
   } finally {
+    await fetch(`${URL}/rest/v1/teacher_devices?teacher_id=eq.${teacher.id}`, {
+      method: "DELETE", headers: SERVICE,
+    });
     await fetch(`${URL}/rest/v1/teacher_availability?teacher_id=eq.${teacher.id}`, {
       method: "DELETE", headers: SERVICE,
     });
@@ -117,11 +190,14 @@ async function main() {
 
   const endProfiles = await profileCount(env);
   const endAvailability = await availabilityCount();
+  const endDevices = await deviceCount();
   console.log("\ncleanup");
   console.log(`  profiles ${baselineProfiles} -> ${endProfiles}`);
   console.log(`  teacher_availability ${baselineAvailability} -> ${endAvailability}`);
+  console.log(`  teacher_devices ${baselineDevices} -> ${endDevices}`);
   if (endProfiles !== baselineProfiles) failures++;
   if (endAvailability !== baselineAvailability) failures++;
+  if (endDevices !== baselineDevices) failures++;
 
   console.log(failures === 0 ? "\n\x1b[32mALL CLEAR\x1b[0m" : `\n\x1b[31m${failures} FAILURE(S)\x1b[0m`);
   process.exit(failures === 0 ? 0 : 1);
