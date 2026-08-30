@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { NotificationSetup } from "@/components/notification-setup";
 
 export default async function DashboardPage() {
   const identity = await requireRole("teacher");
@@ -30,6 +31,8 @@ export default async function DashboardPage() {
             title={`Welcome, ${profile?.full_name ?? identity.fullName}`}
             description="Go available to receive instant student requests."
           />
+
+          <NotificationSetup variant="card" />
 
           <DashboardLive
             teacherId={identity.userId}
