@@ -161,6 +161,23 @@ async function main() {
     });
     refused(!res.ok, "student inserts a device row for a teacher");
 
+    // A student must not be able to park a device row on their own id
+    // either. RLS alone permits this (auth.uid() = teacher_id is satisfied);
+    // only the 0009 guard trigger, mirroring teacher_availability's, catches
+    // a non-teacher profile.
+    res = await fetch(`${URL}/rest/v1/teacher_devices`, {
+      method: "POST",
+      headers: jsonHeaders(userHeaders(env, student.token)),
+      body: JSON.stringify({
+        teacher_id: student.id,
+        transport: "webpush",
+        endpoint: "https://push.example.test/self",
+        p256dh: "x",
+        auth: "y",
+      }),
+    });
+    refused(!res.ok, "student inserts a device row for themselves");
+
     // Re-registering the same endpoint updates rather than duplicating.
     await fetch(`${URL}/rest/v1/rpc/register_device`, {
       method: "POST",
