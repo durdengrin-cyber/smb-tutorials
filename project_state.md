@@ -49,7 +49,35 @@ hits a sign-in wall, and a signed-in *teacher* cannot view `/teachers` at all. R
 - Migrations `0002`–`0005` applied to the live project; **`0006` written and NOT applied**.
 - Tree clean, `main == origin/main` (re-established 2026-08-30).
 
-### ▶ Cycle 2 — SPEC APPROVED, PLAN WRITTEN. Ready to implement (2026-08-30)
+### ▶ Cycle 2 — IMPLEMENTATION IN PROGRESS on branch `cycle-2/durable-availability` (2026-08-30)
+
+**🛑 Read `docs/superpowers/handoffs/2026-08-30-cycle-2-execution-state.md` first.** It is the
+committed copy of the SDD ledger (the real one lives in git-ignored scratch — the same way
+cycle 1 lost its ledger) and carries the resume point, all nine execution rulings, and the
+deferred minors.
+
+**Resume at: dispatch the Task 3 task review** (package base `0c1a117`, head `bbabfa9`), then
+Task 5, then Task 6.
+
+**4 of 17 tasks complete: 1, 2, 7, 3** — not plan order; 2 and 7 were pulled forward while
+`.env.local` was missing.
+
+**⚠ The live database is AHEAD of `main`.** Migration `0007_teacher_availability.sql` is applied
+to project `upggvzzzoxqgourjywtd` on an unmerged branch. Additive only and nothing reads it, so
+production is unaffected — but abandoning the branch would leave an orphan table to drop by hand.
+
+**`0006` is still unapplied — verified live, not assumed:** a `PATCH role='admin'` with the
+service-role key was REFUSED (400) on a throwaway account, which was then deleted.
+
+Environment restored: `npm install` done; `.env.local` pulled by the user with `vercel env pull`
+(Vercel CLI now linked to `durdengrin-6266s-projects/smb-tutorials`). Baseline on this machine:
+**174 passed / 3 skipped**, eslint clean, build clean, all three original probes exit 0.
+**`npx tsc --noEmit` needs `npm run build` first** — `PageProps`/`LayoutProps` are Next-generated
+types absent from a fresh clone.
+
+---
+
+### Cycle 2 spec + plan — approved (2026-08-29 / 2026-08-30)
 
 **Plan: `docs/superpowers/plans/2026-08-30-durable-availability.md`** — 17 tasks, 108 steps,
 TDD throughout. **Next step: `superpowers:subagent-driven-development`**, one implementer per
