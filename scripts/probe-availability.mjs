@@ -254,14 +254,24 @@ async function main() {
     );
 
     // In-session exclusion, one status at a time, against hasOpenRequest.
-    const seed = async (patch) => {
+    //
+    // A session can only ever be INSERTED as pending — migration 0003's
+    // enforce_session_insert trigger raises on any other starting status —
+    // so the two pending cases seed directly. The accepted cases cannot: they
+    // must be driven through the real pending -> accepted transition, by the
+    // TEACHER's own token (0005's enforce_session_update: "only the teacher
+    // may answer a request", uid is null under the service role), carrying a
+    // payment_deadline inside 0005's 60..180s legal window at transition
+    // time. Same pattern as probe-happy-path.mjs's "teacher's pending ->
+    // accepted, carrying payment_deadline".
+    const seedPending = async (patch) => {
       const res = await fetch(`${URL}/rest/v1/sessions`, {
         method: "POST", headers: jsonHeaders(serviceRepr(env)),
         body: JSON.stringify({
           student_id: student.id, teacher_id: teacher.id,
           curriculum: "CBSE", grade: "10th", stream: "Science",
           subject: "Mathematics", type: "instant", hourly_rate: 500,
-          duration_minutes: 60, ...patch,
+          duration_minutes: 60, status: "pending", ...patch,
         }),
       });
       return (await res.json())[0];
@@ -269,17 +279,52 @@ async function main() {
     const future = new Date(Date.now() + 60_000).toISOString();
     const past = new Date(Date.now() - 60_000).toISOString();
 
-    for (const [label, patch, expectListed] of [
-      ["pending, deadline ahead", { status: "pending", accept_deadline: future }, false],
-      ["pending, deadline passed", { status: "pending", accept_deadline: past }, true],
-      ["accepted, window open", { status: "accepted", accept_deadline: past, payment_deadline: future }, false],
-      ["accepted, window lapsed", { status: "accepted", accept_deadline: past, payment_deadline: past }, true],
+    // Nothing forbids accepting after accept_deadline has passed — 0005's
+    // deadline rule governs the `timed_out` transition only, the read-time
+    // expiry rule lives in TypeScript — so a past accept_deadline on a
+    // pending insert is legal in every case below.
+    for (const [label, accept_deadline, expectListed] of [
+      ["pending, deadline ahead", future, false],
+      ["pending, deadline passed", past, true],
     ]) {
-      const row = await seed(patch);
+      const row = await seedPending({ accept_deadline });
       const listed = (await roster()).some((r) => r.teacher_id === teacher.id);
       permitted(listed === expectListed, `${label} -> ${expectListed ? "listed" : "hidden"}`);
       await fetch(`${URL}/rest/v1/sessions?id=eq.${row.id}`, { method: "DELETE", headers: SERVICE });
     }
+
+    // The accepted cases, on ONE row driven through the real lifecycle,
+    // rather than two independently-seeded rows: proving the exclusion
+    // RELEASES on the same row is the stronger property this cycle actually
+    // depends on — a busy teacher must become bookable again, not merely be
+    // excluded while busy.
+    const acceptedRow = await seedPending({ accept_deadline: past });
+    const paymentDeadline = new Date(Date.now() + 65_000).toISOString();
+    const acceptRes = await fetch(`${URL}/rest/v1/sessions?id=eq.${acceptedRow.id}`, {
+      method: "PATCH",
+      headers: jsonHeaders(userHeaders(env, teacher.token)),
+      body: JSON.stringify({ status: "accepted", payment_deadline: paymentDeadline }),
+    });
+    if (!acceptRes.ok) {
+      console.error("  accept transition failed:", acceptRes.status, await acceptRes.text());
+    }
+    permitted(acceptRes.ok, "teacher accepts, seeding the accepted row for the parity check");
+
+    const listedWhileOpen = (await roster()).some((r) => r.teacher_id === teacher.id);
+    permitted(listedWhileOpen === false, "accepted, window open -> hidden");
+
+    // Waiting on a real Postgres deadline rather than mocking a clock —
+    // this project's established practice for the same reason
+    // probe-happy-path.mjs runs ~70s: available_teachers reads now() inside
+    // Postgres itself, so nothing short of the wall clock actually passing
+    // proves the release. Deliberate, not a stall.
+    const waitMs = new Date(paymentDeadline).getTime() - Date.now() + 2_000;
+    await new Promise((r) => setTimeout(r, Math.max(0, waitMs)));
+
+    const listedAfterLapse = (await roster()).some((r) => r.teacher_id === teacher.id);
+    permitted(listedAfterLapse === true, "accepted, window lapsed -> listed");
+
+    await fetch(`${URL}/rest/v1/sessions?id=eq.${acceptedRow.id}`, { method: "DELETE", headers: SERVICE });
   } finally {
     await fetch(`${URL}/rest/v1/sessions?teacher_id=eq.${teacher.id}`, {
       method: "DELETE", headers: SERVICE,
