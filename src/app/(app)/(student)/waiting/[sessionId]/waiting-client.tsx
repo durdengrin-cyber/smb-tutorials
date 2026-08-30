@@ -61,7 +61,7 @@ export function WaitingClient({
   backToList: string;
 }) {
   const router = useRouter();
-  // Which deadline is live depends on which state we're in: the 30s accept
+  // Which deadline is live depends on which state we're in: the 60s accept
   // window while pending, the 120s payment window once accepted. Using the
   // wrong one here would make the countdown lie about how long the student
   // actually has.
@@ -88,7 +88,7 @@ export function WaitingClient({
 
     void (async () => {
       // Awaited before subscribing — an `anon` socket acks SUBSCRIBED and then
-      // hears nothing, which would leave the student waiting out the full 30s
+      // hears nothing, which would leave the student waiting out the full 60s
       // even after their teacher accepted.
       const supabase = await createRealtimeClient();
       if (!mounted) return;
@@ -273,8 +273,12 @@ export function WaitingClient({
       <h2 className="text-2xl font-bold text-gray-900 mb-2">
         Asking {teacherName}…
       </h2>
+      {/* The honest half of a 60s deadline (design spec §5.3, §6.2): a fast
+          accept still resolves fast, but a slow one is not a stall — it's a
+          locked phone waking up. Kept off the teacher cards on purpose; this
+          screen is where the student needs to hear it. */}
       <p className="text-gray-600 mb-8">
-        They have a few seconds to accept. Hold tight.
+        This can take a moment if their phone is asleep.
       </p>
       <Button variant="outline" onClick={cancel} disabled={cancelling}>
         {cancelling ? "Cancelling…" : "Cancel"}

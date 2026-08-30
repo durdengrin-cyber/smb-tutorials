@@ -2,7 +2,11 @@
 // run in Server Actions, Server Components and the browser, which is what
 // lets a serverless stack enforce deadlines without a cron.
 
-export const ACCEPT_WINDOW_SECONDS = 30;
+// 30s was sized for a teacher already looking at the screen. Waking a locked
+// phone does not fit inside it: delivery, noticing, unlocking, tapping. This
+// is a DEADLINE, not a wait — a teacher who accepts in two seconds still
+// resolves in two seconds, so the fast path costs nothing.
+export const ACCEPT_WINDOW_SECONDS = 60;
 export const SESSION_DURATION_MINUTES = 60;
 // Daily rooms and meeting tokens expire this long after a session should
 // have ended. Long enough that a call cannot die mid-lesson (design spec §9),
@@ -11,7 +15,7 @@ export const SESSION_DURATION_MINUTES = 60;
 export const ROOM_GRACE_MINUTES = 15;
 
 // How long a student has to pay once their teacher has accepted. Deliberately
-// more generous than the 30s accept window because checkout means leaving the
+// more generous than the 60s accept window because checkout means leaving the
 // app — a UPI flow is an app switch, an authentication and a PIN. It is also
 // the number most likely to need tuning against real data, and it is in direct
 // tension with how long a teacher will sit waiting (design spec §3.2).

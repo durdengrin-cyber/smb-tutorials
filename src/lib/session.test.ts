@@ -12,14 +12,24 @@ const NOW = new Date("2026-08-25T12:00:00.000Z");
 
 describe("constants", () => {
   it("matches the spec", () => {
-    expect(ACCEPT_WINDOW_SECONDS).toBe(30);
+    expect(ACCEPT_WINDOW_SECONDS).toBe(60);
     expect(SESSION_DURATION_MINUTES).toBe(60);
   });
 });
 
 describe("acceptDeadlineFrom", () => {
-  it("is 30 seconds after creation", () => {
-    expect(acceptDeadlineFrom(NOW).toISOString()).toBe("2026-08-25T12:00:30.000Z");
+  it("is 60 seconds after creation", () => {
+    expect(acceptDeadlineFrom(NOW).toISOString()).toBe("2026-08-25T12:01:00.000Z");
+  });
+
+  it("gives a sleeping phone time to be woken", () => {
+    // 30s was sized for a teacher already looking at the screen. Waking a
+    // locked phone does not fit inside it: delivery, noticing, unlocking,
+    // tapping. This is a DEADLINE, not a wait — a teacher who accepts in two
+    // seconds still resolves in two seconds, so the fast path costs nothing.
+    expect(ACCEPT_WINDOW_SECONDS).toBe(60);
+    expect(acceptDeadlineFrom(new Date("2026-08-30T10:00:00Z")).toISOString())
+      .toBe("2026-08-30T10:01:00.000Z");
   });
 });
 

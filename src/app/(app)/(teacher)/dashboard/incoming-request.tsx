@@ -245,7 +245,7 @@ export function IncomingRequest({
   }, [inSession, onLiveSessionChange]);
 
   // Local countdown. Which deadline is live depends on which state we're
-  // in: the 30s accept window while pending, the 120s payment window once
+  // in: the 60s accept window while pending, the 120s payment window once
   // accepted — using the wrong one would make the countdown lie about how
   // long is actually left. `request` as a whole is the dependency (rather
   // than picking out a single field) so a status flip, which always
