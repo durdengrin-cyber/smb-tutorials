@@ -1902,6 +1902,7 @@ Spec §7.2, §8. The state machine is pure and exhaustively tested; the browser 
   - `readSetupFacts(): Promise<SetupFacts>`
   - `enableNotifications(): Promise<{ ok: true } | { error: string }>`
   - `registerExistingSubscription(): Promise<void>`
+  - `closeStaleNotifications(): Promise<void>`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2003,6 +2004,7 @@ Create `src/lib/push/client.ts`:
 "use client";
 
 import type { SetupFacts } from "./state";
+import { REQUEST_TAG } from "@/lib/notifications/payload";
 
 const SW_PATH = "/sw.js";
 
@@ -2095,6 +2097,23 @@ export async function registerExistingSubscription(): Promise<void> {
     if (sub) await postSubscription(sub);
   } catch (e) {
     console.error("[push] re-registration failed", e);
+  }
+}
+
+// Spec §5.2. A teacher who arrives by notification lands on a dashboard that
+// already shows the request via the existing catch-up query — so the
+// notification behind it is stale the instant they get here. There is no
+// dismissal push available to us (userVisibleOnly means every push must be
+// visible), so the only way to clear it is from the page itself.
+export async function closeStaleNotifications(): Promise<void> {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) return;
+    const open = await reg.getNotifications({ tag: REQUEST_TAG });
+    open.forEach((n) => n.close());
+  } catch {
+    // A browser that cannot enumerate notifications simply keeps showing one
+    // that is merely redundant, never wrong. Not worth failing over.
   }
 }
 
@@ -2364,9 +2383,10 @@ Changes, all of them root-cause rather than cosmetic:
 2. **`goOnline()` calls `declareAvailable()` first**, then tracks presence. Presence without a declaration is the old lie; a declaration is what push is authorised against.
 3. **`goOffline()` calls `undeclareAvailable()`** as well as untracking.
 4. **On mount and every 10 minutes while visible, call `renewLease()`.** The server decides whether to write; the client only asks.
-5. **Delete the `status === "available"` block containing `"Keep this tab open — closing it takes you offline."`** — this string must not survive the task.
-6. **Status derivation** becomes: not declared or lease lapsed → `offline`; declared and `inSession` → `in_session`; declared, lease live, and (presence channel healthy **or** a registered device exists) → `available`; declared, lease live, neither → `unreachable`.
-7. Copy per state — `available`: **"Available until {formatLeaseEnd(declaredUntil)} — we'll notify you even with your phone locked."**; lapsed: **"Your availability ended at {formatLeaseEnd(declaredUntil)}."**; `unreachable`: the existing `STATUS_COPY.unreachable.description` plus the setup card, which is already on the page from Task 11.
+5. **On mount, call `closeStaleNotifications()`** (spec §5.2). A teacher who arrived by tapping a notification is looking at the dashboard now, and `incoming-request.tsx`'s catch-up query has already put the request card in front of them — leaving the notification up asks them to dismiss something they have already acted on. There is no dismissal push available to us, so the page is the only place this can happen.
+6. **Delete the `status === "available"` block containing `"Keep this tab open — closing it takes you offline."`** — this string must not survive the task.
+7. **Status derivation** becomes: not declared or lease lapsed → `offline`; declared and `inSession` → `in_session`; declared, lease live, and (presence channel healthy **or** a registered device exists) → `available`; declared, lease live, neither → `unreachable`.
+8. Copy per state — `available`: **"Available until {formatLeaseEnd(declaredUntil)} — we'll notify you even with your phone locked."**; lapsed: **"Your availability ended at {formatLeaseEnd(declaredUntil)}."**; `unreachable`: the existing `STATUS_COPY.unreachable.description` plus the setup card, which is already on the page from Task 11.
 
 - [ ] **Step 4: Run the tests and the whole suite**
 

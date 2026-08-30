@@ -49,7 +49,22 @@ hits a sign-in wall, and a signed-in *teacher* cannot view `/teachers` at all. R
 - Migrations `0002`–`0005` applied to the live project; **`0006` written and NOT applied**.
 - Tree clean, `main == origin/main` (re-established 2026-08-30).
 
-### ▶ Cycle 2 — SPEC WRITTEN AND REVIEWED, awaiting the user's approval (2026-08-29)
+### ▶ Cycle 2 — SPEC APPROVED, PLAN WRITTEN. Ready to implement (2026-08-30)
+
+**Plan: `docs/superpowers/plans/2026-08-30-durable-availability.md`** — 17 tasks, 108 steps,
+TDD throughout. **Next step: `superpowers:subagent-driven-development`**, one implementer per
+task, each independently reviewed.
+
+**Task 1 restores the fresh-clone baseline and everything else depends on it** — `npm install`,
+`.env.local` rebuilt by the user, and the four green checks re-measured on THIS machine before
+any before/after number is quoted. Task 7 step 6 generates the VAPID keys for the user to paste.
+
+Migrations `0007`–`0009` are numbered around the deliberately-unapplied `0006` and do not
+depend on it. **Do not apply `0006`.**
+
+---
+
+### Cycle 2 spec — approved (2026-08-29)
 
 **Source of truth: `docs/superpowers/specs/2026-08-29-durable-availability-design.md`**
 (16 sections, 762 lines, commits `1bb3937` + `933a2bc`). All five design sections were
