@@ -23,6 +23,26 @@ export default async function DashboardPage() {
     .select("curriculum, grade, stream, subject")
     .eq("teacher_id", identity.userId);
 
+  // The durable half of "available" (spec §4.1), read server-side so the
+  // toggle opens already knowing the truth instead of flashing Offline
+  // while a client effect catches up. No row yet is not an error — it just
+  // means this teacher has never declared.
+  const { data: availability } = await supabase
+    .from("teacher_availability")
+    .select("declared_until")
+    .eq("teacher_id", identity.userId)
+    .maybeSingle();
+
+  // Whether ANY of this teacher's devices holds a push subscription — not
+  // this browser's. RLS already scopes teacher_devices to its owner
+  // (migrations 0008/0009), so the ordinary client is enough here; only the
+  // count is read, never an endpoint, because a device row is a capability
+  // (spec §4.3).
+  const { count: deviceCount } = await supabase
+    .from("teacher_devices")
+    .select("id", { count: "exact", head: true })
+    .eq("teacher_id", identity.userId);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="px-8 py-12">
@@ -38,6 +58,8 @@ export default async function DashboardPage() {
             teacherId={identity.userId}
             fullName={identity.fullName}
             hourlyRate={profile?.hourly_rate ?? 0}
+            declaredUntil={availability?.declared_until ?? null}
+            hasDevice={(deviceCount ?? 0) > 0}
           />
 
           <Card>

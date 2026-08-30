@@ -4,13 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { PRESENCE_CHANNEL } from "@/lib/presence";
+import { formatLeaseEnd, isLeaseLive } from "@/lib/availability";
+import { closeStaleNotifications } from "@/lib/push/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/form-error";
 import { StatusPill, STATUS_COPY, type TeacherStatus } from "@/components/status-pill";
+import { declareAvailable, undeclareAvailable, renewLease } from "./actions";
+
+// How often a live client asks the server to extend the lease. The server
+// (renewLease -> shouldRenew) decides whether that write actually happens —
+// this cadence just has to be short enough to reliably catch the halfway
+// point before the lease lapses, not to match it.
+const RENEW_INTERVAL_MS = 10 * 60 * 1000;
 
 export function AvailabilityToggle({
   teacherId, fullName, hourlyRate, inSession = false,
+  declaredUntil, hasDevice, channelFailed = false,
 }: {
   teacherId: string;
   fullName: string;
@@ -18,10 +28,35 @@ export function AvailabilityToggle({
   // True from the moment this teacher accepts a request until that session
   // resolves. Distinct from being offline: the teacher still WANTS to be
   // available, they are just committed to someone right now, so presence is
-  // dropped while the channel and their intent are kept.
+  // dropped while the channel and the declaration are kept.
   inSession?: boolean;
+  // The durable half of "available" (spec §4.1), read server-side in
+  // page.tsx and threaded down through DashboardLive. This — not
+  // localStorage — is what a page load actually knows on first paint.
+  declaredUntil: string | null;
+  // Does ANY of this teacher's devices hold a push subscription — server
+  // read of teacher_devices, not this browser's own readSetupFacts(). A
+  // teacher reachable on their phone while sitting at this desktop is
+  // genuinely reachable; asking only this browser would tell them
+  // otherwise (spec §6.1 step 7).
+  hasDevice: boolean;
+  // Optional and defaulting to false, OR-ed with the channel health this
+  // component tracks for itself. The toggle still owns the real presence
+  // handshake below; this just lets a test force the unreachable branch
+  // deterministically instead of simulating a websocket failure.
+  channelFailed?: boolean;
 }) {
-  const [online, setOnline] = useState(false);
+  // Local override of the server-read prop. Needed because page.tsx is a
+  // Server Component — nothing re-fetches it after declareAvailable() or
+  // undeclareAvailable() run, so the moment the teacher acts, this is the
+  // only copy of the truth left in the tree. Initialised from the prop so a
+  // fresh mount shows exactly what the server already knew, with no flash.
+  const [leaseUntil, setLeaseUntil] = useState(declaredUntil);
+  // Whether THIS browser's presence channel is currently subscribed and
+  // tracked. Distinct from `leaseUntil` being live: a declaration can be
+  // live with no open tab at all (push-only reachability), and a tab can be
+  // open with the handshake still failing.
+  const [channelHealthy, setChannelHealthy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -31,9 +66,9 @@ export function AvailabilityToggle({
   // reproduces this reliably). Without these checks a stale ack could still
   // call track() on a channel nothing will ever untrack — a ghost teacher.
   const mountedRef = useRef(true);
-  // Set for the duration of an intentional goOffline() teardown, so the
-  // CLOSED status that unsubscribe() naturally produces isn't mistaken for a
-  // failed handshake and surfaced as an error.
+  // Set for the duration of an intentional teardown, so the CLOSED status
+  // that unsubscribe() naturally produces isn't mistaken for a failed
+  // handshake and surfaced as an error.
   const closingRef = useRef(false);
   // Read inside the subscribe() ack, which closed over `inSession` at
   // subscribe time. A session that starts while the handshake is still in
@@ -55,63 +90,54 @@ export function AvailabilityToggle({
     };
   }, []);
 
-  // Accepting a request navigates to the call, which unmounts this component
-  // and drops presence — correct, since a busy teacher must not appear
-  // startable. But without this, the teacher returns from the session silently
-  // offline while believing they are still available (design spec §3.1: the
-  // teacher re-tracks when the session ends). Remember the intent and restore it.
+  // A teacher who arrived by tapping a notification is looking at the
+  // dashboard now, and incoming-request.tsx's catch-up query has already put
+  // the request card in front of them. There is no dismissal push available
+  // to us, so this is the only place a stale notification can be cleared
+  // (spec §5.2).
   useEffect(() => {
-    let wanted = false;
-    try {
-      wanted = localStorage.getItem(`smb-available-${teacherId}`) === "1";
-    } catch {
-      // Private mode or blocked storage — start offline rather than crash.
-    }
-    if (wanted) void goOnline();
-    // goOnline is stable for this component's lifetime.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherId]);
+    void closeStaleNotifications();
+  }, []);
 
-  // M3 spec §9's root fix. Both specs require that a busy teacher is HIDDEN,
-  // not greyed — "every visible card is genuinely startable" — and until now
-  // the hiding was a side effect of accepting navigating into the call, i.e.
-  // of reaching `active`. M3 put a 120-second payment window in front of
-  // `active`, and this component stays mounted through all of it, so the
-  // teacher kept advertising themselves to students who could only ever be
-  // refused. Presence now follows the commitment, not the navigation.
-  //
-  // Untrack, don't unsubscribe: the channel and the teacher's remembered
-  // intent both survive, so they reappear automatically when the window
-  // resolves — paid, expired or cancelled — without touching the toggle.
+  // On mount and every RENEW_INTERVAL_MS while the tab is visible, ask the
+  // server to extend the lease. shouldRenew (server-side) decides whether
+  // that turns into a write — this effect only ever asks.
   useEffect(() => {
-    inSessionRef.current = inSession;
-    const channel = channelRef.current;
-    if (!channel || !online) return;
-    const visible = !inSession;
-    if (visibleRef.current === visible) return;
-    visibleRef.current = visible;
-    if (visible) {
-      void channel.track({
-        teacher_id: teacherId,
-        full_name: fullName,
-        hourly_rate: hourlyRate,
-      });
-    } else {
-      void channel.untrack();
+    let cancelled = false;
+    async function tick() {
+      if (document.visibilityState !== "visible") return;
+      const result = await renewLease();
+      if (cancelled) return;
+      if ("declaredUntil" in result) setLeaseUntil(result.declaredUntil);
     }
-  }, [inSession, online, teacherId, fullName, hourlyRate]);
+    void tick();
+    const id = setInterval(tick, RENEW_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
-  function rememberIntent(available: boolean) {
-    try {
-      localStorage.setItem(`smb-available-${teacherId}`, available ? "1" : "0");
-    } catch {
-      // Non-fatal: the toggle still works for this page view.
+  // Presence follows the DECLARATION now, not a click. Opens the channel the
+  // instant the lease is live (covering both an explicit "Available now" and
+  // a page load that finds an already-live lease from an earlier tab), and
+  // tears it down the instant it isn't (an explicit "Go offline", or a lease
+  // that lapsed without renewal).
+  useEffect(() => {
+    if (!isLeaseLive(leaseUntil, new Date())) {
+      const channel = channelRef.current;
+      if (channel) {
+        closingRef.current = true;
+        void channel.untrack().then(() => channel.unsubscribe());
+        channelRef.current = null;
+        visibleRef.current = null;
+        setChannelHealthy(false);
+        closingRef.current = false;
+      }
+      return;
     }
-  }
+    if (channelRef.current) return;
 
-  async function goOnline() {
-    setBusy(true);
-    setError(null);
     const supabase = createClient();
     const channel = supabase.channel(PRESENCE_CHANNEL, {
       config: { presence: { key: teacherId } },
@@ -135,10 +161,8 @@ export function AvailabilityToggle({
         // Re-check after the await: unmount or a newer channel could have
         // arrived while track() was in flight.
         if (!mountedRef.current || channelRef.current !== channel) return;
-        setOnline(true);
-        setBusy(false);
+        setChannelHealthy(true);
         setError(null);
-        rememberIntent(true);
         return;
       }
 
@@ -147,65 +171,116 @@ export function AvailabilityToggle({
         status === "TIMED_OUT" ||
         status === "CLOSED"
       ) {
-        // A CLOSED ack is also the normal result of goOffline() tearing this
-        // channel down on purpose — not a failure, so don't report it.
+        // A CLOSED ack is also the normal result of the teardown above — not
+        // a failure, so don't report it.
         if (closingRef.current) return;
         channelRef.current = null;
         visibleRef.current = null;
-        setOnline(false);
-        setBusy(false);
-        setError("Couldn't go available — try again.");
+        setChannelHealthy(false);
         channel.unsubscribe();
       }
     });
+    // teacherId/fullName/hourlyRate identify this teacher for the lifetime
+    // of the component; only `leaseUntil` decides whether a channel should
+    // exist right now.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaseUntil]);
+
+  // M3 spec §9's root fix, unchanged by this task: a busy teacher is HIDDEN,
+  // not greyed. Untrack, don't unsubscribe — the channel and the
+  // declaration both survive, so the teacher reappears automatically when
+  // the payment window resolves.
+  useEffect(() => {
+    inSessionRef.current = inSession;
+    const channel = channelRef.current;
+    if (!channel || !channelHealthy) return;
+    const visible = !inSession;
+    if (visibleRef.current === visible) return;
+    visibleRef.current = visible;
+    if (visible) {
+      void channel.track({
+        teacher_id: teacherId,
+        full_name: fullName,
+        hourly_rate: hourlyRate,
+      });
+    } else {
+      void channel.untrack();
+    }
+  }, [inSession, channelHealthy, teacherId, fullName, hourlyRate]);
+
+  async function goOnline() {
+    setBusy(true);
+    setError(null);
+    const result = await declareAvailable();
+    setBusy(false);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+    // The channel effect above opens the connection the moment this makes
+    // the lease live — nothing else to do here.
+    setLeaseUntil(result.declaredUntil);
   }
 
   async function goOffline() {
     setBusy(true);
     setError(null);
-    closingRef.current = true;
-    await channelRef.current?.untrack();
-    await channelRef.current?.unsubscribe();
-    channelRef.current = null;
-    visibleRef.current = null;
-    closingRef.current = false;
-    setOnline(false);
+    const result = await undeclareAvailable();
     setBusy(false);
-    rememberIntent(false);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+    setLeaseUntil(null);
   }
 
-  // Three readings, not two. "In a session" is not "Offline": the teacher is
-  // hidden from the list but still online and still intending to be
-  // available, and saying "Offline" would invite them to toggle back on
-  // mid-payment-window and undo it. "unreachable" has no mechanism behind it
-  // yet in this cycle, so it is never produced here.
-  const status: TeacherStatus = !online ? "offline" : inSession ? "in_session" : "available";
+  const leaseLive = isLeaseLive(leaseUntil, new Date());
+  // The prop and the channel's own tracked health both have to say "ok" —
+  // either one failing is enough to make this browser unreachable via a
+  // live connection.
+  const channelOk = channelHealthy && !channelFailed;
+
+  // Four readings (spec §6.1). "In a session" and "Can't reach you" are both
+  // distinct from "Offline": the teacher still intends to be available in
+  // both, and calling either "Offline" would invite them to toggle back on
+  // and undo a state that isn't theirs to fix that way.
+  const status: TeacherStatus = !leaseLive
+    ? "offline"
+    : inSession
+      ? "in_session"
+      : channelOk || hasDevice
+        ? "available"
+        : "unreachable";
+
+  // A lapsed lease still reads "Offline" in the pill — that vocabulary is
+  // unchanged — but the description underneath says what actually happened,
+  // rather than leaving the teacher to infer it from a toggle that silently
+  // moved (spec §4.1).
+  let description: string = STATUS_COPY[status].description;
+  if (status === "offline" && leaseUntil) {
+    description = `Your availability ended at ${formatLeaseEnd(leaseUntil)}.`;
+  } else if (status === "available" && leaseUntil) {
+    description = `Available until ${formatLeaseEnd(leaseUntil)} — we'll notify you even with your phone locked.`;
+  }
+  // "unreachable" needs nothing extra here: the setup card that can fix it
+  // is already on this page (Task 11), one component above this one.
 
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <StatusPill status={status} />
-          <p className="mt-1 text-sm text-muted-foreground">{STATUS_COPY[status].description}</p>
-          {/* This warning stays true until reachability detection (a later
-              cycle) lands — presence really does depend on this tab staying
-              open, so it's an extra line here rather than folded into the
-              shared copy, which will outlive it. */}
-          {status === "available" && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Keep this tab open — closing it takes you offline.
-            </p>
-          )}
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
           {error && <FormError className="mt-1">{error}</FormError>}
         </div>
         <Button
           type="button"
-          onClick={online ? goOffline : goOnline}
+          onClick={leaseLive ? goOffline : goOnline}
           disabled={busy}
-          variant={online ? "outline" : "default"}
+          variant={leaseLive ? "outline" : "default"}
           size="lg"
         >
-          {busy ? "…" : online ? "Go offline" : "Available now"}
+          {busy ? "…" : leaseLive ? "Go offline" : "Available now"}
         </Button>
       </div>
     </Card>

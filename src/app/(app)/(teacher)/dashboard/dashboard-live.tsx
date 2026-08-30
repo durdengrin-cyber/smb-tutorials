@@ -23,10 +23,17 @@ export function DashboardLive({
   teacherId,
   fullName,
   hourlyRate,
+  declaredUntil,
+  hasDevice,
 }: {
   teacherId: string;
   fullName: string;
   hourlyRate: number;
+  // Server-read declaration and device count, from page.tsx. Threaded
+  // straight through: this component holds the inSession fact the two
+  // siblings share, not the availability facts, which only the toggle needs.
+  declaredUntil: string | null;
+  hasDevice: boolean;
 }) {
   const [inSession, setInSession] = useState(false);
 
@@ -38,6 +45,8 @@ export function DashboardLive({
         fullName={fullName}
         hourlyRate={hourlyRate}
         inSession={inSession}
+        declaredUntil={declaredUntil}
+        hasDevice={hasDevice}
       />
     </>
   );
