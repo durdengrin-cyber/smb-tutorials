@@ -10,3 +10,4 @@ tsconfig.tsbuildinfo
 
 # macOS Finder droppings
 .DS_Store
+.env*.local
