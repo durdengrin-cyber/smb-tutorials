@@ -97,7 +97,16 @@ fetch(env.NEXT_PUBLIC_SUPABASE_URL+"/rest/v1/profiles?select=role&limit=1",
  .then(r=>r.json()).then(d=>console.log("profiles reachable:",JSON.stringify(d)));'
 ```
 
-Then confirm in the Supabase SQL editor that the `profiles_role_check` constraint does **not** include `admin`. If it does, `0006` was applied — stop and report it as a security finding.
+That only proves the database is reachable. **Actually check the constraint** — in the Supabase SQL editor:
+
+```sql
+select pg_get_constraintdef(oid)
+from pg_constraint
+where conrelid = 'public.profiles'::regclass
+  and conname like '%role%';
+```
+
+Expected: a CHECK listing `'student'` and `'teacher'` and **not** `'admin'`. If `admin` appears, `0006` was applied — **stop and report it as a security finding**: combined with the role-write hole, any signed-in user could then promote themselves.
 
 - [ ] **Step 6: Commit nothing**
 
@@ -360,8 +369,15 @@ async function main() {
   const baselineProfiles = await profileCount(env);
   const baselineAvailability = await availabilityCount();
 
-  const teacher = await createThrowawayUser(env, { role: "teacher" });
-  const student = await createThrowawayUser(env, { role: "student" });
+  // hourlyRate is not optional in practice: probe-accounts.mjs:81-84 records
+  // that the session insert trigger refuses a teacher whose rate is null, and
+  // Task 6's assertions seed real sessions for this teacher.
+  const teacher = await createThrowawayUser(env, {
+    role: "teacher", fullName: "Probe Teacher", hourlyRate: 500,
+  });
+  const student = await createThrowawayUser(env, {
+    role: "student", fullName: "Probe Student",
+  });
 
   try {
     console.log("\nteacher_availability — the declaration");
@@ -1066,6 +1082,19 @@ Add to `scripts/probe-availability.mjs` inside the `try`:
     const mine = rows.find((r) => r.teacher_id === teacher.id);
     permitted(Boolean(mine), "a declared teacher is returned");
 
+    // An unfiltered browse must NOT come back empty: /teachers renders with
+    // no criteria on a legitimate path, and a strict match would show a
+    // student nothing while teachers sat available.
+    const unfiltered = await fetch(`${URL}/rest/v1/rpc/available_teachers`, {
+      method: "POST",
+      headers: jsonHeaders(userHeaders(env, student.token)),
+      body: JSON.stringify({ p_curriculum: null, p_grade: null, p_stream: null, p_subject: null }),
+    }).then((r) => r.json());
+    permitted(
+      unfiltered.some((r) => r.teacher_id === teacher.id),
+      "an unfiltered browse still returns a declared teacher"
+    );
+
     // The defect this cycle's review caught: the RPC must PUBLISH
     // reachability, not APPLY it. A teacher who declared, has the dashboard
     // open and declined notifications is reachable RIGHT NOW — excluding
@@ -1165,13 +1194,18 @@ as $$
   where p.role = 'teacher'
     and a.declared
     and a.declared_until > now()
+    -- A NULL or empty argument means "any", NOT "none". /teachers renders
+    -- legitimately with no criteria — that is why online-list carries a
+    -- canStart guard — and such a student today sees every teacher, filtered
+    -- by presence. Matching strictly here would hand them an empty list and
+    -- call it honest.
     and exists (
       select 1 from public.teacher_subjects s
       where s.teacher_id = p.id
-        and s.curriculum = p_curriculum
-        and s.grade      = p_grade
-        and s.stream     = p_stream
-        and s.subject    = p_subject
+        and (coalesce(p_curriculum, '') = '' or s.curriculum = p_curriculum)
+        and (coalesce(p_grade, '')      = '' or s.grade      = p_grade)
+        and (coalesce(p_stream, '')     = '' or s.stream     = p_stream)
+        and (coalesce(p_subject, '')    = '' or s.subject    = p_subject)
     )
     -- The in-session exclusion. Until this cycle, hiding a busy teacher was a
     -- SIDE EFFECT of presence untracking when they navigated into the call.
@@ -1685,7 +1719,14 @@ Expected: PASS, 3 tests.
 
 - [ ] **Step 5: Wire the fan-out into `requestSession`**
 
-In `src/app/(app)/(student)/teachers/actions.ts`, after the session insert succeeds and **before** the `redirect()` — `redirect()` throws, so anything scheduled after it never runs. Read `node_modules/next/dist/docs/` for this version's post-response API (`after()` from `next/server`) before writing it.
+**First, widen the insert's select.** It currently ends `.select("id")`, so `session.student_name` is `undefined` and every notification would read "A student" — a lock-screen message naming nobody. The column exists and a trigger fills it on insert (`0004_session_student_name.sql:64`); the select simply never asked for it:
+
+```ts
+    .select("id, student_name")
+    .single();
+```
+
+Then, in `src/app/(app)/(student)/teachers/actions.ts`, after the insert succeeds and **before** the `redirect()` — `redirect()` throws, so anything scheduled after it never runs. Read `node_modules/next/dist/docs/` for this version's post-response API (`after()` from `next/server`) before writing it.
 
 ```ts
 import { after } from "next/server";
@@ -2008,6 +2049,13 @@ import { REQUEST_TAG } from "@/lib/notifications/payload";
 
 const SW_PATH = "/sw.js";
 
+// VAPID keys travel as base64url; PushManager wants bytes.
+function urlBase64ToUint8Array(base64: string): Uint8Array {
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+  const raw = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+
 function detectIOS(): boolean {
   if (typeof navigator === "undefined") return false;
   // iPadOS reports itself as MacIntel with touch points, which is why the
@@ -2075,7 +2123,14 @@ export async function enableNotifications(): Promise<
       // Mandatory. There is no silent push, which is also why there is no
       // silent way to test whether a device is still reachable.
       userVisibleOnly: true,
-      applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      // Converted rather than passed as a string. Current browsers accept a
+      // base64url DOMString, but Safari has lagged here and this is the one
+      // call in the flow with no second chance: a rejected subscribe spends
+      // the permission and leaves the teacher unreachable with no way to
+      // re-ask.
+      applicationServerKey: urlBase64ToUint8Array(
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""
+      ),
     });
     await postSubscription(sub);
     return { ok: true };
@@ -2305,6 +2360,20 @@ export default async function SetupPage() {
 
 In `src/app/(marketing)/tutor-signup/actions.ts`, change the final line from `redirect("/home")` to `redirect("/setup")`.
 
+**Check email confirmation before trusting that redirect.** `/setup` sits behind `requireRole("teacher")`. If the project has email confirmation enabled, `supabase.auth.signUp` returns **no session**, so a brand-new teacher is bounced to `/signin` and never sees the setup step — the one moment this task exists to create. Check it:
+
+```bash
+node -e '
+const fs=require("fs");
+const env=Object.fromEntries(fs.readFileSync(".env.local","utf8").split("\n")
+ .filter(l=>!l.trim().startsWith("#")&&l.includes("="))
+ .map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(),l.slice(i+1).trim()]}));
+fetch(env.NEXT_PUBLIC_SUPABASE_URL+"/auth/v1/settings",{headers:{apikey:env.NEXT_PUBLIC_SUPABASE_ANON_KEY}})
+ .then(r=>r.json()).then(s=>console.log("mailer_autoconfirm:",s.mailer_autoconfirm));'
+```
+
+If confirmation is on, keep `redirect("/home")` and let the **dashboard card** carry setup for new teachers too — it already handles every other entry point. Report which branch you took rather than leaving it to chance.
+
 In `src/app/(app)/(teacher)/dashboard/page.tsx`, render `<NotificationSetup variant="card" />` directly above `<DashboardLive .../>`. This is what retro-onboards existing teachers and what reappears when a working setup later breaks — one component, three appearances, no separate mechanism.
 
 - [ ] **Step 5: Run test to verify it passes**
@@ -2333,7 +2402,7 @@ Spec §6.1, §6.3. **Delete the apology.**
 
 **Interfaces:**
 - Consumes: `declareAvailable`, `undeclareAvailable`, `renewLease` (Task 4); `formatLeaseEnd`, `isLeaseLive` (Task 2); `readSetupFacts` (Task 10).
-- Produces: a toggle whose durable state is the declaration, not `localStorage`.
+- Produces: a toggle whose durable state is the declaration, not `localStorage`. New props: `declaredUntil: string | null` and `hasDevice: boolean`, both supplied by `page.tsx` through `DashboardLive`; `channelFailed: boolean` is owned by the toggle itself, since it manages the channel.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2385,8 +2454,9 @@ Changes, all of them root-cause rather than cosmetic:
 4. **On mount and every 10 minutes while visible, call `renewLease()`.** The server decides whether to write; the client only asks.
 5. **On mount, call `closeStaleNotifications()`** (spec §5.2). A teacher who arrived by tapping a notification is looking at the dashboard now, and `incoming-request.tsx`'s catch-up query has already put the request card in front of them — leaving the notification up asks them to dismiss something they have already acted on. There is no dismissal push available to us, so the page is the only place this can happen.
 6. **Delete the `status === "available"` block containing `"Keep this tab open — closing it takes you offline."`** — this string must not survive the task.
-7. **Status derivation** becomes: not declared or lease lapsed → `offline`; declared and `inSession` → `in_session`; declared, lease live, and (presence channel healthy **or** a registered device exists) → `available`; declared, lease live, neither → `unreachable`.
-8. Copy per state — `available`: **"Available until {formatLeaseEnd(declaredUntil)} — we'll notify you even with your phone locked."**; lapsed: **"Your availability ended at {formatLeaseEnd(declaredUntil)}."**; `unreachable`: the existing `STATUS_COPY.unreachable.description` plus the setup card, which is already on the page from Task 11.
+7. **Read whether ANY device is registered — not this browser's subscription.** `readSetupFacts().hasSubscription` answers "does *this* browser hold a subscription", which is the wrong question: a teacher whose phone is registered, sitting at their desktop, is perfectly reachable and would be told **"Can't reach you"**. `page.tsx` counts the teacher's own `teacher_devices` rows server-side — RLS already lets an owner read them — and passes `hasDevice` down beside `declaredUntil`.
+8. **Status derivation** becomes: not declared or lease lapsed → `offline`; declared and `inSession` → `in_session`; declared, lease live, and (presence channel healthy **or** `hasDevice`) → `available`; declared, lease live, neither → `unreachable`.
+9. Copy per state — `available`: **"Available until {formatLeaseEnd(declaredUntil)} — we'll notify you even with your phone locked."**; lapsed: **"Your availability ended at {formatLeaseEnd(declaredUntil)}."**; `unreachable`: the existing `STATUS_COPY.unreachable.description` plus the setup card, which is already on the page from Task 11.
 
 - [ ] **Step 4: Run the tests and the whole suite**
 
@@ -2546,7 +2616,7 @@ In `src/app/(app)/(student)/teachers/online-list.tsx`:
 2. Add a `loadAvailable()` callback calling `supabase.rpc("available_teachers", { p_curriculum: curriculum, p_grade: grade, p_stream: stream, p_subject: subject })`.
 3. Call it on mount, on `window` **focus**, and on a **30-second interval** while the document is visible. Clear both on unmount.
 4. Replace `intersectOnline(eligible, roster)` with `deriveRoster(eligible, available, roster)`.
-5. Leave `connFailed` alone — but note it now means "the live tier is unknown", not "nobody is online", because push-only teachers still list without the channel.
+5. **Change what `connFailed` renders.** Today it replaces the whole list with a "Couldn't check who's online" card. That was right when presence was the only signal; now it hides push-only teachers who are genuinely reachable — the precise belief this cycle exists to kill. It becomes a **banner above a still-rendered list**, and the copy narrows to what is actually true: *"We lost the live connection, so teachers who are at their desk right now may be missing from this list."* The push-only tier renders beneath it, because the RPC does not depend on the channel at all.
 
 The comment to leave at the polling effect:
 
