@@ -3,11 +3,14 @@
 -- looking at the screen and does not fit a locked phone waking up (delivery,
 -- noticing, unlocking, tapping). accept_deadline is computed on the app
 -- server and then checked against Postgres's own now() here, so the insert
--- trigger's bound must widen by the same 30 seconds or the skew margin drops
--- to zero — at that point every session-request insert would raise the
--- instant the app server's clock ran even slightly ahead of Supabase's,
--- which is intermittent, environment-dependent, and would look like nobody
--- can request a teacher.
+-- trigger's bound must widen too, or the skew margin shrinks — at 60s
+-- unchanged against a 60s window it hits zero, and every session-request
+-- insert would raise the instant the app server's clock ran even slightly
+-- ahead of Supabase's: intermittent, environment-dependent, and would look
+-- like nobody can request a teacher. The bound moves from 60s to 120s, which
+-- doubles the margin (30s -> 60s) rather than merely preserving it — 90s
+-- would have preserved the original 30s margin; 120s is the deliberately
+-- larger, rounder bound this migration was asked to set.
 --
 -- Base: 0005_payments.sql's enforce_session_insert() (lines 76-139), which is
 -- the LIVE definition — it superseded 0003_session_integrity.sql's version
@@ -77,11 +80,10 @@ begin
   end if;
 
   -- The accept window belongs to the server (ACCEPT_WINDOW_SECONDS = 60, up
-  -- from 30 — Task 14, design spec §5.3). The bound below keeps a 60-second
-  -- skew margin between the app server and Postgres, the same margin as
-  -- before: it moves with the window instead of being eaten by it, so it
-  -- still absorbs clock skew without letting a caller grant itself an hour
-  -- to answer.
+  -- from 30 — Task 14, design spec §5.3). The bound below gives a 60-second
+  -- skew margin between the app server and Postgres (up from the original
+  -- 30 seconds), so it still absorbs clock skew without letting a caller
+  -- grant itself an hour to answer.
   if new.accept_deadline > now() + interval '120 seconds' then
     raise exception 'accept_deadline is out of range';
   end if;
