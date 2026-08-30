@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { leaseUntilFrom, shouldRenew } from "@/lib/availability";
 import {
   canTransition,
   effectiveStatus,
@@ -123,4 +124,109 @@ export async function declineSession(sessionId: string): Promise<{ error: string
     .update({ status: "declined" })
     .eq("id", sessionId)
     .eq("status", "pending");
+}
+
+// The durable half of "available" (spec §4.1). Presence still carries
+// liveness; this carries intent, and it is what a push is authorised
+// against — so it must survive the tab that created it.
+export async function declareAvailable(): Promise<
+  { declaredUntil: string } | { error: string }
+> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in to go available." };
+
+  const now = new Date();
+  const until = leaseUntilFrom(now);
+
+  const { data, error } = await supabase
+    .from("teacher_availability")
+    .upsert(
+      {
+        teacher_id: user.id,
+        declared: true,
+        declared_at: now.toISOString(),
+        declared_until: until.toISOString(),
+      },
+      { onConflict: "teacher_id" }
+    )
+    .select("declared_until")
+    .single();
+
+  if (error || !data) {
+    console.error("[declareAvailable] upsert failed", error);
+    return { error: "Couldn't go available — try again." };
+  }
+  return { declaredUntil: data.declared_until as string };
+}
+
+export async function undeclareAvailable(): Promise<
+  { ok: true } | { error: string }
+> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in first." };
+
+  // declared_until is cleared as well as the flag. Leaving a live lease on a
+  // row whose flag is false is a contradiction waiting for a query that
+  // forgets one of the two conditions.
+  const { error } = await supabase
+    .from("teacher_availability")
+    .upsert(
+      { teacher_id: user.id, declared: false, declared_until: null },
+      { onConflict: "teacher_id" }
+    );
+
+  if (error) {
+    console.error("[undeclareAvailable] upsert failed", error);
+    return { error: "Couldn't go offline — try again." };
+  }
+  return { ok: true };
+}
+
+// Called by any live client on mount and on a slow interval. shouldRenew
+// decides, not the caller: the halfway rule plus the 15-minute floor is what
+// keeps this at ~1.4 writes/sec at 10,000 teachers instead of ~667.
+export async function renewLease(): Promise<
+  { declaredUntil: string } | { error: string } | { skipped: true }
+> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in first." };
+
+  const { data: row, error: readError } = await supabase
+    .from("teacher_availability")
+    .select("declared, declared_until")
+    .eq("teacher_id", user.id)
+    .maybeSingle();
+
+  if (readError) {
+    console.error("[renewLease] read failed", readError);
+    return { error: "Couldn't check your availability." };
+  }
+  if (!row?.declared) return { skipped: true };
+
+  const now = new Date();
+  // The server owns the floor as well as the halfway test. A client passing
+  // its own lastRenewedAt could renew on every mount; this one cannot be
+  // talked into it, because it only ever renews inside the second half.
+  if (!shouldRenew(row.declared_until as string | null, now, null)) {
+    return { skipped: true };
+  }
+
+  const until = leaseUntilFrom(now);
+  const { data, error } = await supabase
+    .from("teacher_availability")
+    .upsert(
+      { teacher_id: user.id, declared: true, declared_until: until.toISOString() },
+      { onConflict: "teacher_id" }
+    )
+    .select("declared_until")
+    .single();
+
+  if (error || !data) {
+    console.error("[renewLease] upsert failed", error);
+    return { error: "Couldn't extend your availability." };
+  }
+  return { declaredUntil: data.declared_until as string };
 }
