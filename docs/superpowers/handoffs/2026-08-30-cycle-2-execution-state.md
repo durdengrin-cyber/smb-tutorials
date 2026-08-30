@@ -16,23 +16,40 @@ it. This file is the committed copy. If the two disagree, prefer this one plus `
 
 ## ▶ RESUME HERE
 
-**Next: Task 6** (migration `0010`, `available_teachers`). Its brief is generated and its
-defects are already ruled — see "Task 6 pre-flight" below; the dispatch MUST carry those four
-corrections or the implementer will ship code that does not parse.
+**A Task 9+10 review was IN FLIGHT when this session paused** (rate limit). Its verdict was never
+seen. **First action on resume: re-dispatch the Task 9+10 task review** over `6013aef..9051069`
+using `.superpowers/sdd/2026-08-30-durable-availability/review-6013aef..9051069.diff` (the package
+is already generated). Do not assume it passed.
 
-Then: 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17.
+**Then: the Task 11+12 BATCH** — one dispatch, both tasks (see ruling SWEEP-7). That is where the
+first user-visible change lands: `"Keep this tab open — closing it takes you offline."` is deleted
+from `availability-toggle.tsx:196` and the toggle becomes durable.
 
-**Task order is NOT plan order.** Tasks 2 and 7 were pulled forward while `.env.local` was
-missing. Completed: **1, 2, 7, 3, 5**.
+**Then, in order:** 8 (needs VAPID keys) → 13 → 15 → 16 (deferred decision) → 17.
+
+**Completed: 1, 2, 7, 3, 5, 6, 4, 14, 9, 10 — ten of seventeen.**
+
+Task order is NOT plan order. See ruling SWEEP-5 for why 8 moved.
 
 ---
 
 ## ⚠ The database is ahead of `main`
 
-**Three migrations are applied to the live Supabase project (`upggvzzzoxqgourjywtd`) on an
-unmerged branch:** `0007_teacher_availability`, `0008_teacher_devices`, and
-`0009_teacher_devices_hardening`. All additive, nothing in production reads them, so there is
-no behaviour change — but abandoning this branch leaves three orphan objects to drop by hand.
+**FIVE migrations are applied to the live Supabase project (`upggvzzzoxqgourjywtd`) on an
+unmerged branch:** `0007_teacher_availability`, `0008_teacher_devices`,
+`0009_teacher_devices_hardening`, `0010_available_teachers`, `0011_accept_window_bound`.
+The first four are additive and nothing in production reads them.
+
+**`0011` is DIFFERENT and matters: it REPLACED `enforce_session_insert()`, a trigger function
+production uses on EVERY session insert.** It was regression-checked live immediately after
+applying — `probe-session-rls`, `probe-happy-path` and `reconcile-payments` all exit 0, sessions
+19→19 — so `0005`'s controls survive. Do not treat it as inert.
+
+🛑 **MERGE BLOCKER:** `src/lib/session.ts` now sets `ACCEPT_WINDOW_SECONDS = 60`. The pre-`0011`
+database bound was `accept_deadline > now() + 60s`, leaving ZERO clock-skew margin at a 60s
+window. `0011` raises that bound to 120s. **`0011` is already applied, so this is satisfied
+today** — but if the database is ever rebuilt from migrations, `0011` MUST be applied before this
+app code is deployed, or every session request fails to insert.
 
 **Migration `0006_roles_admin.sql` remains deliberately UNAPPLIED.** Verified live on
 2026-08-30, not assumed: a `PATCH role='admin'` on a throwaway account using the **service-role**
@@ -188,3 +205,117 @@ runs its own test code.
   granting permission, receiving a notification on a locked screen. No agent can do it.
 - **The dispatcher credential decision** (spec §12) — still open, still non-blocking; one line of
   config in `src/lib/supabase/admin.ts` when Task 8 lands.
+
+---
+
+# SESSION 2 ADDENDUM (2026-08-30 → 08-31)
+
+Everything below was decided or discovered after the original document was written. Where it
+disagrees with anything above, this addendum wins.
+
+## Tasks completed this session
+
+| Task | Commits | Notes |
+|---|---|---|
+| 3 — migration `0007` | `bbabfa9` | review clean |
+| 5 — migrations `0008` + `0009` | `6ea9d50`, `d3358a6` | **two real security defects found and fixed** |
+| 6 — migration `0010` | `b601899`, `4ac4f34` | one fix round; plan's seed logic was impossible |
+| 4 + 14 — batch | `0e83937`, `1a77f92`, `6013aef` | includes migration `0011`, the clock-skew fix |
+| 9 — PWA | `6694ca7` | manifest, sw.js, 3 icons; assets verified served |
+| 10 — push client | `9051069` | state machine 6/6; suite 185 passed / 3 skipped |
+
+Gates at pause: **185 passed / 3 skipped**, bare `npx eslint` **zero warnings**, build clean,
+tsc clean, `probe-availability` 22 assertions ALL CLEAR, all three original probes exit 0.
+
+## THE PLAN IS THE PROBLEM — read this before executing anything else
+
+**Six defects surfaced task-by-task, and every one originated in the plan, not in an
+implementer.** T7's temporal-dead-zone bug, T5's `let res` collision, T5's two SQL security
+holes, T6's `let rows` collision, T6's invalid `grade: "10"`, T6's impossible `seed()`.
+
+Root cause: the plan's code was reviewed for spec coverage and type consistency but **never
+executed and never checked against the schema**. The most serious instance — T6's `seed()`
+inserting sessions with `status: 'accepted'` — directly contradicts the integrity model M3
+established in `0003`/`0005`.
+
+**A plan-wide defect sweep was therefore run over the remaining tasks** (see below). Do not
+resume serial discovery; the sweep replaced it.
+
+**Lesson for the next plan: add a step that RUNS the plan's own test code.**
+
+## Plan-wide sweep results (tasks 4, 8–17)
+
+**SERIOUS — found and fixed:** T14 raised `ACCEPT_WINDOW_SECONDS` 30→60 while the DB bound was
+60s, leaving zero clock-skew margin. Every session-request insert would have failed whenever
+Vercel's clock ran ahead of Supabase's — intermittent, environment-dependent, invisible to unit
+tests. Fixed by migration `0011` (bound → 120s), applied and regression-checked.
+
+**MINOR — still open, fix when the task runs:**
+- **T16** modifies `vitest.config.ts`; the real file is **`vitest.config.mts`**. As written the
+  implementer creates a second, conflicting config.
+- **T17**'s checklist says "`0007`–`0009` applied" — now must read **`0007`–`0011`**.
+- **T8**'s Files header omits `src/lib/supabase/admin.ts` though its body creates it (cosmetic).
+
+**VERIFIED OK, do not re-check:** every import against actual exports; T10's `register_device`
+args vs the deployed signature; T13's `AvailableRow` vs `0010`'s return shape; `session.ts:5` and
+`auth/actions.ts:43-47` line references; T12's target string at `availability-toggle.tsx:196`;
+every "Modify" target exists except the vitest one; the `page.tsx → DashboardLive →
+AvailabilityToggle` prop chain matches what T11/T12 assume.
+
+**A caveat on my own sweep:** I declared T9's icon pipeline sound after testing `sips` with a bare
+`<rect>`. It does not resolve `%`-unit coordinates on `<text>` or honour `dominant-baseline`, and
+the brief's script produced cropped icons. The implementer caught it. **A passing spot-check is
+not a passing pipeline.**
+
+## Rulings this session (each with what it costs if wrong)
+
+- **(T5-1) Fixed `register_device`'s TOCTOU race.** A spec violation, not a judgment call — §4.3
+  says "atomically". *Cost of not fixing: the cycle's security guarantee false under concurrency.*
+- **(T5-2) Added the teacher-only guard on `teacher_devices`.** A spec *gap*; ruled an oversight
+  because the sibling table in the same cycle has it and cycle 1's blocking finding was this exact
+  shape. **Proven live: the probe returned PERMITTED before the fix.** *Cost of not fixing: an
+  unenforced invariant a later cycle would trust.*
+- **(T5-3) Fixes ship as NEW migrations; applied files are never edited.** *Cost: renumbering.*
+- **(T5-4) No concurrency assertion in the probe** — a flaky assertion in a security probe trains
+  the reader to ignore red. *Cost: the race is not regression-tested.*
+- **(T6-e/f) Parity cases seed through the legal lifecycle, and the two `accepted` cases collapse
+  onto ONE row** — accept, assert hidden, wait for the deadline to lapse, assert the same row is
+  listed. Pays the ~65s wait once and proves the exclusion RELEASES. *Cost: probe runtime.*
+- **(T14-a) Waiting-screen copy ships as `h2` + `p`** rather than the brief's single sentence; the
+  `h2` already existed. *Cost: a one-word tweak.*
+- **(T14-b) A stale `30s` comment outside T14's file list was corrected.** *Cost: none.*
+- **(SWEEP-1) The accept-window fix is migration `0011`.** *Cost: one file.*
+- **(SWEEP-2) Task 16 is RESEQUENCED to last, NOT dropped.** The controller recommended dropping
+  it; the user did not answer. Cutting scope is the user's call. *Cost: none — decision deferred.*
+- **(SWEEP-4) `0011` is based on `0005`:76-139, NOT `0003`.** `0005` redefines both trigger
+  functions. *Cost if wrong: silently reverting `0005`'s payment-columns ban — a security control.*
+- **(SWEEP-5) Order resequenced to 9→10→11→12→8→13→15→16→17.** Task 8 is blocked on VAPID keys;
+  9–12 are not. *Cost: none — checked against the interface table.*
+- **(SWEEP-6/7) Reviews and tasks batched** where it buys correctness, not just cost: 9+10 share
+  one reviewer so the worker↔client contract gets checked; 11+12 share one agent, which
+  **dissolves** the preflight's only cross-task risk rather than mitigating it.
+
+## Deferred minors — for the final whole-branch review
+
+- **T2:** `shouldRenew` renews at *exactly* half the lease where §4.1 says "less than half".
+- **T3/T5:** the probe's `finally` runs unguarded sequential awaits; a throw in the first skips
+  the rest.
+- **T5:** the guard trigger also gates future dispatcher UPDATEs on `role = 'teacher'` holding at
+  write time. **Carry this into Task 8's dispatch — Task 8 is the dispatcher.**
+- **T5:** the `register_device` race is fixed but not regression-tested.
+- **T6:** the `paid` and `active` exclusion branches are verified only by static parity-reading.
+- **T6:** the `teacher_subjects` seed POST does not check `res.ok`.
+- **T4/T14:** happy-path write assertions are thin — `declareAvailable`'s test never asserts the
+  `declared_until` value; `renewLease`'s renew case asserts only `toHaveBeenCalled()`.
+- **T4:** no test forces `renewLease`'s `declared: false` guard.
+
+## Still needed from the user
+
+1. **VAPID keys** — `npx web-push generate-vapid-keys` in their own terminal (NOT via `!`, whose
+   output lands in the transcript), then `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+   `VAPID_SUBJECT` into `.env.local` **and** Vercel (Production, Preview, Development).
+   **Task 8 is blocked on this and nothing else.**
+2. **Task 16** — drop it or keep it. Deliberately left open.
+3. **The locked-phone walk (Task 17)** — no agent can do it.
+4. **The dispatcher credential** (spec §12) — still open, still non-blocking; `admin.ts` falls
+   back to the service role via `NOTIFICATION_DB_KEY ?? SUPABASE_SERVICE_ROLE_KEY`.
