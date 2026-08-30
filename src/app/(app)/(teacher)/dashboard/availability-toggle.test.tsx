@@ -90,6 +90,12 @@ describe("AvailabilityToggle", () => {
   // Declared but unreachable: hidden from students, and TOLD. This is the
   // state cycle 1 built the vocabulary for and had no mechanism to produce.
   it("shows Can't reach you when declared with no device and no live channel", async () => {
+    // Inert: the component reads reachability from the server-side
+    // `hasDevice` prop, never from readSetupFacts() (see the production
+    // file's comment on the `hasDevice` prop). Set here only because the
+    // mock exists and a reader might otherwise assume `permission: "denied"`
+    // is what drives the Can't reach you result below — it isn't; `channelFailed`
+    // and `hasDevice: false` (the shared `props` default) are.
     readSetupFacts.mockResolvedValue({ isIOS: false, standalone: false, permission: "denied", hasSubscription: false });
     render(<AvailabilityToggle {...props} declaredUntil={futureIso} channelFailed />);
     // Exact string, not a substring regex: STATUS_COPY.unreachable's own
@@ -99,5 +105,20 @@ describe("AvailabilityToggle", () => {
     // the pill's label and the description paragraph explaining it. Same
     // convention status-pill.test.tsx already uses for a pill's label.
     await waitFor(() => expect(screen.getByText("Can't reach you")).toBeInTheDocument());
+  });
+
+  // The OR half of the state formula (channelOk || hasDevice) is the whole
+  // point of the push-only tier: a teacher whose phone is registered but
+  // whose dashboard is closed (channelFailed forces the channel half to
+  // false here, standing in for "no live channel") must still read
+  // Available, not Can't reach you. Without this test, dropping hasDevice
+  // from the formula entirely, or swapping || for &&, passes every other
+  // test unchanged.
+  it("reads Available on hasDevice alone, with no live channel", async () => {
+    render(<AvailabilityToggle {...props} declaredUntil={futureIso} hasDevice channelFailed />);
+    await waitFor(() =>
+      expect(screen.getByText(/we'll notify you even with your phone locked/i)).toBeInTheDocument()
+    );
+    expect(screen.queryByText("Can't reach you")).not.toBeInTheDocument();
   });
 });

@@ -66,10 +66,6 @@ export function AvailabilityToggle({
   // reproduces this reliably). Without these checks a stale ack could still
   // call track() on a channel nothing will ever untrack — a ghost teacher.
   const mountedRef = useRef(true);
-  // Set for the duration of an intentional teardown, so the CLOSED status
-  // that unsubscribe() naturally produces isn't mistaken for a failed
-  // handshake and surfaced as an error.
-  const closingRef = useRef(false);
   // Read inside the subscribe() ack, which closed over `inSession` at
   // subscribe time. A session that starts while the handshake is still in
   // flight would otherwise track the teacher straight back into the list.
@@ -127,12 +123,10 @@ export function AvailabilityToggle({
     if (!isLeaseLive(leaseUntil, new Date())) {
       const channel = channelRef.current;
       if (channel) {
-        closingRef.current = true;
         void channel.untrack().then(() => channel.unsubscribe());
         channelRef.current = null;
         visibleRef.current = null;
         setChannelHealthy(false);
-        closingRef.current = false;
       }
       return;
     }
@@ -171,9 +165,12 @@ export function AvailabilityToggle({
         status === "TIMED_OUT" ||
         status === "CLOSED"
       ) {
-        // A CLOSED ack is also the normal result of the teardown above — not
-        // a failure, so don't report it.
-        if (closingRef.current) return;
+        // A CLOSED ack is also the normal result of the teardown above, but
+        // that doesn't need handling here: teardown nulls channelRef.current
+        // synchronously, before either the untrack() or unsubscribe() promise
+        // it kicks off can settle, so by the time any resulting ack fires the
+        // guard at the top of this callback (channelRef.current !== channel)
+        // has already returned before reaching this branch at all.
         channelRef.current = null;
         visibleRef.current = null;
         setChannelHealthy(false);
