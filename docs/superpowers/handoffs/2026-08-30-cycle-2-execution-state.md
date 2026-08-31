@@ -319,3 +319,134 @@ not a passing pipeline.**
 3. **The locked-phone walk (Task 17)** — no agent can do it.
 4. **The dispatcher credential** (spec §12) — still open, still non-blocking; `admin.ts` falls
    back to the service role via `NOTIFICATION_DB_KEY ?? SUPABASE_SERVICE_ROLE_KEY`.
+
+---
+
+# SESSION 3 ADDENDUM (2026-08-31 → 09-01) — the cycle's payoff landed
+
+**12 of 17 tasks complete.** Where this disagrees with anything above, this wins.
+
+## ✅ THE APOLOGY IS DELETED
+
+`"Keep this tab open — closing it takes you offline."` no longer exists in `src/`.
+`grep -rn "Keep this tab open" src/` returns nothing. The toggle's state is now a durable
+declaration read server-side, not a `localStorage` flag that died with the tab. **This is the
+first user-visible change of the cycle** — everything before it was plumbing.
+
+## Tasks completed this session
+
+| Task | Commits | Notes |
+|---|---|---|
+| 9 — PWA | `6694ca7` | manifest, `sw.js`, 3 icons; assets served 200; icons visually verified |
+| 10 — push client | `9051069` | state machine 6/6; `applicationServerKey` typed properly, no `any` |
+| 11 — setup surface | `45249f6` | four states, copy verbatim |
+| 12 — durable toggle | `f12ec65`, `d0d1705` | apology deleted; one fix round |
+
+**Gates at pause: 195 passed / 3 skipped (23 files) · `npx eslint` ZERO warnings · build clean ·
+tsc clean · tree clean.** All verified by the controller directly, not taken from reports.
+
+## Two things the implementers found that were better than what was asked
+
+1. **A real pre-existing test-infra defect, fixed at the root.** Testing Library's auto-cleanup
+   only self-registers when a global `afterEach` exists at import time. This project does not set
+   `test.globals`, so it **never registered** — every existing component test that rendered more
+   than once was leaking DOM into the next test. Now wired once in `vitest.setup.ts`, inert for
+   node-environment tests. Latent in the repo the whole time.
+2. **The `localStorage` intent flag was DELETED, not demoted.** The brief permitted keeping it as
+   an "offline-first hint"; the implementer removed it entirely because `page.tsx` now reads the
+   declaration server-side on every load, leaving no first-paint gap for a hint to fill. That
+   removes the second source of truth rather than weakening it.
+
+## Verification worth trusting
+
+The Task 12 review found the `channelOk || hasDevice` logic **correct but untested** — every test
+used `hasDevice: false`, so flipping `||` to `&&` would have passed all four. That is the exact
+axis this cycle delivers: a teacher with a locked phone and a registered device must stay
+bookable.
+
+Fixed with one test, and **non-vacuity was proven twice** — by the implementer, then independently
+by the controller: mutating line 248 to `&&` produced 3 failures; restoring gave 195 green with an
+empty `git diff`. The test genuinely guards the push-only tier.
+
+## ▶ RESUME HERE (supersedes the earlier resume block)
+
+**Next: batch Tasks 13 + 15 in ONE dispatch.** Neither is blocked. Corrections below are mandatory.
+
+Then: **Task 8** (blocked on VAPID keys) → **16** (user's decision, deferred) → **17** (user's).
+
+### Task 13 — pre-checked, CLEAN
+
+`OnlineTeacher` in `src/lib/presence.ts` is exactly `{ teacher_id, full_name, hourly_rate }`,
+matching its test fixture field-for-field. `AvailableRow { teacher_id, has_device }` matches
+`0010`'s `returns table`. Its test is a pure `.ts` unit test of `deriveRoster` — **node
+environment, NO jsdom pragma needed.** No corrections required.
+
+### Task 15 — THREE mandatory corrections
+
+- **(a) `@testing-library/user-event` is NOT INSTALLED** and T15's test calls `userEvent.click()`.
+  The plan sanctioned exactly two new deps this cycle (`web-push`, `@playwright/test`); this is
+  not one. **Use `fireEvent.click` from `@testing-library/react`** (already installed).
+- **(b) T15's Files list is INCOMPLETE.** The real sign-out caller is
+  **`src/components/app-shell.tsx:42`**, which today renders `<form action={signOut}>` — a
+  server-action form with no client JS. T15 must also modify that file. **DESIGN TRADE that must
+  be stated, not stumbled into:** the current form signs a teacher out with JS disabled; a client
+  button with an onClick handler does not. The trade is justified — T15's whole job (read the
+  local subscription, `DELETE /api/devices`, `unsubscribe()`) is client work a no-JS form post
+  cannot do — but it is a decision, not an accident. Every cleanup step must stay wrapped so a
+  failure still signs the teacher out.
+- **(c) T15's test is a FRAGMENT** — declares an unused `unsubscribe`, references an undeclared
+  `fetchMock`, and needs `// @vitest-environment jsdom` on line 1. Build the scaffolding.
+
+### Task 16 — still the user's call
+
+Deferred to last, **not dropped**. The controller recommended dropping it (Task 17's manual walk
+is what actually proves the feature); the user never answered. Do not decide this for them.
+
+### Task 17 — two corrections
+
+Its checklist says "`0007`–`0009` applied" — now must read **`0007`–`0011`**. Also worth adding:
+check whether iOS renders the home-screen icon without an `apple-touch-icon` link (deferred minor
+from the Task 9 review).
+
+## Deferred minors for the final whole-branch review
+
+- **T2:** `shouldRenew` renews at *exactly* half the lease where §4.1 says "less than half".
+- **T3/T5:** the probe's `finally` runs unguarded sequential awaits.
+- **T5:** the guard trigger gates dispatcher UPDATEs on `role = 'teacher'` holding at write time —
+  **carry into Task 8's dispatch.**
+- **T5:** the `register_device` race is fixed but not regression-tested.
+- **T6:** `paid`/`active` exclusion branches verified only by static parity-reading.
+- **T6:** `teacher_subjects` seed POST does not check `res.ok`.
+- **T4/T14:** happy-path write assertions thin — `declareAvailable` never asserts the
+  `declared_until` value; `renewLease`'s renew case asserts only `toHaveBeenCalled()`.
+- **T9/T10:** `state.test.ts` does not pin the iOS-vs-denied branch ORDER (every `denied` case
+  pairs with `standalone: true`); `sw.js:39` matches the target tab by substring; no
+  `apple-touch-icon`; `readSetupFacts`'s unsupported-browser branch is indistinguishable from
+  "not yet asked".
+- **T12:** `void channel.untrack().then(...)` has no `.catch()`.
+
+## The plan-quality finding — EIGHT defects, all in the plan
+
+T7 TDZ · T5 `let res` · T5 two SQL security holes · T6 `let rows` · T6 invalid `grade: "10"` ·
+T6 impossible `seed()` · T11/T12 missing jsdom pragma · T15 uninstalled `user-event`.
+
+**None shipped.** The last five were caught before an agent ever saw them, by pre-checking briefs
+against the real schema and files. Root cause every time: the plan's code was reviewed for spec
+coverage and type consistency but **never executed and never checked against the schema**.
+
+**The next plan needs a step that RUNS its own test code.**
+
+One caveat on the controller's own sweep: I declared Task 9's icon pipeline sound after testing
+`sips` with a bare `<rect>`. It does not resolve `%`-unit coordinates on `<text>` or honour
+`dominant-baseline`, and the real script produced cropped icons. **A passing spot-check is not a
+passing pipeline.**
+
+## Still needed from the user
+
+1. **VAPID keys** — `npx web-push generate-vapid-keys` in their own terminal (NOT via `!`, whose
+   output lands in the transcript). Then `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+   `VAPID_SUBJECT` into `.env.local` **and** Vercel (Production, Preview, Development).
+   **Task 8 is blocked on this and nothing else.**
+2. **Task 16** — keep or drop.
+3. **Task 17** — the locked-phone walk. No agent can do it.
+4. **The dispatcher credential** (spec §12) — still open, non-blocking.
