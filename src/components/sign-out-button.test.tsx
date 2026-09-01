@@ -71,4 +71,25 @@ describe("SignOutButton", () => {
     resolveRemove();
     await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
   });
+
+  // signOut() rejects on the client on its own SUCCESS path too — a Server
+  // Action's redirect() surfaces there as a rejection, not a resolution
+  // (see the comment above the second try/catch in sign-out-button.tsx).
+  // That means an ordinary failure (the server action's own network call
+  // failing, say) has to be told apart from that expected rejection, or the
+  // button is left disabled forever with no way to retry — a narrower
+  // instance of exactly the "trap someone trying to leave" failure this
+  // task exists to close. unstable_rethrow (the real, unmocked
+  // next/navigation implementation) is what tells the two apart here: a
+  // plain Error has no redirect digest, so it falls through instead of
+  // being re-thrown.
+  it("re-enables the button when signOut fails for an ordinary reason", async () => {
+    signOut.mockRejectedValue(new Error("network down"));
+
+    render(<SignOutButton />);
+    const button = screen.getByRole("button", { name: /sign out/i });
+    fireEvent.click(button);
+
+    await waitFor(() => expect(button).not.toBeDisabled());
+  });
 });

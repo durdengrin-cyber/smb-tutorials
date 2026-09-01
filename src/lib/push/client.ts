@@ -168,11 +168,18 @@ export async function removeThisDevice(): Promise<void> {
   if (!sub) return;
 
   try {
-    await fetch("/api/devices", {
+    const res = await fetch("/api/devices", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ endpoint: sub.endpoint }),
     });
+    // fetch only rejects on a network failure, not on a non-2xx response, so
+    // a server-side rejection (bad payload, RLS finding no matching row,
+    // etc.) would otherwise pass through unlogged and undistinguished from
+    // success.
+    if (!res.ok) {
+      console.error("[push] could not remove this device", res.status);
+    }
   } catch (e) {
     console.error("[push] could not remove this device", e);
   }

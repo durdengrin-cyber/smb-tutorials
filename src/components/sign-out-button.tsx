@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { signOut } from "@/app/auth/actions";
 import { removeThisDevice } from "@/lib/push/client";
 import { Button } from "@/components/ui/button";
@@ -21,16 +22,37 @@ export function SignOutButton() {
 
   async function handleClick() {
     setBusy(true);
+
+    // removeThisDevice already wraps every step of its own cleanup so it
+    // cannot throw; this catch is a second, independent guarantee that a
+    // cleanup failure can never stop the sign-out below from running.
     try {
-      // removeThisDevice already wraps every step of its own cleanup so it
-      // cannot throw; this try/finally is a second, independent guarantee
-      // that nothing between here and signOut() can trap someone trying to
-      // leave.
       await removeThisDevice();
     } catch (e) {
       console.error("[sign-out] device cleanup failed", e);
-    } finally {
+    }
+
+    try {
       await signOut();
+      // Unreachable in real use: signOut() unconditionally calls redirect(),
+      // and a Server Action's redirect() rejects the CALLING promise with a
+      // NEXT_REDIRECT signal rather than resolving it — Next's own
+      // server-action-reducer.js calls `reject(redirectError)` on the
+      // redirect branch before returning. So the expected, successful
+      // outcome is handled in the catch below, not here.
+    } catch (e) {
+      // The redirect above is exactly this kind of rejection, and must not
+      // be swallowed: unstable_rethrow re-throws Next's own navigation
+      // signals (redirect/notFound/etc — see
+      // node_modules/next/dist/docs/.../unstable_rethrow.md) so the
+      // framework can still complete the navigation, and returns normally
+      // for anything else. Only a genuine failure — e.g. the network call
+      // that invokes the server action itself failing — reaches the lines
+      // below, and only then is it safe (and necessary) to hand the button
+      // back to the teacher instead of leaving it disabled with no retry.
+      unstable_rethrow(e);
+      console.error("[sign-out] could not sign out", e);
+      setBusy(false);
     }
   }
 
