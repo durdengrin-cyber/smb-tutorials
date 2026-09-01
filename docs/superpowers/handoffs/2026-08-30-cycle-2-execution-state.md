@@ -16,20 +16,9 @@ it. This file is the committed copy. If the two disagree, prefer this one plus `
 
 ## ▶ RESUME HERE
 
-**A Task 9+10 review was IN FLIGHT when this session paused** (rate limit). Its verdict was never
-seen. **First action on resume: re-dispatch the Task 9+10 task review** over `6013aef..9051069`
-using `.superpowers/sdd/2026-08-30-durable-availability/review-6013aef..9051069.diff` (the package
-is already generated). Do not assume it passed.
+**See the SESSION 4 ADDENDUM at the very bottom of this file — it supersedes this block.**
 
-**Then: the Task 11+12 BATCH** — one dispatch, both tasks (see ruling SWEEP-7). That is where the
-first user-visible change lands: `"Keep this tab open — closing it takes you offline."` is deleted
-from `availability-toggle.tsx:196` and the toggle becomes durable.
-
-**Then, in order:** 8 (needs VAPID keys) → 13 → 15 → 16 (deferred decision) → 17.
-
-**Completed: 1, 2, 7, 3, 5, 6, 4, 14, 9, 10 — ten of seventeen.**
-
-Task order is NOT plan order. See ruling SWEEP-5 for why 8 moved.
+**15 of 17 tasks complete.** All code is written. Two owed steps, then the user's two.
 
 ---
 
@@ -450,3 +439,105 @@ passing pipeline.**
 2. **Task 16** — keep or drop.
 3. **Task 17** — the locked-phone walk. No agent can do it.
 4. **The dispatcher credential** (spec §12) — still open, non-blocking.
+
+---
+
+# SESSION 4 ADDENDUM (2026-09-01) — all code complete, 15 of 17
+
+**This supersedes every earlier resume block.** Stopped on a session rate limit, not on a problem.
+
+## State
+
+**215 tests passing / 3 skipped (27 files) · `npx eslint` ZERO warnings · build clean · tsc clean
+· tree clean.** All verified by the controller directly, not taken from agent reports.
+
+| Task | Commits | State |
+|---|---|---|
+| 8 — dispatcher + fan-out | `20144b2` | complete, review clean |
+| 13 — student roster | `f29d540` | complete, **review approved with no changes** |
+| 15 — sign-out unregisters device | `61452b1`, `54c262d` | complete, 1 fix round — **re-review OWED** |
+
+Five migrations applied live: `0007`–`0011`.
+
+## ▶ DO THESE TWO, IN ORDER
+
+**1. The scoped re-review of `61452b1..54c262d` was never dispatched** — the rate limit hit
+first. Generate the package with
+`scripts/review-package <plan> 61452b1 54c262d` and run it before anything else.
+It should verify: the `unstable_rethrow` guard cannot swallow a redirect; the new
+`client.test.ts` actually pins the DELETE payload shape and the never-rejects property; and that
+no pre-existing assertion was weakened.
+
+**2. Then the FINAL whole-branch review.** `scripts/review-package <plan> $(git merge-base main
+HEAD) HEAD`, dispatched on the most capable model. **Point it at the deferred-minors list below** —
+that roll-up exists so it can triage what must be fixed before merge.
+
+## What the fix round resolved, and one thing it didn't
+
+Task 15's review found two Important items. Both are fixed:
+
+- **`signOut()`'s own failure path could trap the user.** The button never reset `busy` and did
+  not guard `await signOut()`. **The obvious fix was a trap:** `signOut()` ends in `redirect()`,
+  which works by *throwing* a `NEXT_REDIRECT` signal — a plain `try/catch` would have swallowed it
+  and broken sign-out outright, strictly worse than the stuck button. The implementer did not
+  guess: it found that Next's `server-action-reducer.js` calls `reject(redirectError)` on the
+  redirect branch, and used **`unstable_rethrow`** to re-throw navigation signals while handing
+  the button back only on a genuine failure.
+- **`removeThisDevice` had no direct test.** The implementer flagged this itself and the reviewer
+  adjudicated the concern **justified** — the tested layer only exercised orchestration around a
+  mock, while the untested layer held three sequential browser-API calls, each independently
+  caught. Now covered by `src/lib/push/client.test.ts` (8 tests): the DELETE payload shape, that
+  `unsubscribe()` still runs when the DELETE fails, and that the function never rejects across all
+  three failure combinations.
+
+**Not done — cosmetic, deferred:** when `connFailed` is true *and* an outcome banner is present,
+two visually identical amber banners stack in `online-list.tsx`. Merge or differentiate.
+
+## A process lesson worth keeping
+
+The fix agent terminated on the rate limit with a final streamed line saying it was *"now"* about
+to start Finding 2. **That was stale.** Checking the filesystem showed both findings already
+complete and every file written — only the commit was missing. **A terminated agent's last words
+describe intent, not state.** Check disk, then decide.
+
+## Deferred minors — hand ALL of these to the final review
+
+- **T2:** `shouldRenew` renews at *exactly* half the lease where §4.1 says "less than half".
+- **T3/T5:** the probe's `finally` runs unguarded sequential awaits.
+- **T5:** the `teacher_devices_guard` trigger gates the dispatcher's own `last_failed_at` UPDATE on
+  `role = 'teacher'` still holding at write time. Harmless today; noted, not designed around.
+- **T5:** the `register_device` race is fixed but not regression-tested (a flaky concurrency
+  assertion in a security probe was judged worse than none).
+- **T6:** `paid`/`active` exclusion branches verified only by static parity-reading.
+- **T6:** `teacher_subjects` seed POST does not check `res.ok`.
+- **T4/T14:** happy-path write assertions thin — `declareAvailable` never asserts the
+  `declared_until` value; `renewLease`'s renew case asserts only `toHaveBeenCalled()`.
+- **T9/T10:** `state.test.ts` does not pin the iOS-vs-denied branch ORDER; `sw.js:39` matches the
+  target tab by substring; no `apple-touch-icon`; `readSetupFacts`'s unsupported-browser branch is
+  indistinguishable from "not yet asked".
+- **T12:** `void channel.untrack().then(...)` has no `.catch()`.
+- **T8:** `admin.ts:105` `NEXT_PUBLIC_SUPABASE_URL ?? ""` fails quietly where the sibling missing-key
+  case throws loudly; `dispatch.ts:133-136` collapses "no devices" and "query errored" into the
+  same return; test 2 never asserts the failed id reaches `.update()`; no test covers the
+  `after()`/`redirect()` ordering.
+- **T13/T15:** the stacked-banner cosmetic above.
+
+## Still needed from the user
+
+1. **VAPID keys are GENERATED but NOT INSTALLED.** `.env.local` still has none of the three
+   (verified by name, never by value). Add `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+   and `VAPID_SUBJECT` (a `mailto:` or `https:` URL — chosen, not generated) to `.env.local` **and**
+   Vercel. **Nothing in the code is blocked on this** — an earlier session wrongly called Task 8
+   blocked; its tests mock the transport. The keys are needed for real DELIVERY: Task 16 and
+   Task 17.
+2. **Task 16 (Playwright)** — keep or drop. Deliberately left undecided; cutting scope is the
+   user's call. The controller's read: Task 17 is what actually proves the feature.
+3. **Task 17 — the locked-phone walk.** No agent can do it. Its checklist needs two corrections:
+   it says "`0007`–`0009` applied" and must read **`0007`–`0011`**; and add a check for whether iOS
+   renders the home-screen icon without an `apple-touch-icon` link.
+
+## 🛑 Before merging
+
+`0011` MUST be applied before this app code reaches production — it is, today. If the database is
+ever rebuilt from migrations, apply it before deploying, or every session-request insert fails on
+zero clock-skew margin.
