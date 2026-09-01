@@ -6,13 +6,12 @@ import { createClient } from "@/lib/supabase/client";
 import {
   PRESENCE_CHANNEL,
   rosterFromPresenceState,
-  intersectOnline,
   type OnlineTeacher,
 } from "@/lib/presence";
+import { deriveRoster, type AvailableRow } from "@/lib/roster";
 import { TeacherCard, type TeacherCardData } from "./teacher-card";
 import { requestSession } from "./actions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { FormError } from "@/components/form-error";
 import { Money } from "@/components/money";
@@ -78,6 +77,9 @@ export function OnlineList({
   refundAmountPaise?: number;
 }) {
   const [roster, setRoster] = useState<OnlineTeacher[]>([]);
+  // The push-only tier: a snapshot from available_teachers, not a stream —
+  // see the polling effect below for why it needs refreshing at all.
+  const [available, setAvailable] = useState<AvailableRow[]>([]);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // An empty roster because the handshake failed looks exactly like an empty
@@ -125,7 +127,50 @@ export function OnlineList({
     };
   }, []);
 
-  const online = intersectOnline(eligible, roster);
+  // Presence streams the live tier; the push-only tier is a snapshot from the
+  // RPC, so it needs refreshing or a teacher who declares while the student
+  // watches never appears. Polling was chosen over Broadcast deliberately
+  // (spec §4.4.2): it scales with STUDENTS, whereas postgres_changes scales
+  // with teachers x students — ~67 req/s at 2,000 concurrent students, which
+  // is nothing. When this is outgrown the replacement is Broadcast, behind
+  // available_teachers, never postgres_changes.
+  useEffect(() => {
+    let mounted = true;
+    const supabase = createClient();
+
+    async function load() {
+      const { data, error: rpcError } = await supabase.rpc("available_teachers", {
+        p_curriculum: curriculum,
+        p_grade: grade,
+        p_stream: stream,
+        p_subject: subject,
+      });
+      if (!mounted) return;
+      if (rpcError) {
+        // A transient failure here should not blank out a list that presence
+        // has already populated — leave `available` as it was and try again
+        // on the next poll or focus.
+        console.error("[online-list] available_teachers failed", rpcError);
+        return;
+      }
+      setAvailable((data as AvailableRow[] | null) ?? []);
+    }
+
+    void load();
+    window.addEventListener("focus", load);
+    const id = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void load();
+    }, 30_000);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", load);
+      clearInterval(id);
+    };
+  }, [curriculum, grade, stream, subject]);
+
+  const online = deriveRoster(eligible, available, roster);
   // requestSession validates the taxonomy, so starting from an unfiltered list
   // can only ever return "Pick a subject before starting." Say so up front
   // instead of letting the click fail.
@@ -154,26 +199,23 @@ export function OnlineList({
   // roster is the likeliest state right after a timeout.
   const banner = outcomeMessage(outcome, teacherName, refundAmountPaise);
 
-  if (connFailed) {
-    return (
-      <Card>
-        <CardContent className="p-12 text-center">
-          <div className="text-5xl mb-4">📡</div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
-            Couldn&apos;t check who&apos;s online
-          </h3>
-          <p className="text-gray-600">
-            We lost the live connection, so this list may be out of date.
-            Refresh to try again.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Was: a full replacement of the list with a "Couldn't check who's online"
+  // card. That was correct when presence was the only signal a teacher was
+  // reachable. It is now actively wrong — it would hide the push-only tier,
+  // which does not depend on this channel at all, and those teachers are
+  // genuinely startable. So this degrades to a banner over a list that keeps
+  // rendering, with the copy narrowed to what is actually still true.
+  const connBanner = connFailed && (
+    <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+      We lost the live connection, so teachers who are at their desk right
+      now may be missing from this list.
+    </div>
+  );
 
   if (online.length === 0) {
     return (
       <>
+        {connBanner}
         {banner && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
             {banner}
@@ -198,6 +240,7 @@ export function OnlineList({
 
   return (
     <>
+      {connBanner}
       {banner && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
           {banner}
