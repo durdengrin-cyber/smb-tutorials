@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { signOut } from "@/app/auth/actions";
 import { NAV } from "@/lib/nav";
 import type { Identity } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { SignOutButton } from "@/components/sign-out-button";
 
 // Responsive by construction: a top bar everywhere, plus a bottom tab bar on
 // small screens. The product is built for whatever device someone has, not for
@@ -39,11 +39,7 @@ export function AppShell({
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {identity.fullName}
             </span>
-            <form action={signOut}>
-              <Button type="submit" variant="outline" size="sm">
-                Sign out
-              </Button>
-            </form>
+            <SignOutButton />
           </div>
         </div>
       </header>

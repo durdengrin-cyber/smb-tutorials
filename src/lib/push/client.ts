@@ -143,3 +143,43 @@ async function postSubscription(sub: PushSubscription): Promise<void> {
     body: JSON.stringify(sub.toJSON()),
   });
 }
+
+// Spec §8's safety property: a shared family phone must not keep waking a
+// teacher who signed out, or the next person to use it keeps receiving a
+// teacher's session requests — and that teacher believes they are still
+// reachable. Called from SignOutButton, before the signOut server action.
+//
+// Order is: read the current subscription, tell the server to forget it
+// (DELETE /api/devices, RLS-scoped to the caller's own rows), then drop it
+// locally. Each step is wrapped on its own, deliberately more granular than
+// one outer try/catch — a failed DELETE still lets the local unsubscribe()
+// happen, so this browser stops holding a subscription server-side cleanup
+// couldn't reach. None of these steps is allowed to throw out of this
+// function: being unable to tidy a device row must never trap someone who
+// is trying to leave.
+export async function removeThisDevice(): Promise<void> {
+  let sub: PushSubscription | null = null;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    sub = (await reg?.pushManager.getSubscription()) ?? null;
+  } catch (e) {
+    console.error("[push] could not read the local subscription", e);
+  }
+  if (!sub) return;
+
+  try {
+    await fetch("/api/devices", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    });
+  } catch (e) {
+    console.error("[push] could not remove this device", e);
+  }
+
+  try {
+    await sub.unsubscribe();
+  } catch (e) {
+    console.error("[push] could not unsubscribe locally", e);
+  }
+}
