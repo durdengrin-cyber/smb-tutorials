@@ -2,6 +2,10 @@
 
 ## ▶ START HERE (updated 2026-08-28)
 
+> **Session 5 (2026-09-01): jump to the "▶ Cycle 2" block below — both owed reviews are done
+> and all four merge blockers are fixed. Two things need YOU before merge: apply migration
+> `0012`, and decide `NOTIFICATION_DB_KEY`.**
+
 **Cycle 1 of the redesign — IA + design system — is COMPLETE and SHIPPED TO PRODUCTION.**
 `main` @ `f5fdb97`, 37 commits merged and pushed, verified live route-by-route against
 https://smb-tutorials.vercel.app (not the Vercel dashboard — this project has shipped a
@@ -49,47 +53,80 @@ hits a sign-in wall, and a signed-in *teacher* cannot view `/teachers` at all. R
 - Migrations `0002`–`0005` applied to the live project; **`0006` written and NOT applied**.
 - Tree clean, `main == origin/main` (re-established 2026-08-30).
 
-### ▶ Cycle 2 — ALL CODE COMPLETE, 15 of 17, on branch `cycle-2/durable-availability` (2026-09-01)
+### ▶ Cycle 2 — BOTH REVIEWS DONE, ALL BLOCKERS FIXED, on branch `cycle-2/durable-availability` (2026-09-01, session 5)
 
-**🛑 Read `docs/superpowers/handoffs/2026-08-30-cycle-2-execution-state.md` first, and go
-straight to its SESSION 4 ADDENDUM at the very bottom — that supersedes every earlier resume
-block in that file.** The live SDD ledger is git-ignored at
-`.superpowers/sdd/2026-08-30-durable-availability/progress.md`; the handoff is the committed copy.
+**Both owed reviews are complete and every finding they raised is closed.** Branch head
+`e92fc95`. The handoff at `docs/superpowers/handoffs/2026-08-30-cycle-2-execution-state.md`
+is now HISTORY up to its SESSION 4 ADDENDUM; this block supersedes it.
 
-**State: 215 tests passing / 3 skipped (27 files) · `npx eslint` ZERO warnings · build clean ·
-tsc clean · tree clean.** All 15 code tasks are written, committed and reviewed except one owed
-re-review. Branch head `40e9239`.
+**State: 226 tests passing / 3 skipped (27 files) · `npx eslint` exit 0 · `tsc --noEmit` exit 0 ·
+`npm run build` exit 0 · tree clean.** All four re-measured directly this session, not taken from
+agent reports. (The `[MarketingLayout] identity lookup failed` lines in the build log are
+pre-existing — verified identical at a clean HEAD.)
 
-**Two steps owed, in this order:**
-1. **The scoped re-review of `61452b1..54c262d`** — never dispatched; a session rate limit hit
-   first. Do this before anything else.
-2. **The final whole-branch review**, on the most capable model, pointed at the deferred-minors
-   roll-up in the handoff so it can triage what must be fixed before merge.
+**What happened this session:**
+1. **Scoped re-review of `61452b1..54c262d`** — verdict *ready to merge*. One Important (the
+   `unstable_rethrow` guard's discriminating branch was untested — deleting the line left the
+   suite green) plus four Minors. All fixed in `08a3f19`.
+2. **Final whole-branch review** (`af1285b..08a3f19`, 29 commits) — verdict *with fixes*: one
+   Critical, three Important. **All four fixed in `e92fc95`.**
+3. **Task 17 step 1 done** — `docs/superpowers/checklists/2026-08-30-locked-phone-walk.md`
+   (`d48b089`), carrying the three corrections the session-4 handoff owed.
+4. **Task 16 (Playwright) DROPPED** by user decision. Recorded in the checklist; the
+   browser-level regression gap for the presence/roster/request loop is carried forward, not
+   closed.
 
-Then Task 16 (Playwright — the **user's** keep-or-drop decision, deliberately left open) and
-Task 17 (the locked-phone walk — no agent can do it).
+**The Critical is worth remembering.** A teacher who signed out and back in was permanently
+push-unreachable and told the opposite: `nextSetupAction` returned `"done"` for a granted
+permission on the premise that `registerExistingSubscription` silently repaired a missing
+subscription — but that function only ever POSTed an *existing* one and never called
+`subscribe()`, while `removeThisDevice()` unsubscribes on sign-out and the grant survives.
+**Both the Critical and one Important originated in the PLAN, not the implementation** — the
+cycle's established pattern, now nine plan defects, none shipped.
 
-**⚠ The live database is AHEAD of `main`.** Migrations `0007`–`0011` are applied to project
-`upggvzzzoxqgourjywtd` on this unmerged branch. `0007`–`0010` are additive and unread by
-production. **`0011` is different: it REPLACED `enforce_session_insert()`, which production runs
-on every session insert.** It was regression-checked live at the time — all three original probes
-exit 0, sessions 19→19 — so `0005`'s controls survive. Do not treat it as inert.
+**🛑 TWO THINGS BEFORE MERGE — both need the user:**
 
-**🛑 MERGE BLOCKER:** `src/lib/session.ts` now sets `ACCEPT_WINDOW_SECONDS = 60`. The pre-`0011`
-bound was `accept_deadline > now() + 60s`, leaving ZERO clock-skew margin at a 60s window; `0011`
-raises it to 120s. Already applied, so this is satisfied today — but if the database is ever
-rebuilt from migrations, `0011` must be applied **before** this app code deploys, or every
-session request fails to insert.
+1. **Apply migration `0012` to the live project (`upggvzzzoxqgourjywtd`).** NOT yet applied.
+   `record_device_results` is the RPC the dispatcher now calls on every delivery to increment
+   `failure_count` and stamp `last_ok_at` (spec §8 required both; neither was ever written).
+   Unapplied, the call fails and is logged, and the counter is silently lost — the
+   `last_failed_at` stamp is deliberately a *separate* PostgREST write ahead of it so the record
+   that anything went wrong survives the gap. Same ordering hazard as `0011`, second instance.
+2. **Decide `NOTIFICATION_DB_KEY`** (spec §12 + new §15.1 item 1). Unset, so the dispatcher runs
+   as the **service role** — option (b), by default rather than by choice, on a
+   student-triggerable path, for the key cycle 1 reserves for the payment webhook alone.
+   Reviewed for weaponisation: none found (queries are `.eq("teacher_id", …)` on an
+   already-role-checked id and `.in("id", …)` over ids the query itself returned). Set a
+   dedicated `sb_secret_*` key, or ratify (b) explicitly.
+
+**⚠ The live database is AHEAD of `main`.** `0007`–`0011` are applied on this unmerged branch;
+`0012` is written and NOT applied. `0007`–`0010` are additive and unread by production.
+**`0011` REPLACED `enforce_session_insert()`, which production runs on every session insert** —
+regression-checked live (three probes exit 0, sessions 19→19), so `0005`'s controls survive. The
+final review also diffed `0011`'s body against `0005`'s mechanically: identical but for the
+bound. Do not treat it as inert.
+
+**🛑 Migration ordering:** `ACCEPT_WINDOW_SECONDS = 60` needs `0011`'s 120s bound (satisfied
+today), and the dispatcher needs `0012`. If the database is ever rebuilt from migrations, both
+must be applied **before** this app code deploys.
 
 **`0006` is still deliberately UNAPPLIED.** Do not apply it.
 
 **VAPID keys: generated by the user but NOT in `.env.local`** (verified by name, never by value).
-Nothing in the code is blocked on them — an earlier session wrongly called Task 8 blocked; its
-tests mock the transport. They are needed for real delivery: Tasks 16 and 17.
+No code is blocked on them; they gate real delivery, i.e. Task 17. **Adding them to Vercel
+requires a REDEPLOY** — `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is inlined at build time in the Node
+environment too, and the server reads it to sign.
 
-**The plan itself was the main source of defects this cycle — eight of them, none shipped.**
-Pre-check each remaining brief against the real schema and files before dispatching. Details and
-the full ruling list are in the handoff.
+**Remaining: Task 17 only** — the locked-phone walk. No agent can do it. Checklist is written and
+ready. Nothing in this cycle has ever executed a real push: the service worker, the encryption,
+`notificationclick` → `/dashboard` and the iOS install flow are proven **by construction only**.
+
+**Follow-ups deferred by the final review** (none merge-blocking) are triaged in its report and
+summarised in spec §15.1 — the half-strength four-status probe, the unguarded probe `finally`,
+`sw.js`'s substring tab match, `readSetupFacts`'s unsupported-browser branch, thin
+`declareAvailable`/`renewLease` write assertions, the missing `after()`/`redirect()` ordering
+test (its value went UP when Task 16 was dropped — nothing else would catch an inversion), and
+the absent `apple-touch-icon` (step 10 of the walk decides it).
 
 ---
 
