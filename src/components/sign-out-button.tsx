@@ -42,14 +42,27 @@ export function SignOutButton() {
       // outcome is handled in the catch below, not here.
     } catch (e) {
       // The redirect above is exactly this kind of rejection, and must not
-      // be swallowed: unstable_rethrow re-throws Next's own navigation
-      // signals (redirect/notFound/etc — see
-      // node_modules/next/dist/docs/.../unstable_rethrow.md) so the
-      // framework can still complete the navigation, and returns normally
-      // for anything else. Only a genuine failure — e.g. the network call
-      // that invokes the server action itself failing — reaches the lines
-      // below, and only then is it safe (and necessary) to hand the button
-      // back to the teacher instead of leaving it disabled with no retry.
+      // be treated as a failure: unstable_rethrow re-throws Next's own
+      // navigation signals (redirect/notFound/etc — see
+      // node_modules/next/dist/docs/.../unstable_rethrow.md) and returns
+      // normally for anything else. Only a genuine failure — e.g. the
+      // network call that invokes the server action itself failing —
+      // reaches the lines below, and only then is it safe (and necessary)
+      // to hand the button back to the teacher instead of leaving it
+      // disabled with no retry.
+      //
+      // Precisely what the re-throw does and does not do, verified against
+      // the installed Next 16.3.2 rather than assumed: it is NOT what
+      // performs the navigation. server-action-reducer.js completes the SPA
+      // navigation itself, after its own reject() and regardless of whether
+      // we catch. What re-throwing buys is that the signal surfaces as an
+      // unhandled rejection, where app-router.js's listener calls
+      // preventDefault() on it — so a successful sign-out is not reported
+      // as an error — and, decisively, that we are not branching on Next's
+      // undocumented reducer internals to decide what counts as a failure.
+      // (That listener also re-issues a push to the same URL, which is
+      // redundant but harmless, and predates this code: the rejection was
+      // unhandled here before too.)
       unstable_rethrow(e);
       console.error("[sign-out] could not sign out", e);
       setBusy(false);

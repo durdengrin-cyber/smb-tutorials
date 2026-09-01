@@ -53,13 +53,20 @@ function stubBrokenServiceWorker(error: unknown) {
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
+// Every failure path below logs by design, so without this each of those
+// tests dumps a real stack trace into the suite output and buries the signal.
+// Held at file level rather than per-test so the four logging cases stay
+// consistent, and exposed so the assertions can pin what was logged.
+let errorSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 } as Response);
   vi.stubGlobal("fetch", fetchMock);
+  errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
+  errorSpy.mockRestore();
   vi.unstubAllGlobals();
   Object.defineProperty(navigator, "serviceWorker", {
     configurable: true,
@@ -114,15 +121,20 @@ describe("removeThisDevice", () => {
     const sub = makeSubscription();
     stubServiceWorker(async () => sub);
     fetchMock.mockResolvedValue({ ok: false, status: 500 } as Response);
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     await expect(removeThisDevice()).resolves.toBeUndefined();
 
-    expect(errorSpy).toHaveBeenCalled();
+    // Assert the STATUS reaches the log, not merely that something logged:
+    // carrying res.status is the entire point of the !res.ok branch, since
+    // fetch does not reject on a non-2xx and the failure would otherwise be
+    // indistinguishable from success.
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[push] could not remove this device",
+      500
+    );
     // Still unsubscribes locally — a server-side failure to record the
     // delete must not stop this browser from dropping its own copy.
     expect(sub.unsubscribe).toHaveBeenCalledTimes(1);
-    errorSpy.mockRestore();
   });
 
   // The three failure combinations the safety property depends on: none of
@@ -147,6 +159,20 @@ describe("removeThisDevice", () => {
       // this browser stops holding a subscription server-side cleanup
       // couldn't reach.
       expect(sub.unsubscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it("when the browser has no serviceWorker at all", async () => {
+      // Non-secure contexts and older browsers have no serviceWorker
+      // property, so line 1 of the function throws a synchronous TypeError
+      // inside the try rather than rejecting. afterEach already leaves
+      // navigator.serviceWorker undefined, which is exactly that shape.
+      Object.defineProperty(navigator, "serviceWorker", {
+        configurable: true,
+        value: undefined,
+      });
+
+      await expect(removeThisDevice()).resolves.toBeUndefined();
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it("when unsubscribe() itself fails", async () => {

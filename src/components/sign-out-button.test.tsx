@@ -92,4 +92,44 @@ describe("SignOutButton", () => {
 
     await waitFor(() => expect(button).not.toBeDisabled());
   });
+
+  // The catch above rests entirely on unstable_rethrow telling Next's own
+  // navigation signals apart from real failures. Nothing else pins that:
+  // every other test here either resolves signOut or rejects it with a plain
+  // Error, so deleting the unstable_rethrow(e) line leaves them all green
+  // while silently breaking the discrimination. It is an unstable_ API on a
+  // stack this project locks by policy, and to a future reader the line looks
+  // like a no-op, so pin the assumption it encodes rather than only commenting
+  // on it.
+  //
+  // Direct component-level proof is not available: the re-throw escapes
+  // handleClick as an unhandled rejection (React does not await an onClick
+  // result), which Vitest reports as an unhandled error and fails the file on.
+  // So assert the primitive's behaviour against the two inputs the component
+  // actually hands it.
+  //
+  // NOTE: next/navigation has no exports map, so this resolves the SERVER
+  // variant of unstable_rethrow, while the browser bundle ships
+  // unstable-rethrow.browser. The server variant's checks are a strict
+  // superset of the browser one's, and the two agree on both cases asserted
+  // here — this is a canary for the shared assumption, not a test of the
+  // shipped chunk.
+  it("unstable_rethrow re-throws a server-action redirect and passes ordinary errors through", async () => {
+    const { unstable_rethrow } = await import("next/navigation");
+
+    // Exactly what server-action-reducer.js builds on the redirect branch:
+    // NEXT_REDIRECT;<type>;<url>;<status>;
+    const redirectSignal = Object.assign(new Error("NEXT_REDIRECT"), {
+      digest: "NEXT_REDIRECT;push;/;307;",
+    });
+    expect(() => unstable_rethrow(redirectSignal)).toThrow(redirectSignal);
+
+    // A real server-action failure reaches the client with a numeric hash
+    // digest, not a NEXT_ one, and must fall through so the button resets.
+    const sanitized = Object.assign(new Error("An error occurred"), {
+      digest: "3839471929",
+    });
+    expect(() => unstable_rethrow(sanitized)).not.toThrow();
+    expect(() => unstable_rethrow(new Error("network down"))).not.toThrow();
+  });
 });
