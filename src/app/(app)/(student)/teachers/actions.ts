@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -9,6 +10,7 @@ import {
   type SessionTimingRow,
 } from "@/lib/session";
 import { isCurriculum, isGrade, isSubjectOf } from "@/lib/taxonomy";
+import { notifyTeacherOfRequest } from "@/lib/notifications/dispatch";
 
 export async function requestSession(input: {
   teacherId: string;
@@ -80,9 +82,25 @@ export async function requestSession(input: {
       accept_deadline: acceptDeadlineFrom(new Date()).toISOString(),
       hourly_rate: teacher.hourly_rate,
     })
-    .select("id")
+    .select("id, student_name")
     .single();
 
   if (error || !session) return { error: "Couldn't start the request — try again." };
+
+  // The student must not wait on a push service to see their waiting screen.
+  after(async () => {
+    try {
+      await notifyTeacherOfRequest(
+        input.teacherId,
+        session.student_name ?? "A student",
+        input.subject
+      );
+    } catch (e) {
+      // Road 2 failing must never take the request down with it — road 1 is
+      // still live and the catch-up query still runs on the teacher's mount.
+      console.error("[requestSession] push fan-out failed", e);
+    }
+  });
+
   redirect(`/waiting/${session.id}`);
 }
