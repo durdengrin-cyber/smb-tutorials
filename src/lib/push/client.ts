@@ -112,9 +112,32 @@ export async function registerExistingSubscription(): Promise<void> {
   try {
     if (Notification.permission !== "granted") return;
     const reg = await navigator.serviceWorker.register(SW_PATH);
-    const sub = await reg.pushManager.getSubscription();
-    if (sub) await postSubscription(sub);
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      // Re-subscribe rather than return. Signing out unsubscribes this
+      // browser (removeThisDevice), but the PERMISSION grant survives it, so
+      // a teacher signing back in lands here holding a grant and no
+      // subscription — and nothing else in the app can create one except the
+      // button that "done" hides. Returning here is what made that teacher
+      // silently unreachable.
+      //
+      // Safe to do without a prompt precisely because permission is already
+      // granted: subscribe() only prompts from "default", which the guard
+      // above has excluded. Nothing is spent, so §6.4's "never spend the
+      // permission on a load nobody asked for" is not in play here.
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""
+        ),
+      });
+    }
+    await postSubscription(sub);
   } catch (e) {
+    // Deliberately swallowed: this runs on mount and must never break the
+    // dashboard. The teacher is not left guessing, though — a failed
+    // re-subscribe leaves hasSubscription false, which nextSetupAction now
+    // turns into a visible "Turn on notifications" card.
     console.error("[push] re-registration failed", e);
   }
 }

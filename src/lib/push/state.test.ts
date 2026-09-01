@@ -36,9 +36,26 @@ describe("nextSetupAction", () => {
     expect(nextSetupAction(facts({ permission: "granted", hasSubscription: true }))).toBe("done");
   });
 
-  // Granted but no subscription is repaired silently by the mount-time
-  // registration, so the teacher is never shown a button for it.
-  it("is done when granted even without a subscription yet", () => {
-    expect(nextSetupAction(facts({ permission: "granted", hasSubscription: false }))).toBe("done");
+  // The state the ordinary sign-out path leaves behind: signing out
+  // unsubscribes this browser while the permission grant survives. This used
+  // to return "done" on the premise that the mount-time registration repaired
+  // it silently — but registerExistingSubscription only POSTED an existing
+  // subscription and never created one, so nothing repaired it and the
+  // teacher was left with no card, no device row, and no way to get one.
+  // registerExistingSubscription now re-subscribes; this is the backstop for
+  // when that subscribe fails.
+  it("offers the button again when granted but the subscription is gone", () => {
+    expect(nextSetupAction(facts({ permission: "granted", hasSubscription: false }))).toBe("enable");
+  });
+
+  // Ordering, pinned explicitly rather than left to fall out of the branch
+  // sequence: an iPhone in a Safari TAB that has also denied permission must
+  // still be told to install. "blocked" there would tell them to change a
+  // browser setting that is not what is stopping them — the tab has no
+  // PushManager at all, so installing is the only step that leads anywhere.
+  it("prefers install over blocked for an iPhone Safari tab that denied", () => {
+    expect(
+      nextSetupAction(facts({ isIOS: true, standalone: false, permission: "denied" }))
+    ).toBe("install_ios");
   });
 });

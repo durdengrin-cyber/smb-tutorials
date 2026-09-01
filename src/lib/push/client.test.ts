@@ -12,7 +12,7 @@
 // jsdom does not implement the Service Worker / Push API at all, so
 // navigator.serviceWorker has to be stubbed by hand.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { removeThisDevice } from "./client";
+import { removeThisDevice, registerExistingSubscription } from "./client";
 
 const ENDPOINT = "https://push.example.com/subscription/abc123";
 
@@ -22,6 +22,13 @@ function makeSubscription(
   return {
     endpoint: ENDPOINT,
     unsubscribe: vi.fn().mockResolvedValue(true),
+    // postSubscription sends sub.toJSON(), so a fixture without it makes the
+    // POST throw into the caller's catch and vanish — the failure looks like
+    // "fetch was never called" rather than "the fixture is incomplete".
+    toJSON: () => ({
+      endpoint: ENDPOINT,
+      keys: { p256dh: "p256dh-test-key", auth: "auth-test-key" },
+    }),
     ...overrides,
   } as unknown as PushSubscription;
 }
@@ -50,6 +57,29 @@ function stubBrokenServiceWorker(error: unknown) {
       getRegistration: () => Promise.reject(error),
     },
   });
+}
+
+// registerExistingSubscription goes through register(), not getRegistration(),
+// and gates on Notification.permission — neither of which jsdom provides.
+function stubForRegistration(opts: {
+  permission: NotificationPermission;
+  existing: PushSubscription | null;
+  subscribe?: () => Promise<PushSubscription>;
+}) {
+  const subscribe =
+    opts.subscribe ?? vi.fn().mockResolvedValue(makeSubscription());
+  const registration = {
+    pushManager: {
+      getSubscription: vi.fn().mockResolvedValue(opts.existing),
+      subscribe,
+    },
+  };
+  Object.defineProperty(navigator, "serviceWorker", {
+    configurable: true,
+    value: { register: vi.fn().mockResolvedValue(registration) },
+  });
+  vi.stubGlobal("Notification", { permission: opts.permission });
+  return registration;
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -186,5 +216,72 @@ describe("removeThisDevice", () => {
       // attempted.
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+// The bug this cycle's final review caught, and the reason these tests exist:
+// signing out calls removeThisDevice, which unsubscribes this browser — but
+// the PERMISSION grant survives. On the next sign-in the teacher therefore
+// holds a grant and no subscription. This function used to POST an existing
+// subscription and return otherwise, so nothing re-created one, while
+// nextSetupAction returned "done" on the premise that this function repaired
+// it. Nothing did: no card, no device row, and a dashboard still promising
+// notifications with the phone locked.
+describe("registerExistingSubscription", () => {
+  it("re-subscribes and registers when permission is granted but the subscription is gone", async () => {
+    const fresh = makeSubscription();
+    const subscribe = vi.fn().mockResolvedValue(fresh);
+    const reg = stubForRegistration({
+      permission: "granted",
+      existing: null,
+      subscribe,
+    });
+
+    await registerExistingSubscription();
+
+    // The actual repair: a NEW subscription is created, not merely looked up.
+    expect(subscribe).toHaveBeenCalledTimes(1);
+    expect(subscribe.mock.calls[0][0]).toMatchObject({ userVisibleOnly: true });
+    expect(reg.pushManager.getSubscription).toHaveBeenCalledTimes(1);
+    // ...and it reaches the server, or the row still would not exist.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/devices");
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST" });
+  });
+
+  it("posts the existing subscription without re-subscribing when one is already held", async () => {
+    const existing = makeSubscription();
+    const subscribe = vi.fn();
+    stubForRegistration({ permission: "granted", existing, subscribe });
+
+    await registerExistingSubscription();
+
+    // Spending a subscribe() call when one is already held would churn the
+    // endpoint and orphan the row the server already has.
+    expect(subscribe).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing at all when permission has not been granted", async () => {
+    const subscribe = vi.fn();
+    stubForRegistration({ permission: "default", existing: null, subscribe });
+
+    await registerExistingSubscription();
+
+    // subscribe() from "default" would PROMPT — on a page load nobody asked
+    // for, spending a grant that is close to permanent once denied (§6.4).
+    expect(subscribe).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("never throws when the re-subscribe itself fails", async () => {
+    const subscribe = vi.fn().mockRejectedValue(new Error("push service down"));
+    stubForRegistration({ permission: "granted", existing: null, subscribe });
+
+    // Runs on mount: throwing here would take the dashboard down. The teacher
+    // is not stranded silently — hasSubscription stays false, which
+    // nextSetupAction turns into a visible "Turn on notifications" card.
+    await expect(registerExistingSubscription()).resolves.toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

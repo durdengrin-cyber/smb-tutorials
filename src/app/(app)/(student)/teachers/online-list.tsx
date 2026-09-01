@@ -80,6 +80,14 @@ export function OnlineList({
   // The push-only tier: a snapshot from available_teachers, not a stream —
   // see the polling effect below for why it needs refreshing at all.
   const [available, setAvailable] = useState<AvailableRow[]>([]);
+  // "Have we ever heard back?" is a DIFFERENT question from "is the list
+  // empty", and conflating them is what let a failed read render as a
+  // confident "no teachers online". deriveRoster requires membership in
+  // `available` for EVERY teacher — the live-presence tier included — so
+  // before the first successful load the derived list is necessarily empty,
+  // whether or not anyone is actually available.
+  const [rosterLoaded, setRosterLoaded] = useState(false);
+  const [rosterFailed, setRosterFailed] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // An empty roster because the handshake failed looks exactly like an empty
@@ -147,12 +155,18 @@ export function OnlineList({
       });
       if (!mounted) return;
       if (rpcError) {
-        // A transient failure here should not blank out a list that presence
-        // has already populated — leave `available` as it was and try again
-        // on the next poll or focus.
+        // Keep the last good snapshot and retry on the next poll or focus —
+        // but SAY so. Returning silently was the bug: on the first load the
+        // last good snapshot is [], so the whole list (presence tier and all)
+        // collapses into an EmptyState asserting nobody is online, which is a
+        // claim we have no basis for. This is precisely the dishonesty the
+        // cycle exists to remove, on the primary student surface.
         console.error("[online-list] available_teachers failed", rpcError);
+        setRosterFailed(true);
         return;
       }
+      setRosterFailed(false);
+      setRosterLoaded(true);
       setAvailable((data as AvailableRow[] | null) ?? []);
     }
 
@@ -205,10 +219,24 @@ export function OnlineList({
   // which does not depend on this channel at all, and those teachers are
   // genuinely startable. So this degrades to a banner over a list that keeps
   // rendering, with the copy narrowed to what is actually still true.
-  const connBanner = connFailed && (
-    <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
-      We lost the live connection, so teachers who are at their desk right
-      now may be missing from this list.
+  // ONE notice for degraded reachability, never two. connFailed and
+  // rosterFailed are different halves of the same list — presence streams the
+  // live tier, the RPC snapshot carries the push-only tier — and rendering a
+  // box per half stacked two visually identical amber banners saying
+  // overlapping things. Slate rather than amber also separates "the system is
+  // degraded" from the outcome banner's "here is what happened to YOUR
+  // session", which is what a student actually needs to tell apart.
+  const degraded: string | null = connFailed && rosterFailed
+    ? "We're having trouble checking who's available, so this list may be incomplete."
+    : connFailed
+      ? "We lost the live connection, so teachers who are at their desk right now may be missing from this list."
+      : rosterFailed
+        ? "We couldn't refresh who's available just now, so this list may be out of date."
+        : null;
+
+  const connBanner = degraded && (
+    <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700">
+      {degraded}
     </div>
   );
 
@@ -221,19 +249,35 @@ export function OnlineList({
             {banner}
           </div>
         )}
-        <EmptyState
-          title={
-            subject
-              ? `No teachers online for ${subject} right now`
-              : "No teachers available right now"
-          }
-          description="Teachers appear here only while they're online and ready to start immediately. Try again in a few minutes, or pick a different subject."
-          action={
-            <Button asChild variant="outline">
-              <Link href="/find">Change subject</Link>
-            </Button>
-          }
-        />
+        {/* Only claim nobody is online once we have actually been told so.
+            Until the first successful roster read, an empty derived list means
+            "we don't know yet" — asserting otherwise sends a student away from
+            teachers who are available and startable right now. */}
+        {rosterLoaded ? (
+          <EmptyState
+            title={
+              subject
+                ? `No teachers online for ${subject} right now`
+                : "No teachers available right now"
+            }
+            description="Teachers appear here only while they're online and ready to start immediately. Try again in a few minutes, or pick a different subject."
+            action={
+              <Button asChild variant="outline">
+                <Link href="/find">Change subject</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="Couldn't check who's available"
+            description="This is on us, not you — the list will refresh by itself in a few seconds. If it keeps failing, try reloading the page."
+            action={
+              <Button asChild variant="outline">
+                <Link href="/find">Change subject</Link>
+              </Button>
+            }
+          />
+        )}
       </>
     );
   }

@@ -756,6 +756,54 @@ implementer may be dispatched before it.
   it means a student could in principle make themselves a teacher and register devices.
   This cycle does not widen that hole; cycle 3 remains blocked on closing it.
 
+## 15.1 Spike → production hardening (cycle-2 debts to close)
+
+Required by `CLAUDE.md`: a shortcut with a functional, security or cost cost **in service** is
+recorded here rather than left silent. Written 2026-09-01, at the close of the final pre-merge
+review.
+
+**1. `NOTIFICATION_DB_KEY` is unset, so the dispatcher runs as the service role — §12 option
+(b), by default rather than by choice.** §12 deferred this until the environment existed. It now
+exists, and nothing warns at boot or deploy that the fallback took effect. Reviewed for
+weaponisation and none found: `notifyTeacherOfRequest`'s only queries are `.eq("teacher_id",
+teacherId)` where `teacherId` has already passed the session-insert trigger's `role = 'teacher'`
+check, and `.in("id", …)` over ids that query itself returned — no injection surface, no
+caller-controlled table or column. So (b) is defensible, not dangerous. **But it is a default
+nobody chose, on a student-triggerable path, for the key the cycle-1 handoff reserves for the
+payment webhook alone.** Close by setting `NOTIFICATION_DB_KEY` to a dedicated `sb_secret_*` key
+(option (a)) once the project's key type is confirmed, or by ratifying (b) explicitly here.
+
+**2. Migration `0012` must be applied before this app code deploys.** Same ordering hazard as
+`0011`, and the second instance of it this cycle. `record_device_results` is the RPC that
+increments `failure_count` and stamps `last_ok_at`; the dispatcher calls it on every delivery.
+Unapplied, the call fails and is logged, and the counter is silently lost — the `last_failed_at`
+stamp is deliberately kept as a separate PostgREST write ahead of it so that the *record that
+anything went wrong* survives the gap. **Verify `0012` is live before deploy.**
+
+**3. Nothing in this cycle has ever executed a real push.** Task 16 (Playwright) was dropped by
+user decision 2026-09-01 and Task 17 (the locked-phone walk) is unperformed; VAPID keys are
+generated but not installed. The service worker, the encryption, `notificationclick` →
+`/dashboard`, and the iOS install flow are proven **by construction only** — no test, probe or
+human has observed one. This is accepted, but it means the delivery road carries no execution
+evidence at all until Task 17 runs.
+
+**4. `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is inlined at build time**, in the Node environment as well
+as the browser bundle, and `getNotificationPort()` reads it server-side for signing. Adding the
+VAPID vars to Vercel therefore requires a **redeploy**, not just an env save, or every dispatch
+throws "VAPID public key is missing" — swallowed by `after()`'s catch and visible only in logs.
+
+**5. `available_teachers`' four-status parity is probed at half strength.** §9.2 promises seeds
+in all four statuses; `probe-availability.mjs` seeds only `pending` ×2 and `accepted` ×2. The
+`paid`/`active` exclusion branches are verified by static parity-reading alone, and §15 names
+this probe as the *only* control against the "one rule, two languages" drift between the RPC's
+SQL and `session.ts`'s TypeScript. Hand-traced and correct today; the control, not the code, is
+what ships weak.
+
+**6. `register_device` caps nothing.** The dispatcher now bounds its own fan-out at
+`MAX_DEVICES_PER_TEACHER = 20`, which caps the cost regardless of what the registry holds, but
+the table itself will still accept unbounded rows per teacher. Trim inside `register_device` if
+the row count ever matters for reasons other than fan-out.
+
 ## 16. Out of scope, explicitly
 
 Student dashboard · student push · offline/caching · presence sharding · a general E2E

@@ -17,6 +17,14 @@ simulator does not have a lock screen that receives a real push from Apple's pus
       `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
       (a `mailto:` or `https:` URL — chosen, not generated).
       **Without these nothing below can pass** — the dispatcher has no credential to sign with.
+- [ ] **After adding them to Vercel, REDEPLOY.** `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is inlined at
+      build time — in the Node environment as well as the browser bundle — and the server reads
+      it to sign. Saving the env var without a redeploy leaves the old build signing with a key
+      that is not there: every dispatch throws "VAPID public key is missing", `after()` swallows
+      it, and step 6 fails with nothing on screen to explain why.
+- [ ] **Migration `0012` is applied.** The dispatcher calls `record_device_results` on every
+      delivery. Unapplied, the call fails (logged, swallowed) and `failure_count` / `last_ok_at`
+      are silently never written.
 - [ ] You are testing against a deployment the phone can reach (a Vercel preview or production),
       **not** `localhost`. iOS will not install a Home Screen app from an untrusted origin.
 - [ ] Two accounts you can sign into: one **teacher**, one **student**.
@@ -101,7 +109,7 @@ Write the outcome — including any step that failed — into `project_state.md`
 - [ ] `node scripts/reconcile-payments.mjs` — exit 0
 - [ ] `node scripts/probe-availability.mjs` — exit 0
 - [ ] `grep -rn "Keep this tab open" src/` — no matches
-- [ ] Migration `0006` still **unapplied**; **`0007`–`0011` applied**
+- [ ] Migration `0006` still **unapplied**; **`0007`–`0012` applied**
 - [ ] Task 17's checklist above performed by a human, **steps 6 and 7 observed**
 
 **Dropped from this list:** `npm run e2e` (Playwright). **Task 16 was dropped by user decision

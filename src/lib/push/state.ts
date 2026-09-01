@@ -25,7 +25,17 @@ export function nextSetupAction(f: SetupFacts): SetupAction {
   if (f.isIOS && !f.standalone) return "install_ios";
   if (f.permission === "denied") return "blocked";
   if (f.permission === "default") return "enable";
-  // Granted. A missing subscription is repaired silently by the mount-time
-  // registration, so it is not something to put a button in front of.
+  // Granted but holding no subscription. This is NOT a theoretical state: it
+  // is exactly where the ordinary sign-out path leaves a teacher, because
+  // removeThisDevice() calls sub.unsubscribe() while the permission grant
+  // survives. registerExistingSubscription now re-subscribes on mount, so
+  // this usually self-heals before anyone sees it — but if that subscribe
+  // fails (a stale VAPID key, a browser that drops the push service), the
+  // teacher must get a button rather than a dashboard that says "done".
+  //
+  // Getting this wrong is the worst failure this cycle has: no card, no
+  // warning, no device row, and — with the tab open — a pill still promising
+  // "we'll notify you even with your phone locked" (spec §6.3).
+  if (!f.hasSubscription) return "enable";
   return "done";
 }
