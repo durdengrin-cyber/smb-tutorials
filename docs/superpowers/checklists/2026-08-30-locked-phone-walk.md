@@ -11,22 +11,40 @@ simulator does not have a lock screen that receives a real push from Apple's pus
 
 ---
 
-## Before you start
+## ▶ Use this URL
 
-- [ ] **VAPID keys are installed** in `.env.local` **and** in Vercel:
-      `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
-      (a `mailto:` or `https:` URL — chosen, not generated).
-      **Without these nothing below can pass** — the dispatcher has no credential to sign with.
-- [ ] **After adding them to Vercel, REDEPLOY.** `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is inlined at
-      build time — in the Node environment as well as the browser bundle — and the server reads
-      it to sign. Saving the env var without a redeploy leaves the old build signing with a key
-      that is not there: every dispatch throws "VAPID public key is missing", `after()` swallows
-      it, and step 6 fails with nothing on screen to explain why.
-- [ ] **Migration `0012` is applied.** The dispatcher calls `record_device_results` on every
-      delivery. Unapplied, the call fails (logged, swallowed) and `failure_count` / `last_ok_at`
-      are silently never written.
-- [ ] You are testing against a deployment the phone can reach (a Vercel preview or production),
-      **not** `localhost`. iOS will not install a Home Screen app from an untrusted origin.
+**https://smb-tutorials-6ftdd7236-durdengrin-6266s-projects.vercel.app**
+
+The cycle-2 preview, redeployed 2026-09-03 **after** the VAPID vars were added, and verified
+publicly reachable (HTTP 200, no deployment protection). Do **not** use
+`smb-tutorials.vercel.app` — that is production, still on `main`, and does not have this code.
+
+## Before you start — ALL PRE-FLIGHT DONE 2026-09-03
+
+Every item below was completed and machine-verified. Kept for the record and for a rebuild.
+
+- [x] **VAPID keys installed** in `.env.local` and in Vercel (Production, Development, and
+      Preview scoped to `cycle-2/durable-availability`). Subject is
+      `https://smb-tutorials.vercel.app`, chosen over a `mailto:` to keep a personal address out
+      of every push request to Apple and Google. Generated fresh; `teacher_devices` was empty at
+      the time, so no existing subscription was invalidated.
+- [x] **Keys verified to actually sign.** `web-push` built a real signed request: `vapid` scheme,
+      JWT present, `aes128gcm` payload encryption, and the `k=` parameter matches our public key
+      — which is the one that has to equal what the browser subscribes with.
+- [x] **Redeployed, and the redeploy verified.** The public key was found inlined in the deployed
+      chunk `/_next/static/immutable/chunks/00w9z_yz1-slf.js`, which is the only proof that the
+      env var actually reached the build.
+- [x] **PWA assets serve correctly:** `/sw.js` 200 `application/javascript` with both the `push`
+      and `notificationclick` handlers; `/manifest.webmanifest` 200 `application/manifest+json`,
+      `display: standalone`, `start_url: /home`, 3 icons; all three icon PNGs 200.
+- [x] **Migration `0012` applied and verified** — `anon` → 401 permission denied,
+      `service_role` → 204.
+- [x] **All four probes exit 0** (`probe-session-rls`, `probe-happy-path`, `reconcile-payments`,
+      `probe-availability`), each returning row counts to baseline.
+- [x] **`0006` confirmed still unapplied** — `role='admin'` is rejected by the check constraint,
+      against a `role='student'` control that reaches the FK instead.
+
+**You still need:**
 - [ ] Two accounts you can sign into: one **teacher**, one **student**.
 - [ ] A second device (laptop is fine) to drive the student side.
 
@@ -42,7 +60,7 @@ before the student taps.
 Each step names its exact expected outcome. Record the actual outcome next to it — including
 "as expected". A step that half-worked is a failure; write what you saw.
 
-1. [ ] **iPhone Safari → sign in as the teacher → `/dashboard`.**
+1. [ ] **iPhone Safari → open the preview URL above → sign in as the teacher → `/dashboard`.**
        The setup card reads **"One more step so students can reach you"** and tells you to tap
        Share, then Add to Home Screen.
 
@@ -100,16 +118,16 @@ Write the outcome — including any step that failed — into `project_state.md`
 
 ## Final verification (the rest of Task 17)
 
-- [ ] `npm test` — green, and the count is **above** Task 1's recorded baseline
-- [ ] `npx tsc --noEmit` — exit 0
-- [ ] `npx eslint` — clean
-- [ ] `npm run build` — clean
-- [ ] `node scripts/probe-session-rls.mjs` — exit 0
-- [ ] `node scripts/probe-happy-path.mjs` — exit 0
-- [ ] `node scripts/reconcile-payments.mjs` — exit 0
-- [ ] `node scripts/probe-availability.mjs` — exit 0
-- [ ] `grep -rn "Keep this tab open" src/` — no matches
-- [ ] Migration `0006` still **unapplied**; **`0007`–`0012` applied**
+- [x] `npm test` — 226 passing / 3 skipped, above the 154 baseline
+- [x] `npx tsc --noEmit` — exit 0
+- [x] `npx eslint` — exit 0, no output
+- [x] `npm run build` — exit 0
+- [x] `node scripts/probe-session-rls.mjs` — exit 0
+- [x] `node scripts/probe-happy-path.mjs` — exit 0
+- [x] `node scripts/reconcile-payments.mjs` — exit 0
+- [x] `node scripts/probe-availability.mjs` — exit 0
+- [x] `grep -rn "Keep this tab open" src/` — no matches
+- [x] Migration `0006` still **unapplied**; **`0007`–`0012` applied**
 - [ ] Task 17's checklist above performed by a human, **steps 6 and 7 observed**
 
 **Dropped from this list:** `npm run e2e` (Playwright). **Task 16 was dropped by user decision
