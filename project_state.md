@@ -2,9 +2,9 @@
 
 ## ▶ START HERE (updated 2026-08-28)
 
-> **Session 5 (2026-09-01): jump to the "▶ Cycle 2" block below — both owed reviews are done
-> and all four merge blockers are fixed. Two things need YOU before merge: apply migration
-> `0012`, and decide `NOTIFICATION_DB_KEY`.**
+> **Session 5 (2026-09-01 → 09-03): jump to the "▶ Cycle 2" block below. Both owed reviews are
+> done, all four merge blockers are fixed, and migration `0012` is applied. One thing still needs
+> YOU before merge: decide `NOTIFICATION_DB_KEY`. Then Task 17, the locked-phone walk.**
 
 **Cycle 1 of the redesign — IA + design system — is COMPLETE and SHIPPED TO PRODUCTION.**
 `main` @ `f5fdb97`, 37 commits merged and pushed, verified live route-by-route against
@@ -84,23 +84,31 @@ subscription — but that function only ever POSTed an *existing* one and never 
 **Both the Critical and one Important originated in the PLAN, not the implementation** — the
 cycle's established pattern, now nine plan defects, none shipped.
 
-**🛑 TWO THINGS BEFORE MERGE — both need the user:**
+**✅ Migration `0012` is APPLIED (2026-09-03), including its corrective grant re-run.**
+`record_device_results` is the RPC the dispatcher calls on every delivery to increment
+`failure_count` and stamp `last_ok_at` (spec §8 required both; neither was ever written).
+Verified live: `anon` → 401 permission denied, `service_role` → 204.
 
-1. **Apply migration `0012` to the live project (`upggvzzzoxqgourjywtd`).** NOT yet applied.
-   `record_device_results` is the RPC the dispatcher now calls on every delivery to increment
-   `failure_count` and stamp `last_ok_at` (spec §8 required both; neither was ever written).
-   Unapplied, the call fails and is logged, and the counter is silently lost — the
-   `last_failed_at` stamp is deliberately a *separate* PostgREST write ahead of it so the record
-   that anything went wrong survives the gap. Same ordering hazard as `0011`, second instance.
-2. **Decide `NOTIFICATION_DB_KEY`** (spec §12 + new §15.1 item 1). Unset, so the dispatcher runs
+**Its first version had a real hole, worth remembering.** It revoked EXECUTE from `public` and
+`authenticated` but not `anon` — and Supabase's default privileges grant to `anon` and
+`authenticated` **by name**, while `revoke ... from public` does not remove a named role's
+grant. Because the function is `security definer` (bypasses RLS rather than being scoped by it),
+that gave anyone holding the browser-bundle anon key an unauthenticated write against **any**
+teacher's device row. Caught by testing the revoke instead of assuming it worked. **Any future
+`security definer` function here must revoke from `anon` and `authenticated` by name, and the
+revoke must be tested.** Detail in spec §15.1 items 6–7.
+
+**🛑 ONE THING BEFORE MERGE — needs the user:**
+
+1. **Decide `NOTIFICATION_DB_KEY`** (spec §12 + new §15.1 item 1). Unset, so the dispatcher runs
    as the **service role** — option (b), by default rather than by choice, on a
    student-triggerable path, for the key cycle 1 reserves for the payment webhook alone.
    Reviewed for weaponisation: none found (queries are `.eq("teacher_id", …)` on an
    already-role-checked id and `.in("id", …)` over ids the query itself returned). Set a
    dedicated `sb_secret_*` key, or ratify (b) explicitly.
 
-**⚠ The live database is AHEAD of `main`.** `0007`–`0011` are applied on this unmerged branch;
-`0012` is written and NOT applied. `0007`–`0010` are additive and unread by production.
+**⚠ The live database is AHEAD of `main`.** `0007`–`0012` are all applied on this unmerged
+branch. `0007`–`0010` are additive and unread by production.
 **`0011` REPLACED `enforce_session_insert()`, which production runs on every session insert** —
 regression-checked live (three probes exit 0, sessions 19→19), so `0005`'s controls survive. The
 final review also diffed `0011`'s body against `0005`'s mechanically: identical but for the
