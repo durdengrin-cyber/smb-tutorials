@@ -3,8 +3,9 @@
 ## ▶ START HERE (updated 2026-08-28)
 
 > **Session 5 (2026-09-01 → 09-03): jump to the "▶ Cycle 2" block below. Both owed reviews are
-> done, all four merge blockers are fixed, and migration `0012` is applied. One thing still needs
-> YOU before merge: decide `NOTIFICATION_DB_KEY`. Then Task 17, the locked-phone walk.**
+> done, all four merge blockers are fixed, migration `0012` is applied, and the dispatcher
+> credential is ratified. NO MERGE BLOCKERS REMAIN — the branch is unpushed and ready. What is
+> left is Task 17, the locked-phone walk, which needs a human and a phone.**
 
 **Cycle 1 of the redesign — IA + design system — is COMPLETE and SHIPPED TO PRODUCTION.**
 `main` @ `f5fdb97`, 37 commits merged and pushed, verified live route-by-route against
@@ -98,14 +99,19 @@ teacher's device row. Caught by testing the revoke instead of assuming it worked
 `security definer` function here must revoke from `anon` and `authenticated` by name, and the
 revoke must be tested.** Detail in spec §15.1 items 6–7.
 
-**🛑 ONE THING BEFORE MERGE — needs the user:**
+**✅ `NOTIFICATION_DB_KEY` RATIFIED (2026-09-03) as §12 option (b) — the service role, on
+purpose, until cycle 3.** Full reasoning in spec §12.1. What decided it: the service role was
+already on student-triggerable app paths before this cycle (`payment-actions.ts`, `settle.ts`
+both run on it when a student pays), so the dispatcher is a third instance of an existing
+pattern, not a new exposure class. A dedicated `sb_secret_*` key carries the SAME privileges —
+it narrows rotation blast radius, not privilege. Real narrowing needs a dedicated Postgres role,
+which `teacher_devices`' `to authenticated` RLS refuses outright unless the dispatcher's whole DB
+surface becomes `security definer` RPCs first. **That is cycle-3 work and belongs with the
+`profiles.role` fix (cycle-1 §17.1)** — both are "the database should enforce this, not the app
+code". Deferring is cheap because the seam is already right: one env var, one line to swap.
+**The fallback is no longer silent** — `createDispatchClient()` warns once per cold start.
 
-1. **Decide `NOTIFICATION_DB_KEY`** (spec §12 + new §15.1 item 1). Unset, so the dispatcher runs
-   as the **service role** — option (b), by default rather than by choice, on a
-   student-triggerable path, for the key cycle 1 reserves for the payment webhook alone.
-   Reviewed for weaponisation: none found (queries are `.eq("teacher_id", …)` on an
-   already-role-checked id and `.in("id", …)` over ids the query itself returned). Set a
-   dedicated `sb_secret_*` key, or ratify (b) explicitly.
+**NO MERGE BLOCKERS REMAIN.** What is left is Task 17, which needs a human and a phone.
 
 **⚠ The live database is AHEAD of `main`.** `0007`–`0012` are all applied on this unmerged
 branch. `0007`–`0010` are additive and unread by production.

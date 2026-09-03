@@ -690,11 +690,41 @@ handoff states the service role is *"solely for the payment webhook."*
 - **(c) DB trigger + `pg_net` → dispatch endpoint** — most durable, materially more moving
   parts.
 
-**Deliberately deferred and NOT blocking.** Whether (a) is even available depends on the
-Supabase project offering the newer key type, which cannot be checked while this machine has
-no `.env.local`. **The dispatcher is designed so the credential is one line of config**, and
-the choice is made once the environment exists. Nothing else in the design changes either
-way.
+### 12.1 RATIFIED 2026-09-03 — (b), the service role, until cycle 3
+
+**Decision: (b).** Not a default that went unnoticed; a choice, made with the environment in
+front of us and written down here.
+
+**What decided it.** The service role was *already* on student-triggerable application paths
+before this cycle — `src/app/session/payment-actions.ts` and `src/lib/payments/settle.ts` both
+run on it the moment a student pays. So the dispatcher is a third instance of an existing
+pattern rather than a new class of exposure, and the cycle-1 handoff's "solely for the payment
+webhook" was already broader in practice than its wording.
+
+**Why (a) is less than it looks.** A dedicated `sb_secret_*` key is independently rotatable but
+carries the **same privileges**. It narrows the blast radius of a *rotation*, not of a *bug*.
+That is worth something, but not what §12 was reaching for.
+
+**What real narrowing would actually require**, and why it is cycle-3 work: a dedicated Postgres
+role. `teacher_devices` has RLS enabled with policies scoped `to authenticated` (`0008`), so a
+custom role is refused outright — no policy matches it — unless the dispatcher's entire database
+surface first becomes `security definer` RPCs it is granted EXECUTE on. That is a real refactor
+of `dispatch.ts` plus a migration, and it wants its own review. **It belongs with the
+`profiles.role` fix (cycle-1 §17.1)**: both are the same problem stated twice — *the database
+should be enforcing this, not the application code* — and designing them together is better than
+doing either alone.
+
+**Why deferring costs almost nothing.** The seam is already in the right place. The credential is
+one environment variable read in one function, exactly as §12 designed it, so switching later is
+a one-line change and not a refactor. Deferring the decision never cost us the option.
+
+**The one thing that WAS wrong, and is now fixed.** The fallback was silent — nothing in the
+logs or at deploy said the service role had been reached by default. A ratified decision that
+stays invisible in production is the same failure one step later, so `createDispatchClient()`
+now warns once per cold start whenever `NOTIFICATION_DB_KEY` is unset.
+
+**Revisit when** the dispatcher grows any query beyond `teacher_devices`, or at cycle 3's
+database-enforcement work, whichever comes first.
 
 ## 13. Prerequisites — this machine is a fresh clone
 
@@ -762,8 +792,10 @@ Required by `CLAUDE.md`: a shortcut with a functional, security or cost cost **i
 recorded here rather than left silent. Written 2026-09-01, at the close of the final pre-merge
 review.
 
-**1. `NOTIFICATION_DB_KEY` is unset, so the dispatcher runs as the service role — §12 option
-(b), by default rather than by choice.** §12 deferred this until the environment existed. It now
+**1. ~~`NOTIFICATION_DB_KEY` is unset~~ — CLOSED 2026-09-03. Ratified as §12 option (b); see
+§12.1 for the reasoning and the revisit trigger, and note the fallback is no longer silent.
+Retained below for the record.** The dispatcher runs as the service role — §12 option (b),
+originally reached by default rather than by choice.** §12 deferred this until the environment existed. It now
 exists, and nothing warns at boot or deploy that the fallback took effect. Reviewed for
 weaponisation and none found: `notifyTeacherOfRequest`'s only queries are `.eq("teacher_id",
 teacherId)` where `teacherId` has already passed the session-insert trigger's `role = 'teacher'`
