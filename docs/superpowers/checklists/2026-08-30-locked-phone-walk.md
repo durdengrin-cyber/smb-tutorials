@@ -13,11 +13,17 @@ simulator does not have a lock screen that receives a real push from Apple's pus
 
 ## ▶ Use this URL
 
-**https://smb-tutorials-6ftdd7236-durdengrin-6266s-projects.vercel.app**
+**https://smb-tutorials-p13avjou4-durdengrin-6266s-projects.vercel.app**
 
-The cycle-2 preview, redeployed 2026-09-03 **after** the VAPID vars were added, and verified
-publicly reachable (HTTP 200, no deployment protection). Do **not** use
+The cycle-2 preview built from branch head `371a6ef`, verified publicly reachable (HTTP 200, no
+deployment protection) with the VAPID public key inlined in its bundle. Do **not** use
 `smb-tutorials.vercel.app` — that is production, still on `main`, and does not have this code.
+
+**If you push to this branch again, this URL goes stale.** Vercel mints a new preview URL per
+deployment, and the usual `…-git-<branch>-…` alias does not resolve here because the branch name
+contains a `/`. Get the current one with `vercel ls smb-tutorials | head -3`, and re-check the
+key is inlined before trusting it — the branch-scoped preview env vars apply to any deployment of
+`cycle-2/durable-availability`, so a fresh one will have them, but verify rather than assume.
 
 ## Before you start — ALL PRE-FLIGHT DONE 2026-09-03
 
@@ -32,8 +38,9 @@ Every item below was completed and machine-verified. Kept for the record and for
       JWT present, `aes128gcm` payload encryption, and the `k=` parameter matches our public key
       — which is the one that has to equal what the browser subscribes with.
 - [x] **Redeployed, and the redeploy verified.** The public key was found inlined in the deployed
-      chunk `/_next/static/immutable/chunks/00w9z_yz1-slf.js`, which is the only proof that the
-      env var actually reached the build.
+      client chunk — the only proof that the env var actually reached the build. Confirmed on the
+      pinned deployment above, which was also checked to contain post-`e92fc95` code rather than a
+      stale build.
 - [x] **PWA assets serve correctly:** `/sw.js` 200 `application/javascript` with both the `push`
       and `notificationclick` handlers; `/manifest.webmanifest` 200 `application/manifest+json`,
       `display: standalone`, `start_url: /home`, 3 icons; all three icon PNGs 200.

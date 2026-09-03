@@ -142,9 +142,11 @@ VAPID vars. Production is unaffected.
 
 **Remaining: Task 17's WALK only** — everything mechanical around it is done and green.
 
-**▶ Walk against https://smb-tutorials-6ftdd7236-durdengrin-6266s-projects.vercel.app**
-(the cycle-2 preview, redeployed after the VAPID vars landed, HTTP 200, no deployment
-protection). NOT `smb-tutorials.vercel.app` — that is production, still on `main`, without this
+**▶ Walk against https://smb-tutorials-p13avjou4-durdengrin-6266s-projects.vercel.app**
+(cycle-2 preview built from branch head `371a6ef`, HTTP 200, no deployment protection, VAPID
+key confirmed inlined. A further push mints a NEW preview URL — the `…-git-<branch>-…` alias
+does not resolve because the branch name contains a `/` — so re-read it from
+`vercel ls smb-tutorials | head -3`). NOT `smb-tutorials.vercel.app` — that is production, still on `main`, without this
 code. Checklist: `docs/superpowers/checklists/2026-08-30-locked-phone-walk.md`.
 
 **Verified by machine on 2026-09-03, so a failed walk points at the phone, not the plumbing:**
