@@ -799,7 +799,28 @@ this probe as the *only* control against the "one rule, two languages" drift bet
 SQL and `session.ts`'s TypeScript. Hand-traced and correct today; the control, not the code, is
 what ships weak.
 
-**6. `register_device` caps nothing.** The dispatcher now bounds its own fan-out at
+**6. Every `security definer` RPC on this branch is EXECUTE-reachable by `anon`.** Supabase ships
+`ALTER DEFAULT PRIVILEGES` granting EXECUTE on new `public` functions to `anon` and
+`authenticated` **by name**, and in Postgres `revoke ... from public` does not remove a grant a
+named role holds. Verified live: `register_device` and `available_teachers` are both reachable
+with only the anon key. Neither is exploitable — they defend inside their own bodies
+(`register_device` raises `not authenticated` on a null `auth.uid()`; `available_teachers`
+returns `[]`) — so this is noted, not a defect. **But the pattern bit once already:** `0012`'s
+first version revoked from `public` and `authenticated` only, leaving `anon` able to call a
+`security definer` function that bypasses RLS, i.e. an unauthenticated write against any
+teacher's device row. Caught by testing the revoke instead of assuming it, fixed in `0012`,
+re-verified (anon → 401, service_role → 204). **Any future function here must revoke from
+`anon` and `authenticated` by name, and the revoke must be tested, not assumed.**
+
+**7. `teacher_devices`' update policy has no column restriction.** `0008`'s
+`teacher_devices_update` is `using (auth.uid() = teacher_id) with check (auth.uid() =
+teacher_id)` — correct on ownership, silent on columns, so a signed-in teacher can already
+rewrite their own `failure_count` and `last_ok_at` directly through PostgREST and mask a dead
+device. Pre-existing and low-impact (it only harms that teacher's own reachability), and
+structurally the same shape as cycle-1 §17.1's `profiles.role` finding. Restrict the columns
+when that one is closed.
+
+**8. `register_device` caps nothing.** The dispatcher now bounds its own fan-out at
 `MAX_DEVICES_PER_TEACHER = 20`, which caps the cost regardless of what the registry holds, but
 the table itself will still accept unbounded rows per teacher. Trim inside `register_device` if
 the row count ever matters for reasons other than fan-out.

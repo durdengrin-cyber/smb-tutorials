@@ -57,10 +57,26 @@ end;
 $$;
 
 -- The dispatcher is the only caller and it holds a privileged key (spec §12).
--- No authenticated user has any business stamping delivery results — a
--- teacher could otherwise zero their own failure_count and mask a dead device.
-revoke all on function public.record_device_results(uuid[], uuid[]) from public;
-revoke all on function public.record_device_results(uuid[], uuid[]) from authenticated;
+-- No end user has any business stamping delivery results.
+--
+-- REVOKE FROM anon AND authenticated BY NAME, not just from public. This is
+-- the whole security control for this function and it is easy to get wrong:
+-- Supabase ships ALTER DEFAULT PRIVILEGES that grant EXECUTE on new public
+-- functions to anon and authenticated EXPLICITLY, and in Postgres revoking
+-- from PUBLIC does not remove a grant held by a named role. A first version of
+-- this migration revoked from public and authenticated only; anon kept its
+-- default grant, and because this function is SECURITY DEFINER — so it bypasses
+-- RLS rather than being scoped by it — that handed anyone holding the anon key
+-- (which ships in the browser bundle) an UNAUTHENTICATED write against any
+-- teacher's device row, not merely their own. Verified live before and after.
+--
+-- Note the contrast with register_device and available_teachers: those also
+-- end up reachable by anon, but they defend inside their own bodies
+-- (register_device raises 'not authenticated' on a null auth.uid()). This
+-- function has no such interior check to fall back on, so the grant IS the
+-- control and has to be exactly right.
+revoke all on function public.record_device_results(uuid[], uuid[])
+  from public, anon, authenticated;
 grant execute on function public.record_device_results(uuid[], uuid[]) to service_role;
 
 commit;
