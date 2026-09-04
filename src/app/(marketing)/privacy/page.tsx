@@ -172,7 +172,13 @@ export default function PrivacyPage() {
               <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
                 <li>
                   <strong>Notification delivery logs</strong> (whether a
-                  session alert reached a tutor&apos;s device): 90 days.
+                  session alert reached a tutor&apos;s device): our policy is
+                  to keep these for 90 days. We have not yet built the
+                  automatic cleanup that enforces that limit, so today these
+                  rows are not deleted on any schedule and are kept
+                  indefinitely until it ships. We&apos;re stating that gap
+                  here rather than the tidier line we&apos;ll be able to
+                  write once it&apos;s closed.
                 </li>
                 <li>
                   <strong>Session and payment records:</strong> for as long
@@ -184,6 +190,12 @@ export default function PrivacyPage() {
                   reported, and evidence that expires isn&apos;t evidence.
                 </li>
               </ul>
+              <p className="text-gray-700 mt-4">
+                These are the defaults while an account stays open. Deleting
+                an account moves faster than any of the timers above for your
+                own session and payment records — see &quot;Deletion,
+                honestly&quot; below.
+              </p>
             </section>
 
             <section className="mb-10">
