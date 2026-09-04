@@ -77,10 +77,14 @@ try {
   const theirsBody = theirs.ok ? null : await theirs.json().catch(() => null);
   ok(!theirs.ok, `a student NOT in the session is refused (HTTP ${theirs.status}, code ${theirsBody?.code ?? "?"})`);
 
-  // 3. Nor may they file one under someone else's id.
-  const spoof = await report(OH, student.id);
+  // 3. ...nor may a real participant file one under someone else's id.
+  //    Uses the STUDENT's own token on purpose: participation passes, so the
+  //    only clause left that can refuse is `reporter_id = auth.uid()`. With an
+  //    outsider's token both clauses fail at once and the assertion would stay
+  //    green even if anti-spoof protection were deleted outright.
+  const spoof = await report(SH, teacher.id);
   const spoofBody = spoof.ok ? null : await spoof.json().catch(() => null);
-  ok(!spoof.ok, `a student cannot file a report under another user's id (HTTP ${spoof.status}, code ${spoofBody?.code ?? "?"})`);
+  ok(!spoof.ok, `a participant cannot file a report under another user's id (HTTP ${spoof.status}, code ${spoofBody?.code ?? "?"})`);
 
   // 4. THE ONE THAT MATTERS: no client can read reports at all.
   const readMine = await fetch(`${URL}/rest/v1/session_reports?select=*`, { headers: SH });
