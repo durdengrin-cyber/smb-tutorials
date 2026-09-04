@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
+// From @sentry/nextjs/config, not @sentry/nextjs: the latter is deprecated
+// and stops working in v11.
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -36,6 +38,9 @@ export default withSentryConfig(nextConfig, {
   telemetry: false,
   silent: !process.env.CI,
 
-  // Strips Sentry's own debug logging from the production bundle.
-  disableLogger: true,
+  // disableLogger is deprecated in favour of webpack.treeshake.removeDebugLogging,
+  // which this project cannot use — it builds with Turbopack, where that option
+  // is unsupported. Dropped rather than carried as a warning for a thing we
+  // could not act on anyway; Sentry's debug logging is a bundle-size nicety,
+  // not correctness.
 });
