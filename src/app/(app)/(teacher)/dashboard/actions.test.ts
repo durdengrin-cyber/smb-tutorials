@@ -1,19 +1,44 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { CONSENT_VERSION } from "@/lib/consent";
 
 const upsert = vi.fn();
 const maybeSingle = vi.fn();
+// declareAvailable/renewLease now resolve identity through requireConsentedUser(),
+// which reads this via getIdentity()'s profiles select. Defaults to the
+// current version so every pre-existing test keeps exercising the same
+// signed-in-and-allowed teacher it always did; the consent gate itself gets
+// its own tests below.
+let consentVersion: string | null = CONSENT_VERSION;
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: "t1" } } }) },
-    from: () => ({
-      upsert: (...a: unknown[]) => { upsert(...a); return { select: () => ({ single: async () => ({ data: { declared_until: "2026-08-30T14:00:00Z" }, error: null }) }) }; },
-      select: () => ({ eq: () => ({ maybeSingle }) }),
-    }),
+    from: (table: string) => {
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: { id: "t1", role: "teacher", full_name: "Teacher", consent_version: consentVersion },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        upsert: (...a: unknown[]) => { upsert(...a); return { select: () => ({ single: async () => ({ data: { declared_until: "2026-08-30T14:00:00Z" }, error: null }) }) }; },
+        select: () => ({ eq: () => ({ maybeSingle }) }),
+      };
+    },
   }),
 }));
 
-beforeEach(() => { upsert.mockClear(); maybeSingle.mockReset(); });
+beforeEach(() => {
+  upsert.mockClear();
+  maybeSingle.mockReset();
+  consentVersion = CONSENT_VERSION;
+});
 
 describe("declareAvailable", () => {
   it("writes a lease four hours out and returns it", async () => {
@@ -24,6 +49,18 @@ describe("declareAvailable", () => {
       expect.objectContaining({ teacher_id: "t1", declared: true }),
       expect.objectContaining({ onConflict: "teacher_id" })
     );
+  });
+
+  // The hole this closes: a Server Action is dispatched by ID and runs before
+  // any page renders, so requireUser()'s redirect to /consent never applies
+  // to this call — a signed-in-but-unconsented teacher could otherwise
+  // declare themselves available (and be pushed real session requests) with
+  // no requireUser() gate anywhere in the way.
+  it("refuses a signed-in teacher who has not consented", async () => {
+    consentVersion = null;
+    const { declareAvailable } = await import("./actions");
+    expect(await declareAvailable()).toEqual({ error: "Sign in to go available." });
+    expect(upsert).not.toHaveBeenCalled();
   });
 });
 

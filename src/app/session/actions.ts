@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireConsentedUser } from "@/lib/auth";
 
 // Widened past `pending` (M3 spec §3.1 lists `accepted -> cancelled | student`
 // and migration 0005's trigger permits it). A student who changed their mind
@@ -20,16 +21,17 @@ import { createClient } from "@/lib/supabase/server";
 export async function cancelSession(
   sessionId: string
 ): Promise<{ cancelled: boolean }> {
+  // requireConsentedUser(), not a bare getUser(): a Server Action is resolved
+  // by ID and run before any page renders, so requireUser()'s redirect on
+  // /consent never gets a chance to fire for this call. See auth.ts.
+  const identity = await requireConsentedUser();
+  if (!identity) return { cancelled: false };
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { cancelled: false };
   const { data, error } = await supabase
     .from("sessions")
     .update({ status: "cancelled" })
     .eq("id", sessionId)
-    .eq("student_id", user.id)
+    .eq("student_id", identity.userId)
     .in("status", ["pending", "accepted"])
     .select("id");
   if (error) {
@@ -42,11 +44,9 @@ export async function cancelSession(
 // Called by whichever participant's client notices the call is over — the
 // third enforcement point is the read-time rule in effectiveStatus.
 export async function completeSession(sessionId: string): Promise<void> {
+  const identity = await requireConsentedUser();
+  if (!identity) return;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
   await supabase
     .from("sessions")
     .update({ status: "completed" })
@@ -59,16 +59,14 @@ export async function completeSession(sessionId: string): Promise<void> {
 // clock, the authority on whether the window has actually closed — a fast
 // client can fire this early and simply write nothing.
 export async function timeOutSession(sessionId: string): Promise<void> {
+  const identity = await requireConsentedUser();
+  if (!identity) return;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
   await supabase
     .from("sessions")
     .update({ status: "timed_out" })
     .eq("id", sessionId)
-    .eq("student_id", user.id)
+    .eq("student_id", identity.userId)
     .eq("status", "pending")
     .lt("accept_deadline", new Date().toISOString());
 }

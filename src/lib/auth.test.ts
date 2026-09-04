@@ -27,7 +27,7 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-import { requireUser } from "./auth";
+import { requireUser, requireConsentedUser } from "./auth";
 import { CONSENT_VERSION } from "./consent";
 
 beforeEach(() => {
@@ -59,5 +59,41 @@ describe("requireUser consent gate", () => {
     state.profile = { id: "u1", role: "student", full_name: "Asha", consent_version: null };
     state.pathname = "/consent";
     await expect(requireUser()).resolves.toMatchObject({ userId: "u1" });
+  });
+
+  // proxy-session.ts forwards pathname + query string as x-pathname
+  // (request.nextUrl.pathname + request.nextUrl.search). Comparing that raw
+  // value against "/consent" is query-sensitive: a linked
+  // "/consent?next=..." would fail the exemption and reopen the loop this
+  // test above just closed.
+  it("does not redirect /consent to itself when a query string is present", async () => {
+    state.profile = { id: "u1", role: "student", full_name: "Asha", consent_version: null };
+    state.pathname = "/consent?next=%2Fsessions";
+    await expect(requireUser()).resolves.toMatchObject({ userId: "u1" });
+  });
+});
+
+describe("requireConsentedUser", () => {
+  // The gate this exists to close: a Server Action bypasses requireUser()'s
+  // redirect entirely (Next resolves an action by ID and runs it before any
+  // page renders), so this is the only check standing between an unconsented
+  // account and a mutation.
+  it("refuses an account that has not consented", async () => {
+    state.profile = { id: "u1", role: "student", full_name: "Asha", consent_version: null };
+    await expect(requireConsentedUser()).resolves.toBeNull();
+  });
+
+  it("refuses an account on a superseded version", async () => {
+    state.profile = { id: "u1", role: "student", full_name: "Asha", consent_version: "2026-09-04" };
+    await expect(requireConsentedUser()).resolves.toBeNull();
+  });
+
+  it("refuses a signed-out caller", async () => {
+    state.user = null;
+    await expect(requireConsentedUser()).resolves.toBeNull();
+  });
+
+  it("returns the identity for a consented account", async () => {
+    await expect(requireConsentedUser()).resolves.toMatchObject({ userId: "u1" });
   });
 });

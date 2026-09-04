@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireConsentedUser } from "@/lib/auth";
 import { reportError } from "@/lib/observability/report";
 import { REPORT_REASONS } from "./reasons";
 
@@ -9,9 +10,15 @@ export async function reportSession(input: {
   reason: string;
   detail: string;
 }): Promise<{ ok: true } | { error: string }> {
+  // requireConsentedUser(), not a bare getUser(): a Server Action is
+  // resolved by ID and run before any page renders, so requireUser()'s
+  // redirect on /consent never gets a chance to fire for this call. This
+  // does not add a real barrier to filing a safety report — every path that
+  // creates or joins a session is consent-gated too, so an account that
+  // could not have consented could not have been in a session to report on.
+  const identity = await requireConsentedUser();
+  if (!identity) return { error: "Sign in first." };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Sign in first." };
 
   if (!(REPORT_REASONS as readonly string[]).includes(input.reason)) {
     return { error: "Pick a reason for the report." };
@@ -23,7 +30,7 @@ export async function reportSession(input: {
   // forged sessionId is refused by the database rather than by this code.
   const { error } = await supabase.from("session_reports").insert({
     session_id: input.sessionId,
-    reporter_id: user.id,
+    reporter_id: identity.userId,
     reason: input.reason,
     detail: detail.length > 0 ? detail : null,
   });
@@ -56,7 +63,7 @@ export async function reportSession(input: {
     where: "session-report",
     sessionId: input.sessionId,
     reason: input.reason,
-    reporterId: user.id,
+    reporterId: identity.userId,
   });
 
   return { ok: true };

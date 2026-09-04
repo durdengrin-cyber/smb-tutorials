@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { requireConsentedUser } from "@/lib/auth";
 import { getPaymentPort, paymentProviderName } from "@/lib/payments";
 import { settleVerifiedEvent } from "@/lib/payments/settle";
 import { amountPaiseFor, effectiveStatus, type SessionStatus } from "@/lib/session";
@@ -23,11 +24,12 @@ const admin = () =>
 export async function createCheckout(
   sessionId: string
 ): Promise<{ error: string } | { checkoutUrl: string }> {
+  // requireConsentedUser(), not a bare getUser(): a Server Action is
+  // resolved by ID and run before any page renders, so requireUser()'s
+  // redirect on /consent never gets a chance to fire for this call.
+  const identity = await requireConsentedUser();
+  if (!identity) return { error: "Sign in to pay for this session." };
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Sign in to pay for this session." };
 
   const { data: session } = await supabase
     .from("sessions")
@@ -37,7 +39,7 @@ export async function createCheckout(
     .eq("id", sessionId)
     .single();
   if (!session) return { error: "Session not found." };
-  if (session.student_id !== user.id) return { error: "Not your session." };
+  if (session.student_id !== identity.userId) return { error: "Not your session." };
 
   // The deadline is authoritative here regardless of what the UI showed.
   const actual = effectiveStatus(
@@ -129,11 +131,9 @@ export async function createCheckout(
 // still `accepted` with a charge open, and settleVerifiedEvent is idempotent
 // on every path.
 export async function verifyPaymentNow(sessionId: string): Promise<void> {
+  const identity = await requireConsentedUser();
+  if (!identity) return;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
 
   // The error is destructured, not dropped (carried from Task 6's review). A
   // genuine query failure and "no such row" used to be the same silent no-op.
@@ -150,7 +150,7 @@ export async function verifyPaymentNow(sessionId: string): Promise<void> {
     console.error(`[verifyPaymentNow] session read failed for ${sessionId}:`, readError);
     return;
   }
-  if (!session || session.student_id !== user.id) return;
+  if (!session || session.student_id !== identity.userId) return;
   // Nothing to re-check: either the payment already landed and moved the row
   // on, or no charge was ever opened.
   if (session.status !== "accepted" || !session.payment_ref) return;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireConsentedUser } from "@/lib/auth";
 
 // The service worker cannot call a Server Action, so registration lands here.
 // It is a thin shell over register_device, which does the real work under
@@ -8,8 +9,11 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  // requireConsentedUser(), not a bare getUser(): this route is a plain
+  // fetchable endpoint with no page render in front of it at all, so
+  // requireUser()'s redirect on /consent can never protect it.
+  const identity = await requireConsentedUser();
+  if (!identity) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   const endpoint = body?.endpoint;
@@ -35,8 +39,8 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  const identity = await requireConsentedUser();
+  if (!identity) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   if (!body?.endpoint) {

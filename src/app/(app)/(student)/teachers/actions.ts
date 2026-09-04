@@ -3,6 +3,7 @@
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { requireConsentedUser } from "@/lib/auth";
 import {
   acceptDeadlineFrom,
   hasOpenRequest,
@@ -20,11 +21,12 @@ export async function requestSession(input: {
   grade: string;
   stream: string;
 }): Promise<{ error: string } | void> {
+  // requireConsentedUser(), not a bare getUser(): a Server Action is
+  // resolved by ID and run before any page renders, so requireUser()'s
+  // redirect on /consent never gets a chance to fire for this call.
+  const identity = await requireConsentedUser();
+  if (!identity) return { error: "Sign in to start a session." };
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Sign in to start a session." };
 
   if (
     !isCurriculum(input.curriculum) ||
@@ -33,7 +35,7 @@ export async function requestSession(input: {
   ) {
     return { error: "Pick a subject before starting." };
   }
-  if (input.teacherId === user.id) return { error: "You cannot tutor yourself." };
+  if (input.teacherId === identity.userId) return { error: "You cannot tutor yourself." };
 
   // One request in flight at a time. Two live requests can both be accepted,
   // and the losing teacher then sits alone for an hour in a session that later
@@ -45,10 +47,10 @@ export async function requestSession(input: {
   const { data: openRows, error: openError } = await supabase
     .from("sessions")
     .select("id, status, accept_deadline, payment_deadline, started_at, duration_minutes")
-    .eq("student_id", user.id)
+    .eq("student_id", identity.userId)
     .in("status", ["pending", "accepted", "paid", "active"]);
   if (openError) {
-    console.error(`[requestSession] open-request read failed for student ${user.id}:`, openError);
+    console.error(`[requestSession] open-request read failed for student ${identity.userId}:`, openError);
     return { error: "Couldn't start the request — try again." };
   }
   const open = (openRows ?? []).map((r) => ({
@@ -72,7 +74,7 @@ export async function requestSession(input: {
   const { data: session, error } = await supabase
     .from("sessions")
     .insert({
-      student_id: user.id,
+      student_id: identity.userId,
       teacher_id: input.teacherId,
       curriculum: input.curriculum,
       grade: input.grade,

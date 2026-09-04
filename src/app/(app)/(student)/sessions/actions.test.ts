@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const state = vi.hoisted(() => ({
   user: null as null | { id: string },
+  // reportSession now goes through requireConsentedUser(), which reads this
+  // via getIdentity()'s profiles select. Defaulted to the current version so
+  // every pre-existing test keeps exercising the same signed-in-and-allowed
+  // caller it always did; the consent gate itself is covered separately.
+  consentVersion: "" as string | null,
   insertError: null as null | { message: string; code?: string; details?: string },
   inserted: [] as unknown[],
 }));
@@ -9,12 +14,33 @@ const state = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: state.user } }) },
-    from: () => ({
-      insert: async (row: unknown) => {
-        state.inserted.push(row);
-        return { error: state.insertError };
-      },
-    }),
+    from: (table: string) => {
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: state.user
+                  ? {
+                      id: state.user.id,
+                      role: "student",
+                      full_name: "Test Student",
+                      consent_version: state.consentVersion,
+                    }
+                  : null,
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        insert: async (row: unknown) => {
+          state.inserted.push(row);
+          return { error: state.insertError };
+        },
+      };
+    },
   }),
 }));
 
@@ -25,9 +51,11 @@ vi.mock("@/lib/observability/report", () => ({
 
 import { reportSession } from "./actions";
 import { REPORT_REASONS } from "./reasons";
+import { CONSENT_VERSION } from "@/lib/consent";
 
 beforeEach(() => {
   state.user = { id: "student-1" };
+  state.consentVersion = CONSENT_VERSION;
   state.insertError = null;
   state.inserted = [];
   reportErrorMock.mockReset();
@@ -36,6 +64,17 @@ beforeEach(() => {
 describe("reportSession", () => {
   it("refuses when nobody is signed in", async () => {
     state.user = null;
+    expect(await reportSession({ sessionId: "s1", reason: "conduct", detail: "" }))
+      .toEqual({ error: "Sign in first." });
+    expect(state.inserted).toHaveLength(0);
+  });
+
+  // The hole this closes: a Server Action is dispatched by ID and runs before
+  // any page renders, so requireUser()'s redirect to /consent never applies
+  // to this call — a signed-in-but-unconsented account could otherwise file
+  // a report with no requireUser() gate anywhere in the way.
+  it("refuses a signed-in account that has not consented", async () => {
+    state.consentVersion = null;
     expect(await reportSession({ sessionId: "s1", reason: "conduct", detail: "" }))
       .toEqual({ error: "Sign in first." });
     expect(state.inserted).toHaveLength(0);

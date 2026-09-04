@@ -3,7 +3,7 @@ import { readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 const APP = join(process.cwd(), "src", "app");
-const GROUPS = ["(marketing)", "(app)", "(fullscreen)"];
+const GROUPS = ["(marketing)", "(app)", "(fullscreen)", "(gate)"];
 
 function findPages(dir: string, found: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

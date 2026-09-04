@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireConsentedUser } from "@/lib/auth";
 import { leaseUntilFrom, shouldRenew } from "@/lib/availability";
 import {
   canTransition,
@@ -15,22 +16,23 @@ import {
 
 async function loadOwnSession(sessionId: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { supabase, user: null, session: null };
+  // requireConsentedUser(), not a bare getUser(): a Server Action is
+  // resolved by ID and run before any page renders, so requireUser()'s
+  // redirect on /consent never gets a chance to fire for this call.
+  const identity = await requireConsentedUser();
+  if (!identity) return { supabase, identity: null, session: null };
   const { data: session } = await supabase
     .from("sessions")
     .select("id, teacher_id, student_id, status, accept_deadline, payment_deadline, started_at, duration_minutes")
     .eq("id", sessionId)
     .single();
-  return { supabase, user, session };
+  return { supabase, identity, session };
 }
 
 export async function acceptSession(sessionId: string): Promise<{ error: string } | void> {
-  const { supabase, user, session } = await loadOwnSession(sessionId);
-  if (!user || !session) return { error: "Request not found." };
-  if (session.teacher_id !== user.id) return { error: "Not your request." };
+  const { supabase, identity, session } = await loadOwnSession(sessionId);
+  if (!identity || !session) return { error: "Request not found." };
+  if (session.teacher_id !== identity.userId) return { error: "Not your request." };
 
   // The deadline is authoritative here regardless of what the UI showed.
   const actual = effectiveStatus(
@@ -49,10 +51,10 @@ export async function acceptSession(sessionId: string): Promise<{ error: string 
   const { data: openRows, error: openError } = await supabase
     .from("sessions")
     .select("id, status, accept_deadline, payment_deadline, started_at, duration_minutes")
-    .eq("teacher_id", user.id)
+    .eq("teacher_id", identity.userId)
     .in("status", ["accepted", "paid", "active"]);
   if (openError) {
-    console.error(`[acceptSession] open-session read failed for teacher ${user.id}:`, openError);
+    console.error(`[acceptSession] open-session read failed for teacher ${identity.userId}:`, openError);
     return { error: "Couldn't accept the request — try again." };
   }
   const open = (openRows ?? []).map((r) => ({
@@ -115,9 +117,9 @@ export async function acceptSession(sessionId: string): Promise<{ error: string 
 }
 
 export async function declineSession(sessionId: string): Promise<{ error: string } | void> {
-  const { supabase, user, session } = await loadOwnSession(sessionId);
-  if (!user || !session) return { error: "Request not found." };
-  if (session.teacher_id !== user.id) return { error: "Not your request." };
+  const { supabase, identity, session } = await loadOwnSession(sessionId);
+  if (!identity || !session) return { error: "Request not found." };
+  if (session.teacher_id !== identity.userId) return { error: "Not your request." };
 
   await supabase
     .from("sessions")
@@ -133,8 +135,8 @@ export async function declareAvailable(): Promise<
   { declaredUntil: string } | { error: string }
 > {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Sign in to go available." };
+  const identity = await requireConsentedUser();
+  if (!identity) return { error: "Sign in to go available." };
 
   const now = new Date();
   const until = leaseUntilFrom(now);
@@ -143,7 +145,7 @@ export async function declareAvailable(): Promise<
     .from("teacher_availability")
     .upsert(
       {
-        teacher_id: user.id,
+        teacher_id: identity.userId,
         declared: true,
         declared_at: now.toISOString(),
         declared_until: until.toISOString(),
@@ -164,8 +166,8 @@ export async function undeclareAvailable(): Promise<
   { ok: true } | { error: string }
 > {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Sign in first." };
+  const identity = await requireConsentedUser();
+  if (!identity) return { error: "Sign in first." };
 
   // declared_until is cleared as well as the flag. Leaving a live lease on a
   // row whose flag is false is a contradiction waiting for a query that
@@ -173,7 +175,7 @@ export async function undeclareAvailable(): Promise<
   const { error } = await supabase
     .from("teacher_availability")
     .upsert(
-      { teacher_id: user.id, declared: false, declared_until: null },
+      { teacher_id: identity.userId, declared: false, declared_until: null },
       { onConflict: "teacher_id" }
     );
 
@@ -205,13 +207,13 @@ export async function renewLease(): Promise<
   { declaredUntil: string | null } | { error: string }
 > {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Sign in first." };
+  const identity = await requireConsentedUser();
+  if (!identity) return { error: "Sign in first." };
 
   const { data: row, error: readError } = await supabase
     .from("teacher_availability")
     .select("declared, declared_until")
-    .eq("teacher_id", user.id)
+    .eq("teacher_id", identity.userId)
     .maybeSingle();
 
   if (readError) {
@@ -237,7 +239,7 @@ export async function renewLease(): Promise<
   const { data, error } = await supabase
     .from("teacher_availability")
     .upsert(
-      { teacher_id: user.id, declared: true, declared_until: until.toISOString() },
+      { teacher_id: identity.userId, declared: true, declared_until: until.toISOString() },
       { onConflict: "teacher_id" }
     )
     .select("declared_until")
