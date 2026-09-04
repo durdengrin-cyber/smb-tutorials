@@ -31,10 +31,20 @@ export async function reportSession(input: {
   if (error) {
     // A safety report failing silently is the worst outcome here: the reporter
     // believes they have been heard and nobody has been told.
-    reportError(error, {
+    //
+    // Never pass the raw Postgres `error` object to reportError. It is a
+    // plain object, not an Error — @supabase/postgrest-js returns it on the
+    // non-throwing path — so @sentry/core's event builder serialises the
+    // WHOLE thing into event.extra, which sentry-options.ts's beforeSend
+    // never scrubs (it only touches event.user and event.request.*). A CHECK
+    // or NOT NULL violation (23514, 23502) puts "Failing row contains (…)" in
+    // `error.details`, and that row includes `detail` — the reporter's own
+    // words about a child. Pass a fresh Error and only the error code.
+    reportError(new Error("session report insert failed"), {
       where: "reportSession.insert",
       sessionId: input.sessionId,
       reason: input.reason,
+      code: error.code,
     });
     return { error: "Couldn't send that report — please try again." };
   }

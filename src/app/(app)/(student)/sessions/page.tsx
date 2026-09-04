@@ -28,12 +28,24 @@ export default async function SessionsPage() {
   // student, which reads a denormalised sessions.student_name (0004). The
   // asymmetry is in the RLS: 0001 lets anyone read a TEACHER profile
   // (`role = 'teacher' or id = auth.uid()`), so no extra column is needed here.
+  // The money-touched predicate is duplicated here AND in the client-side
+  // .filter(moneyTouched) below — deliberately. This .or() is what makes
+  // `.limit(PAGE)` mean "the 25 most recent PAID sessions" instead of "the 25
+  // most recent sessions, most of which are unpaid pending/declined/expired
+  // rows that then get discarded, quietly shrinking the visible record".
+  // Unpaid rows are the dominant row type (teachers/actions.ts inserts one on
+  // every instant-pick attempt, retried on every decline/timeout), so without
+  // this the limit bites long before 25 paid lessons and can render the empty
+  // state for a paying parent. moneyTouched stays the single authoritative,
+  // unit-tested statement of the rule; this is belt-and-braces at the query
+  // layer, not a second source of truth.
   const { data, error } = await supabase
     .from("sessions")
     .select(
       "id, subject, curriculum, grade, created_at, started_at, amount_paid_paise, refund_ref, teacher:profiles!sessions_teacher_id_fkey (full_name)"
     )
     .eq("student_id", identity.userId)
+    .or("amount_paid_paise.not.is.null,refund_ref.not.is.null")
     .order("created_at", { ascending: false })
     .limit(PAGE);
 
@@ -113,6 +125,11 @@ export default async function SessionsPage() {
                   );
                 })}
               </ul>
+              {rows.length === PAGE && (
+                <p className="text-xs text-muted-foreground">
+                  Showing your latest {PAGE} sessions.
+                </p>
+              )}
             </>
           )}
         </div>

@@ -159,9 +159,36 @@ readable only via the service role, i.e. a script. **This is acceptable only whi
 one person who reads their own alerts.** Admin (redesign piece 3) must give reports a real
 surface, or the button should be removed rather than left as theatre.
 
-**3. No rate limit on reporting.** A student can file unlimited reports on their own sessions.
-Harmless at trial scale and self-limiting (they can only report sessions they paid for), but it
-is an unbounded write path reachable by any signed-in user.
+**3. No rate limit on reporting, and no size limit on a report.** `reportSession` bounds neither
+the number of reports a student can file nor the length of `detail`. Harmless at trial scale and
+partly self-limiting (they can only report sessions they paid for), but the path is unbounded in
+two dimensions: how often, and how large.
+
+**4. A safety report is destroyed by account deletion — by the subject of the report.** `0016`'s
+`session_reports.session_id` and `reporter_id` both cascade; `0002`'s `sessions.teacher_id`
+cascades from `profiles`; `0001`'s `profiles.id` cascades from `auth.users`. Chained together:
+deleting the REPORTED TEACHER's own `auth.users` row — one click in the Supabase dashboard, no
+product code involved — deletes every session they taught, which cascades to delete every report
+ever filed about them. No product code deletes users today, but the dashboard path is reachable
+right now, and it is exactly the path an operator would take in response to a `conduct` report.
+Fix direction: denormalise teacher name, subject and date onto `session_reports` (the same move
+already made for `sessions.student_name` in `0004`, for the same reason — RLS makes the join
+one-directional) and drop the `on delete cascade` on `session_id`, so a report outlives the
+session and the account it names.
+
+**5. The read control is a single mechanism.** §5 states no client can read `session_reports`
+because there is no SELECT policy — true, but `authenticated` still holds the SELECT privilege
+from Supabase's own default grants, and RLS is the only thing standing between that grant and the
+rows. One `alter table session_reports disable row level security` or one accidentally-permissive
+policy added later opens the table with no second control to catch it. `revoke select on
+public.session_reports from anon, authenticated;` would add an independent control that survives
+an RLS mistake, and it would also close the leak in FIX 2 of the pre-merge review at the source:
+Postgres omits the failing-row description from a constraint-violation error entirely when the
+role lacks SELECT on the table, so a future insert error could not carry `detail` even if this
+code regressed. Needs its own migration (`0017`) plus a probe update: assertions 4 and 5 in
+`scripts/probe-session-reports.mjs` currently expect "200 with zero rows" for a client read and
+would then get "refused outright" — the stronger property — so the probe's expectations move with
+the migration, not around it.
 
 ## 9. Out of scope, explicitly
 
