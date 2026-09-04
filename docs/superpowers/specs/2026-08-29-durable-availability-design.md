@@ -875,3 +875,14 @@ priced in rather than discovered.
 
 Student dashboard · student push · offline/caching · presence sharding · a general E2E
 suite · anything requiring migration `0006` · scheduled tier · Stripe Connect · chat.
+
+**11. Sentry source maps are NOT uploaded.** `SENTRY_AUTH_TOKEN` is unset, so production stack
+traces arrive minified — the error, route and frequency are readable, the line numbers are not.
+Adding it requires `withSentryConfig` in `next.config.ts`, which was deliberately left out rather
+than risk this project's Turbopack build on a step that cannot work until the token exists. Do it
+when the Sentry account has an auth token.
+
+**12. Sentry preview env var is unset.** `NEXT_PUBLIC_SENTRY_DSN` is set for Production and
+Development only; the `vercel env add ... preview` call fails without a branch argument (the CLI
+defect recorded above), and `main` deploys to production anyway. Add it per-branch when a feature
+branch next needs preview error reporting.
