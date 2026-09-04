@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { signUpStudent } from "@/app/auth/actions";
+import { GRADES } from "@/lib/consent";
 import { FormError } from "@/components/form-error";
 import { GoogleButton } from "@/components/google-button";
 import { PageHeader } from "@/components/page-header";
@@ -37,7 +38,7 @@ export function SignUpForm() {
 
       <form action={formAction} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="signup-fullName">Full Name</Label>
+          <Label htmlFor="signup-fullName">Your Full Name (parent or guardian)</Label>
           <Input
             id="signup-fullName"
             type="text"
@@ -45,6 +46,37 @@ export function SignUpForm() {
             required
             placeholder="John Doe"
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="signup-learnerFirstName">Student&apos;s First Name</Label>
+          <Input
+            id="signup-learnerFirstName"
+            type="text"
+            name="learnerFirstName"
+            required
+            placeholder="The name their tutor will see"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="signup-learnerGrade">Student&apos;s Grade</Label>
+          <select
+            id="signup-learnerGrade"
+            name="learnerGrade"
+            required
+            defaultValue=""
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+          >
+            <option value="" disabled>
+              Select a grade
+            </option>
+            {GRADES.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="space-y-2">
@@ -94,19 +126,12 @@ export function SignUpForm() {
             className="mt-1 mr-2"
           />
           <span className="text-sm text-gray-600">
-            I am this student&apos;s parent or guardian, or I am 18 or older,
-            and I agree to the{" "}
-            <Link
-              href="/terms"
-              className="text-teal-600 hover:text-teal-700 underline"
-            >
+            I am this student&apos;s parent or legal guardian, and I agree to the{" "}
+            <Link href="/terms" className="text-teal-600 hover:text-teal-700 underline">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link
-              href="/terms"
-              className="text-teal-600 hover:text-teal-700 underline"
-            >
+            <Link href="/privacy" className="text-teal-600 hover:text-teal-700 underline">
               Privacy Policy
             </Link>
           </span>

@@ -28,7 +28,7 @@ export async function signUpStudent(
 ): Promise<AuthState> {
   const parsed = parseStudentSignUp(formData);
   if (!parsed.ok) return { error: parsed.error };
-  const { email, password, fullName } = parsed.value;
+  const { email, password, fullName, learnerFirstName, learnerGrade } = parsed.value;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
@@ -39,10 +39,12 @@ export async function signUpStudent(
         role: "student",
         full_name: fullName,
         // Stamped server-side: the client says WHETHER they agreed, the
-        // server says WHEN. handle_new_user copies both onto the profile so
-        // the consent survives independently of the auth record.
+        // server says WHEN. handle_new_user copies both onto the profile AND
+        // writes the consent_events row, in one transaction (0019).
         consent_accepted_at: new Date().toISOString(),
         consent_version: CONSENT_VERSION,
+        learner_first_name: learnerFirstName,
+        learner_grade: learnerGrade,
       },
     },
   });
