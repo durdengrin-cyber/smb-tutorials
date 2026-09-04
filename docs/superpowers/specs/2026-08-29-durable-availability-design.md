@@ -876,13 +876,22 @@ priced in rather than discovered.
 Student dashboard · student push · offline/caching · presence sharding · a general E2E
 suite · anything requiring migration `0006` · scheduled tier · Stripe Connect · chat.
 
-**11. Sentry source maps are NOT uploaded.** `SENTRY_AUTH_TOKEN` is unset, so production stack
+**11. Sentry source maps — plugin wired, awaiting a token.** `withSentryConfig` is in
+`next.config.ts` and **inert** until `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` are
+all set. Guarded explicitly rather than trusting the plugin to notice: Sentry's own skip logic
+keys off the bundler, not off whether a token exists. Verified today that the build passes with
+it inert, that the output contains **zero** client source maps, and that production returns 403
+for a `.map` probe — so nothing is exposed now, and `deleteSourcemapsAfterUpload` keeps that true
+once uploads begin. ORIGINAL NOTE: `SENTRY_AUTH_TOKEN` is unset, so production stack
 traces arrive minified — the error, route and frequency are readable, the line numbers are not.
 Adding it requires `withSentryConfig` in `next.config.ts`, which was deliberately left out rather
 than risk this project's Turbopack build on a step that cannot work until the token exists. Do it
 when the Sentry account has an auth token.
 
-**12. Sentry preview env var is unset.** `NEXT_PUBLIC_SENTRY_DSN` is set for Production and
-Development only; the `vercel env add ... preview` call fails without a branch argument (the CLI
-defect recorded above), and `main` deploys to production anyway. Add it per-branch when a feature
-branch next needs preview error reporting.
+**12. ~~Sentry preview env var is unset~~ — CLOSED 2026-09-04.** Set for **all** preview
+branches, along with the three VAPID vars, via the Vercel REST API
+(`POST /v10/projects/:id/env` with `target:["preview"]` and no `gitBranch`) — which does exactly
+what the CLI refuses to do non-interactively. The three VAPID vars had been scoped to
+`cycle-2/durable-availability`; that branch is merged, so every future preview would have had no
+push keys. Those stale branch-scoped duplicates were deleted rather than left to drift out of
+sync with the all-branch copies.
