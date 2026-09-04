@@ -11,6 +11,15 @@ const state = vi.hoisted(() => ({
   sessionError: null as null | { message: string },
   subjectError: null as null | { message: string },
   profileUpdateCalls: [] as unknown[],
+  rpcCalls: [] as { fn: string; args: unknown }[],
+  rpcError: null as null | { message: string },
+}));
+
+// redirect() ends the happy path by throwing, the way Next's really does.
+vi.mock("next/navigation", () => ({
+  redirect: (to: string) => {
+    throw Object.assign(new Error("NEXT_REDIRECT"), { digest: `NEXT_REDIRECT;push;${to};307;` });
+  },
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -62,6 +71,10 @@ vi.mock("@/lib/supabase/server", () => ({
       }
       throw new Error(`unexpected table in mock: ${table}`);
     },
+    rpc: async (fn: string, args: unknown) => {
+      state.rpcCalls.push({ fn, args });
+      return { error: state.rpcError };
+    },
   }),
 }));
 
@@ -89,6 +102,8 @@ beforeEach(() => {
   state.sessionError = null;
   state.subjectError = null;
   state.profileUpdateCalls = [];
+  state.rpcCalls = [];
+  state.rpcError = null;
 });
 
 describe("signUpTutor — history-check failure closed", () => {
@@ -108,5 +123,56 @@ describe("signUpTutor — history-check failure closed", () => {
 
     expect(result).toEqual({ error: "Couldn't verify this account. Try again in a moment." });
     expect(state.profileUpdateCalls).toHaveLength(0);
+  });
+});
+
+// Migration 0013 makes profiles.role immutable to ordinary updates, because
+// 0001's policy constrained WHO may write a row and never WHICH COLUMNS — a
+// signed-in student could PATCH themselves to "teacher" with the public anon
+// key (demonstrated live, 2026-09-04). The upgrade therefore has to go through
+// become_teacher, which re-checks canBecomeTeacher in SQL. If this ever
+// regresses to a direct update, onboarding breaks outright against the real
+// database — so pin it here where it fails fast instead.
+describe("signUpTutor — the upgrade goes through become_teacher", () => {
+  it("calls the RPC and never writes role directly", async () => {
+    await expect(signUpTutor(null, validTutorFormData())).rejects.toThrow("NEXT_REDIRECT");
+
+    const call = state.rpcCalls.find((c) => c.fn === "become_teacher");
+    expect(call).toBeDefined();
+    expect(call!.args).toEqual({
+      p_full_name: "Google Newcomer",
+      p_phone: "9876543210",
+      p_hourly_rate: 500,
+    });
+
+    // The later profile-enrichment update is expected; a role write is not.
+    for (const payload of state.profileUpdateCalls) {
+      expect(payload).not.toHaveProperty("role");
+    }
+  });
+
+  it("surfaces the history refusal rather than flattening it", async () => {
+    // Spec §5.1's "must never happen" case: an account with real session
+    // history converting to a teacher. The RPC is the thing that can still
+    // catch it when the TypeScript pre-check passed on stale counts, so the
+    // user needs to be told WHICH rule refused, not just that something did.
+    state.rpcError = { message: "account has history and cannot be converted" };
+
+    const result = await signUpTutor(null, validTutorFormData());
+
+    expect(result).toEqual({
+      error:
+        "This account has already been used for sessions, so it can't be converted to a teacher account. Sign out and register with a different email.",
+    });
+  });
+
+  it("falls back to the generic message for any other RPC failure", async () => {
+    state.rpcError = { message: "connection reset by peer" };
+
+    const result = await signUpTutor(null, validTutorFormData());
+
+    expect(result).toEqual({
+      error: "Could not upgrade this account to a teacher account.",
+    });
   });
 });

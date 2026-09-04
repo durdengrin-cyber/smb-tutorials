@@ -68,13 +68,31 @@ export async function signUpTutor(
       };
     }
 
-    const { error: upgradeError } = await supabase
-      .from("profiles")
-      .update({ role: "teacher", full_name: v.fullName, phone: v.phone, hourly_rate: v.hourlyRate })
-      .eq("id", existingUser.id);
+    // Through the RPC, not a direct update: migration 0013 makes profiles.role
+    // immutable to ordinary updates, because 0001's policy constrained WHO may
+    // write a row and never WHICH COLUMNS — so any signed-in student could
+    // PATCH themselves to "teacher" from a browser with the public anon key.
+    //
+    // become_teacher re-checks canBecomeTeacher IN SQL. The TypeScript check
+    // above is now the friendly half, kept because it produces a better
+    // message and avoids a pointless round trip; the database is the half that
+    // actually enforces the rule, for every caller and not just this one.
+    const { error: upgradeError } = await supabase.rpc("become_teacher", {
+      p_full_name: v.fullName,
+      p_phone: v.phone,
+      p_hourly_rate: v.hourlyRate,
+    });
     if (upgradeError) {
       console.error("[tutorSignUp] profile upgrade failed", upgradeError);
-      return { error: "Could not upgrade this account to a teacher account." };
+      // The RPC raises a distinct message for an account with real history —
+      // spec §5.1's "must never happen" case — which deserves saying out loud
+      // rather than being flattened into a generic failure.
+      const hasHistory = /has history/i.test(upgradeError.message ?? "");
+      return {
+        error: hasHistory
+          ? "This account has already been used for sessions, so it can't be converted to a teacher account. Sign out and register with a different email."
+          : "Could not upgrade this account to a teacher account.",
+      };
     }
 
     teacherId = existingUser.id;

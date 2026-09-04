@@ -19,7 +19,29 @@ cycle-2 backlog, and all 23 rulings made during execution with what each costs i
 execution ledger lived in git-ignored scratch and no longer exists; that document is what
 survived.
 
-### 🛑 DO NOT APPLY MIGRATION `0006`
+### ✅ THE ROLE HOLE IS CLOSED (2026-09-04, migration `0013`)
+
+**The blocker described below is RESOLVED.** `0013` is applied and proved by
+`scripts/probe-role-guard.mjs` — 7 assertions, all green, re-runnable with no arguments:
+
+- a signed-in student **cannot** PATCH their own `role` (was HTTP 200 before; now 400)
+- they **can** still edit their own non-role fields — the guard is not a blanket lock
+- `become_teacher()` converts a clean account, re-checking `canBecomeTeacher` **in SQL**
+- an account with history is refused **by the database**, not only by TypeScript
+- the RPC is refused to `anon` (revoked by name — the mistake `0012` shipped)
+- signup metadata `role: "admin"` lands as `student`; `role: "teacher"` still works
+
+**Demonstrated before it was fixed**, with a throwaway account: a student PATCHed themselves to
+`role=teacher, hourly_rate=99999` and got HTTP 200, holding only the anon key that ships in the
+browser bundle.
+
+**`0006` is therefore now SAFE to apply — but there is still no reason to.** Its prerequisite
+(the trigger + the SQL-side `canBecomeTeacher`) is met, and `handle_new_user` no longer trusts
+signup metadata, so a signup carrying `role: "admin"` cannot mint an admin even once `'admin'`
+is a legal value. Apply it when cycle 3 actually builds admin, not before. The original hazard,
+kept for the record:
+
+### 🛑 (HISTORICAL) DO NOT APPLY MIGRATION `0006`
 
 `0001`'s update policy on `profiles` has **no column restriction**, so any signed-in user can
 rewrite their own `role` from a browser with only the anon key. That is pre-existing. Cycle 1
@@ -27,10 +49,11 @@ made `profiles.role` the sole authority every auth gate trusts, and `0006` (writ
 **unapplied**) would add `'admin'` to the permitted values — turning a student→teacher annoyance
 into self-service admin promotion that cycle 3 would build on unknowingly.
 
-**`0006` being unapplied is currently the only thing holding that door shut.** Required first: a
-`BEFORE UPDATE` trigger blocking role changes, plus a `security definer` RPC re-checking
-`canBecomeTeacher` in SQL. Not the service role — that key is the payment webhook's alone.
-Detail in spec `2026-08-28-ia-design-system-design.md` §17.1.
+~~**`0006` being unapplied is currently the only thing holding that door shut.**~~ **BOTH
+REQUIREMENTS ARE NOW MET (2026-09-04, `0013`):** the `BEFORE UPDATE` trigger blocking role
+changes, and the `security definer` RPC re-checking `canBecomeTeacher` in SQL. Neither uses the
+service role — that key remains the payment webhook's. Detail in spec
+`2026-08-28-ia-design-system-design.md` §17.1.
 
 ### Live behaviour change awaiting ratification
 
