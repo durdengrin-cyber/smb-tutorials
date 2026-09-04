@@ -1,5 +1,28 @@
 # SMB Tutorials — Project State
 
+## ▶ START HERE (updated 2026-09-04)
+
+**🛑 Read `docs/superpowers/handoffs/2026-09-04-cycle-2-3-complete.md` first.** It is the full
+state at the close of the 2026-09-04 session: what shipped, what is proven, the configuration,
+the eight gotchas that cost real time, and what to pick up next. Everything below it is history.
+
+**Everything is committed, pushed, merged and deployed. `main` == `origin/main`. Tree clean.
+Nothing in flight.**
+
+- **260 tests passing / 3 skipped** · `tsc` 0 · `eslint` 0 · `build` 0 · **7 probes all exit 0**
+- Migrations `0001`–`0005` and `0007`–`0017` applied live. **`0006` still deliberately UNAPPLIED**
+  (its precondition is now met — `0013` closed the role hole — but there is no admin to use it).
+- **Cycle 2 (durable availability) COMPLETE AND PROVEN**: iPhone walk 3s, Android walk 5s,
+  multi-device fan-out proven. Only step 11 (the decline case) is unproven by execution.
+- **Cycle 3 (student session record) SHIPPED**: `/sessions`, and students now land there at
+  sign-in and after a call instead of `/find` and `/teachers`.
+- **Google sign-in is LIVE** and verified end to end.
+
+**▶ The one thing blocking a trial that code cannot solve: the child-safety policy.** Open since
+M3. See the handoff §7.
+
+---
+
 ## ▶ START HERE (updated 2026-08-28)
 
 > **Session 5 (2026-09-01 → 09-04): CYCLE 2 IS FUNCTIONALLY COMPLETE. Both reviews done, all
