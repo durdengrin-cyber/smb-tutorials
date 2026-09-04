@@ -101,39 +101,96 @@ alter table public.profiles
 -- That reasoning is unchanged and so is the mechanism: written by the trigger,
 -- never by the caller, so it cannot be forged. It just snapshots the right name
 -- now. coalesce keeps every pre-existing account working unchanged.
+-- FULL BODY, carried verbatim from 0011 (the authoritative definition -- 0003,
+-- 0004, 0005 and 0011 have each redefined this function; 0011 is the latest).
+-- ONLY the student_name snapshot at the bottom changes. Every other rule below
+-- is load-bearing and `create or replace` would silently drop any omission --
+-- including 0011's payment-column ban, which exists because a student's own
+-- POST could otherwise carry a forged amount_paid_paise and inflate the figure
+-- the reconciliation script treats as truth.
 create or replace function public.enforce_session_insert()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $fn$
+as $$
 declare
-  v_name text;
+  t record;
+  s record;
 begin
-  select coalesce(nullif(learner_first_name, ''), full_name)
-    into v_name
-    from public.profiles
-   where id = new.student_id;
+  if new.status <> 'pending' then
+    raise exception 'a session must start pending, not %', new.status;
+  end if;
 
-  new.student_name := v_name;
+  if new.started_at is not null or new.daily_room_url is not null then
+    raise exception 'a new request cannot already be in a call';
+  end if;
+
+  -- Payment columns are the webhook's alone (0011, C2/C3/I1).
+  if new.payment_ref is not null
+  or new.payment_provider is not null
+  or new.payment_checkout_url is not null
+  or new.amount_paid_paise is not null
+  or new.refund_ref is not null then
+    raise exception 'a new request cannot already carry payment data';
+  end if;
+
+  -- The rate is the teacher's, read here rather than trusted from the caller.
+  select role, hourly_rate into t
+  from public.profiles
+  where id = new.teacher_id;
+
+  if t is null or t.role <> 'teacher' or t.hourly_rate is null then
+    raise exception 'that teacher is unavailable';
+  end if;
+
+  if new.hourly_rate <> t.hourly_rate then
+    raise exception 'hourly_rate must match the teacher profile';
+  end if;
+
+  -- 120 seconds, not 60: raised in 0011 when ACCEPT_WINDOW_SECONDS went to 60.
+  if new.accept_deadline > now() + interval '120 seconds' then
+    raise exception 'accept_deadline is out of range';
+  end if;
+
+  -- THE ONLY CHANGE IN THIS MIGRATION. 0004 snapshotted the account holder's
+  -- full_name here so a teacher would see something other than "A student" --
+  -- the profiles SELECT policy from 0001 returns zero rows when a teacher
+  -- reads a student's profile. The reasoning and the mechanism are unchanged
+  -- (written by the trigger, never the caller, so it cannot be forged); it
+  -- just snapshots the right name now. coalesce keeps every pre-existing
+  -- account, which has no learner_first_name, working exactly as before.
+  select coalesce(nullif(learner_first_name, ''), full_name) as name into s
+  from public.profiles
+  where id = new.student_id;
+
+  new.student_name := coalesce(s.name, 'A student');
+
   return new;
 end;
-$fn$;
+$$;
 
 commit;
 ```
 
-> ⚠ `enforce_session_insert` exists already (`0004`, amended since). **Open
-> `supabase/migrations/0004_session_student_name.sql` and any later migration that redefines it,
-> and carry every other rule it enforces into this body before replacing it.** `create or replace`
-> silently drops whatever you omit. If the current body does more than set `student_name`, this
-> step is wrong as written and must be widened.
+> ⚠ **The body above is already complete — do not shorten it.** Four migrations have redefined
+> this function (`0003`, `0004`, `0005`, `0011`); `0011` is the authoritative one and every rule
+> in it is carried above verbatim. `create or replace` silently drops whatever you omit, and the
+> omission that matters most is `0011`'s payment-column ban. Step 2 verifies this rather than
+> asking you to reconstruct it.
 
-- [ ] **Step 2: Verify the current function body before replacing it**
+- [ ] **Step 2: Verify the live body matches what this migration replaces**
 
-Run: `grep -rn "enforce_session_insert" supabase/migrations/`
-Read every hit. Merge all existing rules into the body above. Do not proceed until the new body
-is a superset of the old one.
+Run in the Supabase SQL editor:
+
+```sql
+select prosrc from pg_proc where proname = 'enforce_session_insert';
+```
+
+Diff it against `supabase/migrations/0011_accept_window_bound.sql`'s definition. They must match
+except for the `student_name` snapshot. **If the live body contains any rule not present in the
+migration above, stop and report it** — something redefined this function outside the migration
+files and this task's SQL would drop it.
 
 - [ ] **Step 3: Apply and verify**
 
