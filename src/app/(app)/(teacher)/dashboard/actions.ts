@@ -185,10 +185,24 @@ export async function undeclareAvailable(): Promise<
 }
 
 // Called by any live client on mount and on a slow interval. shouldRenew
-// decides, not the caller: the halfway rule plus the 15-minute floor is what
-// keeps this at ~1.4 writes/sec at 10,000 teachers instead of ~667.
+// decides whether this WRITES, not the caller: the halfway rule plus the
+// 15-minute floor is what keeps this at ~1.4 writes/sec at 10,000 teachers
+// instead of ~667.
+//
+// It always returns the AUTHORITATIVE lease, though, whether or not it wrote.
+// That is what makes this a reconciliation and not merely a renewal, and it is
+// load-bearing: this used to return `{ skipped: true }` for BOTH "no write
+// needed yet" and "this teacher is not declared at all", and the client did
+// nothing with either. So a dashboard left open could never learn its lease
+// had gone — it kept rendering "Available until 07:33" indefinitely while the
+// server said the teacher was not declared, and students correctly saw nobody.
+// Observed live on 2026-09-04, and the exact failure §6.3 says must never
+// happen again: a teacher believing they are reachable while they are not.
+//
+// It matters more because devices are first-class (spec §7): going offline on
+// a phone has to correct the laptop, and this tick is the only thing that can.
 export async function renewLease(): Promise<
-  { declaredUntil: string } | { error: string } | { skipped: true }
+  { declaredUntil: string | null } | { error: string }
 > {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -204,14 +218,19 @@ export async function renewLease(): Promise<
     console.error("[renewLease] read failed", readError);
     return { error: "Couldn't check your availability." };
   }
-  if (!row?.declared) return { skipped: true };
+  // Not declared — including no row at all. Report the lease as gone rather
+  // than as "nothing to do", so a client holding a stale live lease corrects.
+  if (!row?.declared) return { declaredUntil: null };
 
   const now = new Date();
   // The server owns the floor as well as the halfway test. A client passing
   // its own lastRenewedAt could renew on every mount; this one cannot be
   // talked into it, because it only ever renews inside the second half.
   if (!shouldRenew(row.declared_until as string | null, now, null)) {
-    return { skipped: true };
+    // No write needed. Still hand back what the server actually holds — this
+    // covers the declared-but-LAPSED row too, where the honest answer is a
+    // past timestamp the client will render as Offline.
+    return { declaredUntil: (row.declared_until as string | null) ?? null };
   }
 
   const until = leaseUntilFrom(now);

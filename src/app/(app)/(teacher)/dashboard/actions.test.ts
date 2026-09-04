@@ -28,17 +28,21 @@ describe("declareAvailable", () => {
 });
 
 describe("renewLease", () => {
+  let THREE_HOURS_OUT = "";
+  let LAPSED = "";
+
   it("does nothing when more than half the lease remains", async () => {
     // A renewal on every mount is the write storm the lease exists to avoid.
+    THREE_HOURS_OUT = new Date(Date.now() + 3 * 3600_000).toISOString();
     maybeSingle.mockResolvedValue({
-      data: {
-        declared: true,
-        declared_until: new Date(Date.now() + 3 * 3600_000).toISOString(),
-      },
+      data: { declared: true, declared_until: THREE_HOURS_OUT },
       error: null,
     });
     const { renewLease } = await import("./actions");
-    expect(await renewLease()).toEqual({ skipped: true });
+    // No WRITE, but still the authoritative lease — the tick reconciles as
+    // well as renews, so a client is corrected on every tick rather than only
+    // when a write happens to occur.
+    expect(await renewLease()).toEqual({ declaredUntil: THREE_HOURS_OUT });
     expect(upsert).not.toHaveBeenCalled();
   });
 
@@ -57,15 +61,39 @@ describe("renewLease", () => {
 
   it("does not resurrect a lapsed declaration", async () => {
     // Going available again is a fresh decision by the teacher.
+    LAPSED = new Date(Date.now() - 60_000).toISOString();
     maybeSingle.mockResolvedValue({
-      data: {
-        declared: true,
-        declared_until: new Date(Date.now() - 60_000).toISOString(),
-      },
+      data: { declared: true, declared_until: LAPSED },
       error: null,
     });
     const { renewLease } = await import("./actions");
-    expect(await renewLease()).toEqual({ skipped: true });
+    // Still no write — but the honest answer is the past timestamp, which the
+    // client renders as Offline. Returning "nothing to do" here would let a
+    // client that believes it is live keep believing it.
+    expect(await renewLease()).toEqual({ declaredUntil: LAPSED });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  // The defect observed live on 2026-09-04: a teacher's dashboard kept
+  // rendering "Available until ..." while the row said declared = false, so
+  // the teacher believed they were visible and no student could see them.
+  // This tick is the only thing that can correct an already-open dashboard,
+  // and it used to report this case as "nothing to do".
+  it("reports the lease as GONE when the teacher is not declared", async () => {
+    maybeSingle.mockResolvedValue({
+      data: { declared: false, declared_until: null },
+      error: null,
+    });
+    const { renewLease } = await import("./actions");
+    expect(await renewLease()).toEqual({ declaredUntil: null });
+    // Emphatically no write: this must not resurrect the declaration.
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("reports the lease as gone when there is no availability row at all", async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    const { renewLease } = await import("./actions");
+    expect(await renewLease()).toEqual({ declaredUntil: null });
     expect(upsert).not.toHaveBeenCalled();
   });
 });

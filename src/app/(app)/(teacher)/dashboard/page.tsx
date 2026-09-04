@@ -38,10 +38,21 @@ export default async function DashboardPage() {
   // (migrations 0008/0009), so the ordinary client is enough here; only the
   // count is read, never an endpoint, because a device row is a capability
   // (spec §4.3).
-  const { count: deviceCount } = await supabase
+  const { count: deviceCount, error: deviceError } = await supabase
     .from("teacher_devices")
     .select("id", { count: "exact", head: true })
     .eq("teacher_id", identity.userId);
+
+  // This read used to discard its error. That is not cosmetic here: a failed
+  // count is indistinguishable from zero, and zero devices with a not-yet-
+  // connected realtime channel makes availability-toggle render "Can't reach
+  // you" — telling a perfectly reachable teacher they are invisible. On the
+  // 2026-09-04 walk that sentence was seen on the dashboard the notification
+  // had just opened. The cause there is unconfirmed, but a read that fails
+  // silently into a false accusation should not survive the finding either way.
+  if (deviceError) {
+    console.error("[dashboard] device count read failed", deviceError);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

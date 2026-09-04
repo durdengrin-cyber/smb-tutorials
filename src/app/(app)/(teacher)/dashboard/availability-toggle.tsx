@@ -104,6 +104,10 @@ export function AvailabilityToggle({
       if (document.visibilityState !== "visible") return;
       const result = await renewLease();
       if (cancelled) return;
+      // Reconcile in BOTH directions. A null here means the server says this
+      // teacher is not declared — because they went offline on another device,
+      // or the row was cleared — and adopting it is what stops this dashboard
+      // insisting "Available until ..." at a teacher no student can see.
       if ("declaredUntil" in result) setLeaseUntil(result.declaredUntil);
     }
     void tick();

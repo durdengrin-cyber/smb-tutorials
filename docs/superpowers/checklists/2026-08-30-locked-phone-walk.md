@@ -115,6 +115,111 @@ Each step names its exact expected outcome. Record the actual outcome next to it
 
 ---
 
+## RESULT — PERFORMED 2026-09-04, PASSED
+
+**Run by the user on a real iPhone against the cycle-2 preview. Steps 1–8 and step 10.**
+Steps 9 (Android) and 11 (decline case) were NOT run — see "Not covered" below.
+
+> **"Worked seamlessly."**
+
+**Steps 6 and 7 — the two this cycle hangs on — were observed by a human.** A notification
+arrived on a locked lock screen, and tapping it opened the app on the dashboard with the request
+still live and acceptable. The session then completed end to end.
+
+Corroborated in the database, independently of the report:
+
+| Event | Time (UTC) |
+|---|---|
+| device registered | `03:24:41` |
+| session requested | `03:27:57` |
+| **push delivered — `last_ok_at` stamped** | **`03:28:00`** |
+| session started | `03:29:49` |
+
+**Delivery took 3 seconds**, and `failure_count` is `0`. That row is also the first live proof of
+`record_device_results` (migration `0012`) doing its job — `last_ok_at` had never been written by
+anything before this walk.
+
+**This closes a debt three cycles old.** Before 2026-09-04 nothing in this project had ever
+executed a real push: the service worker, the payload encryption, `notificationclick` →
+`/dashboard` and the iOS install flow were all proven by construction only.
+
+### Three findings from the walk — F1 and F3 FIXED, F2 owed
+
+**F1 — the dashboard flashed "Can't reach you" before the request card appeared.** The teacher
+was reachable; the push had just been delivered to that very device. The user's words: *"it
+landed to me on a page which already said can't reach you but then I saw the option popped up for
+accepting after which things went smoothly."*
+
+Cause not confirmed, but there is a strong candidate in the code:
+`src/app/(app)/(teacher)/dashboard/page.tsx` reads
+`const { count: deviceCount } = await supabase.from("teacher_devices")...` and **never checks
+`error`**. Any failure of that single query silently gives `count: null` → `hasDevice: false`;
+with `channelHealthy` still false on first paint, `availability-toggle.tsx`'s status expression
+`channelOk || hasDevice` then evaluates to `unreachable`. When the realtime channel connects a
+moment later, `channelOk` flips true and the status self-corrects — which matches the observed
+sequence exactly, including the request card arriving at the same instant.
+
+**Severity: real but not blocking.** Nothing was lost and the session completed. But it shows a
+teacher the precise sentence this cycle exists to stop showing them, and it is the same
+fail-quietly class as the `admin.ts` finding the branch review raised.
+
+**FIXED** — the read now checks and logs its error. **Be honest about what that does and does
+not settle:** it removes a read that fails silently into a false accusation, but the root cause
+of the observed flash is *not confirmed*. It could equally have been ordinary first-paint
+ordering. If it recurs, the log line is now there to say so.
+
+**F2 — the iOS Home Screen icon is the placeholder.** The user reports it rendered as *"just SMB
+as letters on the logo"*. So iOS did pick up an icon rather than falling back to a page
+screenshot, but the icons in `public/` are the placeholders committed in `6694ca7`. **A real icon
+is owed before launch** — this is the answer step 10 existed to get.
+
+**F3 — after the session, the dashboard said "Available now / Available until …" while the
+student list stayed empty. THE MOST SERIOUS FINDING OF THE WALK.**
+
+Reported by the user; confirmed against the live database within minutes:
+
+```
+teacher_availability:  declared = false,  declared_until = NULL
+declared_at  03:33:09   <- went available, AFTER the session
+updated_at   03:33:15   <- went offline, six seconds later
+available_teachers(CBSE, 11th, Science, Physics) -> []
+```
+
+So the empty student list was **correct** — the RPC was right, the data was right, and the
+*dashboard* was the thing lying. The teacher was shown a live lease that the server did not
+believe in.
+
+**Root cause, and it is squarely cycle-2 code.** `renewLease()` in `dashboard/actions.ts`
+answered `{ skipped: true }` for two completely different server truths — "declared, but no write
+is due yet" and "**this teacher is not declared at all**" — and `availability-toggle.tsx` did
+nothing with `skipped`. So an already-open dashboard had **no path** by which it could ever learn
+its lease was gone. It would keep rendering `Available until 07:33` indefinitely.
+
+That is the precise failure spec §6.3 forbids — *"a teacher can never again be silently
+invisible"* — reached through the UI instead of through push. It is also sharper than it looks
+given spec §7's "all devices, first-class" decision: **going offline on the phone left the laptop
+lying**, and this tick was the only thing that could have corrected it.
+
+Verified separately that nothing clears the lease automatically: `undeclareAvailable()` has
+exactly one caller (the toggle button), the button is `disabled={busy}` so a double-click cannot
+double-fire, and no SQL trigger or session migration touches `teacher_availability`. The two
+writes were two real clicks.
+
+**FIXED at the root.** `renewLease` now always returns the authoritative lease — `null` when not
+declared, the stored timestamp when no write is due (including a lapsed one), the new timestamp
+when it renews. The periodic tick becomes a **reconciliation**, not merely a renewal, so any open
+dashboard self-corrects within one interval. Write behaviour is unchanged: `shouldRenew` still
+gates the upsert, so the write-rate arithmetic in §4.1 still holds. Four new tests, two on each
+side of the boundary — including that a tick must not *demote* a genuinely live teacher, since a
+reconciliation that only ever removed availability would be its own bug.
+
+### Not covered
+
+- **Step 9 — Android.** Not run. Doze delay is therefore unmeasured, and Android push is proven
+  only by the same construction argument iOS had until today.
+- **Step 11 — the decline case.** Not run. That a teacher who denies permission reads "Can't
+  reach you" and is hidden from students is still unproven by execution.
+
 ## Recording the result
 
 Write the outcome — including any step that failed — into `project_state.md`.
@@ -135,7 +240,7 @@ Write the outcome — including any step that failed — into `project_state.md`
 - [x] `node scripts/probe-availability.mjs` — exit 0
 - [x] `grep -rn "Keep this tab open" src/` — no matches
 - [x] Migration `0006` still **unapplied**; **`0007`–`0012` applied**
-- [ ] Task 17's checklist above performed by a human, **steps 6 and 7 observed**
+- [x] Task 17's checklist above performed by a human, **steps 6 and 7 observed** (2026-09-04)
 
 **Dropped from this list:** `npm run e2e` (Playwright). **Task 16 was dropped by user decision
 on 2026-09-01** — Playwright cannot test a locked phone receiving a notification, and this

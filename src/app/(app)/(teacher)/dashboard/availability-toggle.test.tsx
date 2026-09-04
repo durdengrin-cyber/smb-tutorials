@@ -59,7 +59,12 @@ const pastIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 beforeEach(() => {
   declareAvailable.mockReset();
   undeclareAvailable.mockReset();
-  renewLease.mockReset().mockResolvedValue({ skipped: true });
+  // The tick now ALWAYS returns the authoritative lease, so the default has to
+  // be a real answer rather than a no-op: "the server agrees this lease is
+  // live." Most tests below render a live lease. The ones that do not override
+  // this, which is itself the point — the server's answer, not the prop, is
+  // what the component must end up trusting.
+  renewLease.mockReset().mockResolvedValue({ declaredUntil: futureIso });
   readSetupFacts.mockReset();
   closeStaleNotifications.mockReset().mockResolvedValue(undefined);
   subscribeStatus = "SUBSCRIBED";
@@ -83,6 +88,10 @@ describe("AvailabilityToggle", () => {
   // A lapsed lease must read as Offline and say so, rather than leaving the
   // teacher to infer it from a toggle that silently moved.
   it("reads Offline and explains when the lease has lapsed", async () => {
+    // The server agrees it lapsed; it reports the past timestamp rather than
+    // resurrecting it, which is what "does not resurrect a lapsed
+    // declaration" pins on the action side.
+    renewLease.mockResolvedValue({ declaredUntil: pastIso });
     render(<AvailabilityToggle {...props} declaredUntil={pastIso} />);
     await waitFor(() => expect(screen.getByText(/Your availability ended at/i)).toBeInTheDocument());
   });
@@ -120,5 +129,43 @@ describe("AvailabilityToggle", () => {
       expect(screen.getByText(/we'll notify you even with your phone locked/i)).toBeInTheDocument()
     );
     expect(screen.queryByText("Can't reach you")).not.toBeInTheDocument();
+  });
+
+  // THE 2026-09-04 DEFECT, pinned.
+  //
+  // Observed on the real walk: after a session the dashboard kept showing
+  // "Available until ..." while teacher_availability said declared = false and
+  // declared_until = null, so the teacher believed they were visible and the
+  // student list was correctly empty. renewLease used to answer BOTH "no write
+  // needed" and "you are not declared at all" with { skipped: true }, and the
+  // client did nothing with either — so an open dashboard could never learn
+  // its lease had gone.
+  //
+  // This matters most where devices are first-class (spec §7): going offline
+  // on a phone MUST correct the laptop, and this tick is the only thing that
+  // can reach an already-open page.
+  it("corrects itself to Offline when the server says the lease is gone", async () => {
+    renewLease.mockResolvedValue({ declaredUntil: null });
+
+    // Rendered as live — exactly the stale state the teacher was looking at.
+    render(<AvailabilityToggle {...props} declaredUntil={futureIso} hasDevice />);
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Available until/i)).not.toBeInTheDocument()
+    );
+    expect(screen.getByText(/not visible to students/i)).toBeInTheDocument();
+  });
+
+  // The other half: a tick must not DEMOTE a teacher who is genuinely live.
+  // A reconciliation that only ever removed availability would be its own bug.
+  it("keeps the teacher available when the server confirms a live lease", async () => {
+    const serverLease = new Date(Date.now() + 90 * 60 * 1000).toISOString();
+    renewLease.mockResolvedValue({ declaredUntil: serverLease });
+
+    render(<AvailabilityToggle {...props} declaredUntil={futureIso} hasDevice />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/Available until/i)).toBeInTheDocument()
+    );
   });
 });
