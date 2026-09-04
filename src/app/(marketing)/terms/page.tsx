@@ -15,8 +15,35 @@ export default function TermsPage() {
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
                 Refund Policy
               </h2>
-              <p className="text-gray-700">
-                Our no-show and refund policy has not been published yet.
+              <p className="text-gray-700 mb-3">
+                Our no-show and refund policy is as follows:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <li>
+                  <strong>Tutor does not join:</strong> Full refund.
+                </li>
+                <li>
+                  <strong>Tutor joins more than 10 minutes late:</strong> Full
+                  refund if the student chooses to cancel.
+                </li>
+                <li>
+                  <strong>Student does not join:</strong> No refund &mdash;
+                  the tutor was present and available.
+                </li>
+                <li>
+                  <strong>Technical failure preventing the session:</strong>{" "}
+                  Full refund.
+                </li>
+                <li>
+                  <strong>Session ended early by the tutor for conduct:</strong>{" "}
+                  No refund.
+                </li>
+                <li>
+                  <strong>Any refund</strong> is issued to the original
+                  payment method within 7 business days.
+                </li>
+              </ul>
+              <p className="text-gray-700 mt-3">
                 Contact{" "}
                 <a
                   href="mailto:support@smbtutorial.com"
@@ -24,7 +51,7 @@ export default function TermsPage() {
                 >
                   support@smbtutorial.com
                 </a>{" "}
-                with questions in the meantime.
+                with questions about a specific session.
               </p>
             </section>
 
@@ -51,8 +78,8 @@ export default function TermsPage() {
                   <li>
                     <strong>Tutor No-Show:</strong> Repeatedly failing to attend
                     confirmed sessions may result in suspension from the
-                    platform. Any refund owed to the student follows the refund
-                    policy above, which is not yet published.
+                    platform. Any refund owed to the student follows the
+                    refund policy above.
                   </li>
                   <li>
                     <strong>Late Arrival:</strong> Tutors arriving more than 5
@@ -139,6 +166,34 @@ export default function TermsPage() {
                   </li>
                 </ul>
               </div>
+            </section>
+
+            <section className="mb-10">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Tutor Agreement
+              </h2>
+              <p className="text-gray-700 mb-4">
+                By creating a tutor account and accepting sessions on SMB
+                Tutorial, you agree to the following as binding conditions of
+                teaching on the platform.
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <li>
+                  <strong>Identity Verification:</strong> You must provide a
+                  government-issued ID, verified against the name on your
+                  account, before you teach any session.
+                </li>
+                <li>
+                  <strong>Conduct:</strong> You agree to the conduct rules set
+                  out above in Tutor Professional Conduct &amp; Penalties.
+                </li>
+                <li>
+                  <strong>Reports Pending Review:</strong> A conduct report
+                  filed against your account suspends your account pending
+                  review. You may not accept or continue teaching sessions
+                  while such a review is open.
+                </li>
+              </ul>
             </section>
 
             <section className="mb-10">
