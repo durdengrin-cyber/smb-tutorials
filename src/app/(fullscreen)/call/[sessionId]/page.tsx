@@ -33,7 +33,10 @@ export default async function CallPage({
   const isStudent = session.student_id === identity.userId;
   if (!isTeacher && !isStudent) redirect("/");
 
-  const returnTo = isTeacher ? "/dashboard" : "/teachers";
+  // A student who has just finished a lesson used to be pushed to /teachers —
+  // the online-now list — so the product's answer to "you finished" was "here
+  // are more teachers to buy". Send them to their record instead.
+  const returnTo = isTeacher ? "/dashboard" : "/sessions";
 
   const status = effectiveStatus(
     { ...session, status: session.status as SessionStatus },

@@ -9,7 +9,10 @@ export function resolveHome(role: Role): string {
     case "admin":
       return "/admin";
     default:
-      return "/find";
+      // Students land on their own record, not on the search form. /find is
+      // one tap away and is in the nav; landing there made the product's only
+      // student surface a step in buying something.
+      return "/sessions";
   }
 }
 

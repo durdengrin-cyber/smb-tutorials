@@ -28,3 +28,11 @@ describe("nav config", () => {
     }
   });
 });
+
+describe("NAV", () => {
+  // A nav pointing at a page that does not exist is the same defect as
+  // marketing copy advertising a deferred feature.
+  it("gives a student both their record and the way to find a teacher", () => {
+    expect(NAV.student.map((i) => i.href)).toEqual(["/sessions", "/find"]);
+  });
+});

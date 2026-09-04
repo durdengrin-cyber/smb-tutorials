@@ -10,7 +10,10 @@ export interface NavItem {
 // a nav pointing at pages that do not exist is the same defect as marketing
 // copy advertising features that do not exist.
 export const NAV: Record<Role, NavItem[]> = {
-  student: [{ href: "/find", label: "Find a teacher" }],
+  student: [
+    { href: "/sessions", label: "My sessions" },
+    { href: "/find", label: "Find a teacher" },
+  ],
   teacher: [{ href: "/dashboard", label: "Dashboard" }],
   admin: [{ href: "/admin", label: "Admin" }],
 };

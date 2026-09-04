@@ -2,15 +2,17 @@ import { describe, it, expect } from "vitest";
 import { resolveHome, signInRedirect, safeNext, canBecomeTeacher } from "./routes";
 
 describe("resolveHome", () => {
-  it("sends a teacher to their dashboard", () => {
+  // Before this, a student's every sign-in landed on /find — the product had
+  // no student surface that was not a step in buying something.
+  it("sends a student to their session record", () => {
+    expect(resolveHome("student")).toBe("/sessions");
+  });
+
+  it("still sends a teacher to their dashboard", () => {
     expect(resolveHome("teacher")).toBe("/dashboard");
   });
 
-  it("sends a student to find a teacher", () => {
-    expect(resolveHome("student")).toBe("/find");
-  });
-
-  it("sends an admin to the admin surface", () => {
+  it("still sends an admin to admin", () => {
     expect(resolveHome("admin")).toBe("/admin");
   });
 });
