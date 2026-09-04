@@ -258,6 +258,13 @@ export function TutorForm() {
           >
             Tutor Agreement
           </Link>
+          , and{" "}
+          <Link
+            href="/privacy"
+            className="text-teal-600 hover:text-teal-700 underline"
+          >
+            Privacy Policy
+          </Link>
         </span>
       </div>
 
