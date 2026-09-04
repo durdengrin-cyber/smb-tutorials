@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { parseTutorSignUp, CONSENT_VERSION } from "@/lib/validation";
+import { parseTutorSignUp } from "@/lib/validation";
+import { CONSENT_VERSION } from "@/lib/consent";
 import type { AuthState } from "@/lib/form-state";
 import { canBecomeTeacher, type Role } from "@/lib/routes";
 

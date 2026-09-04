@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { parseSignIn, parseStudentSignUp, CONSENT_VERSION } from "@/lib/validation";
+import { parseSignIn, parseStudentSignUp } from "@/lib/validation";
+import { CONSENT_VERSION } from "@/lib/consent";
 import type { AuthState } from "@/lib/form-state";
 import { safeNext } from "@/lib/routes";
 

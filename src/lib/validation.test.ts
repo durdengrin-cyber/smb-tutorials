@@ -31,9 +31,60 @@ describe("parseStudentSignUp", () => {
         password: "secret123",
         confirmPassword: "secret123",
         consent: "yes",
+        learnerFirstName: "Ravi",
+        learnerGrade: "9th",
       })
     );
     expect(r.ok && r.value.fullName).toBe("Asha");
+  });
+
+  it("requires the learner's first name", () => {
+    const r = parseStudentSignUp(
+      fd({
+        fullName: "Asha",
+        email: "a@b.com",
+        password: "secret123",
+        confirmPassword: "secret123",
+        consent: "yes",
+        learnerGrade: "9th",
+      })
+    );
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/student/i);
+  });
+
+  it("rejects a grade outside 6th-12th", () => {
+    const r = parseStudentSignUp(
+      fd({
+        fullName: "Asha",
+        email: "a@b.com",
+        password: "secret123",
+        confirmPassword: "secret123",
+        consent: "yes",
+        learnerFirstName: "Ravi",
+        learnerGrade: "1st",
+      })
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("returns the learner fields on success", () => {
+    const r = parseStudentSignUp(
+      fd({
+        fullName: "Asha",
+        email: "a@b.com",
+        password: "secret123",
+        confirmPassword: "secret123",
+        consent: "yes",
+        learnerFirstName: " Ravi ",
+        learnerGrade: "9th",
+      })
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.learnerFirstName).toBe("Ravi");
+      expect(r.value.learnerGrade).toBe("9th");
+    }
   });
 
   // The consent box carried no `name` before 2026-09-04, so it never left the
@@ -47,6 +98,8 @@ describe("parseStudentSignUp", () => {
         email: "a@b.com",
         password: "secret123",
         confirmPassword: "secret123",
+        learnerFirstName: "Ravi",
+        learnerGrade: "9th",
       })
     );
     expect(r.ok).toBe(false);

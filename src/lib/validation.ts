@@ -3,13 +3,16 @@
 
 import {
   isCurriculum,
-  isGrade,
   isStream,
   isSubjectOf,
   type Curriculum,
-  type Grade,
   type Stream,
 } from "./taxonomy";
+// Grade comes from consent.ts, not taxonomy.ts: both define the identical
+// 6th-12th domain, and importing both under the same names would collide.
+// consent.ts is the copy in scope here because parseStudentSignUp needs it
+// for learnerGrade; parseTutorSignUp's grade checks reuse the same values.
+import { isGrade, type Grade } from "./consent";
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -32,13 +35,21 @@ export interface SubjectRow {
   subject: string;
 }
 
-export interface StudentSignUp {
+// Shared by both sign-up shapes so that adding a student-only field (the
+// learner) does not force TutorSignUp — a tutor has no learner — to carry it
+// too, the way `TutorSignUp extends StudentSignUp` used to.
+interface AccountBasics {
   fullName: string;
   email: string;
   password: string;
 }
 
-export interface TutorSignUp extends StudentSignUp {
+export interface StudentSignUp extends AccountBasics {
+  learnerFirstName: string;
+  learnerGrade: Grade;
+}
+
+export interface TutorSignUp extends AccountBasics {
   phone: string;
   experienceYears: number;
   qualification: string;
@@ -69,13 +80,6 @@ export function parseSignIn(
   return { ok: true, value: { email, password } };
 }
 
-// Bump when the consent wording changes materially, so an old agreement is
-// never silently read as agreement to new terms. Lives here rather than in
-// auth/actions.ts because that file is "use server", where only async
-// functions may be exported — exporting a const there empties the module and
-// every import of it fails. tsc does not catch that; only the build does.
-export const CONSENT_VERSION = "2026-09-04";
-
 export function parseStudentSignUp(fd: FormData): Result<StudentSignUp> {
   const fullName = str(fd, "fullName");
   const email = str(fd, "email");
@@ -86,6 +90,13 @@ export function parseStudentSignUp(fd: FormData): Result<StudentSignUp> {
   if (password.length < 8)
     return fail("Password must be at least 8 characters.");
   if (password !== confirm) return fail("Passwords do not match.");
+
+  const learnerFirstName = str(fd, "learnerFirstName");
+  if (!learnerFirstName) return fail("Enter the student's first name.");
+
+  const learnerGrade = str(fd, "learnerGrade");
+  if (!isGrade(learnerGrade)) return fail("Select the student's grade.");
+
   // Checked on the SERVER, not just by the browser. The box existed before
   // this but carried no `name`, so it never left the page: `required` stops a
   // human in a browser and stops nothing else. A consent record that any
@@ -93,7 +104,10 @@ export function parseStudentSignUp(fd: FormData): Result<StudentSignUp> {
   if (!fd.get("consent")) {
     return fail("Please confirm you're the parent or guardian, or 18 or older.");
   }
-  return { ok: true, value: { fullName, email, password } };
+  return {
+    ok: true,
+    value: { fullName, email, password, learnerFirstName, learnerGrade },
+  };
 }
 
 // Subjects arrive as repeated "subjects" entries encoded "Stream|Subject";

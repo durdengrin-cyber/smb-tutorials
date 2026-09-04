@@ -84,7 +84,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 import { signUpTutor } from "./actions";
-import { CONSENT_VERSION } from "@/lib/validation";
+import { CONSENT_VERSION } from "@/lib/consent";
 
 function validTutorFormData(): FormData {
   const fd = new FormData();
