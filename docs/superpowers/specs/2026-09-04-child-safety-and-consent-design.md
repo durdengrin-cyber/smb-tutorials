@@ -60,8 +60,9 @@ Two consequences follow directly, and they are the reason the rest of this docum
 ## 3. Scope
 
 **In:** the account model; what counts as proof an adult consented; where that proof is stored;
-`/privacy`; the contradictions in `/terms`; the Google sign-in path that records no consent at
-all; and the decisions on teacher vetting and recording that everything else waits on.
+`/privacy`; the contradictions in `/terms`, **including the unpublished refund policy**; the
+Google sign-in path that records no consent at all; teacher vetting; session recording; and the
+escalation path a report triggers.
 
 **Out, deliberately:**
 - **Admin UI.** This spec says what admin must be able to do (§12); building it is piece 3.
@@ -242,16 +243,26 @@ Processors it must name: **Supabase** (database and auth), **Daily.co** (video),
 **Razorpay** (payments), **Google** (optional sign-in), **Apple/Google push services** (FCM and
 `web.push.apple.com`, teacher devices only), **Sentry** (error reporting), **Vercel** (hosting).
 
-It must also state plainly: **sessions are not recorded** (true today — and §11 is what changes
-if that stops being true), what the retention periods are, and how to obtain deletion. Deletion
+It must state plainly that **sessions are recorded, retained 30 days and then deleted** (§11) —
+prominently, not buried, because it is the single most surprising thing on the page. It must
+also state the retention periods and how to obtain deletion. Deletion
 must be honest about what survives: `session_reports` deliberately outlives the teacher it
 describes (`0017`), and `consent_events` deliberately outlives the account, retaining the email
 the consent was given under (§6). Say so on the page; a deletion promise with an undisclosed
 exception is worse than an honest one.
 
-**Retention, decided here so the page can state it:** `notification_events` and delivery
-diagnostics, 90 days. Session and payment records, as long as required for financial records.
-`consent_events` and `session_reports`, indefinitely — they are the evidence.
+**Retention, decided here so the page can state it:**
+
+| Data | Kept |
+|---|---|
+| Session recordings (§11) | **30 days**, then deleted automatically; preserved beyond that only while a report about that session is open |
+| `notification_events` and delivery diagnostics | 90 days |
+| Session and payment records | as long as financial-record requirements demand (§17) |
+| `consent_events`, `session_reports` | indefinitely — they are the evidence |
+
+Add recordings to the inventory table above: **session video and audio, held by Daily.co,
+concerning both the child and the teacher.** It is now the most sensitive row on the page and
+should not be the one a reader has to hunt for.
 
 ## 9. `/terms` — what is actually wrong
 
@@ -262,62 +273,117 @@ window, all of which exist. Three real problems:
 1. **It is not a privacy policy**, yet it is what both "Privacy Policy" links point at (§8), and
    it is the URL Google shows on the consent screen.
 2. **The refund policy is a placeholder** — "has not been published yet" (`terms/page.tsx:19`),
-   restated at line 54. Still open; listed in `CLAUDE.md` as a pre-launch item.
+   restated at line 54. **Now in scope and blocking** (§17): the pilot charges real money, so a
+   published refund policy is owed before the first paid session. It also has to answer the
+   no-show case, which is the one that will actually occur.
 3. **It forbids recording outright** (`terms/page.tsx:186`), which collides with §11.
 
 The tutor form links to a **"Tutor Agreement"** (`tutor-form.tsx:256`) that does not exist.
 Either write it or change the link text; do not keep asking teachers to agree to a missing
 document. Now that tutor consent is required and recorded, that link is load-bearing.
 
-## 10. Teacher vetting — decision required
+## 10. Teacher vetting — DECIDED
 
 Adults meeting children one-to-one on video is the highest-risk configuration in this product,
 and `canBecomeTeacher` currently checks only that an account has no history.
 
-**Recommended minimum before a teacher meets a child:** government ID checked against the name
-on the account; a signed conduct agreement (the Tutor Agreement from §9); and the demo video,
-which is already collected. Whether to go further — a formal background check — is a cost
-decision, but *"we did not check"* is the answer that does not survive an incident.
+**Decided 2026-09-04. Before a teacher may meet a child, all three:**
 
-Whatever is decided, it is admin's first job (§12) and it needs a state on the profile: a
-teacher who has not cleared vetting must not appear in `available_teachers` (`0010`).
+1. **Government ID, checked against the name on the account.** Reviewed by the operator by eye
+   for the pilot. The ID document itself is **not stored** — §5.1's principle applies here too:
+   record that the check happened, who did it, and when. Keeping a library of teachers' ID
+   scans creates the same honeypot for a different population.
+2. **A signed Tutor Agreement** — the document §9 says the tutor form already links to and which
+   does not exist. It has to be written, and it is where the conduct rules become binding rather
+   than decorative.
+3. **The demo video**, already collected as `demo_video_url` and teacher-hosted.
 
-## 11. Recording — decided, and the three things that move together
+A formal third-party background check was considered and **deferred, not rejected**: at pilot
+size the operator knows every teacher personally, and the cost and days of lead time per teacher
+would stall recruiting the first cohort. It is the obvious next step when teachers arrive from
+outside that circle, and the vetting state in §13 is designed so adding a check is a new value
+rather than a new mechanism.
 
-Recording is **decided but deferred to launch** (carried forward from the prior handoff). The
-tension is real and should be named: for one-to-one adult-to-minor video, recording is the
-primary deterrent and the only evidence that exists when a child reports something. Safety
-argues for it; privacy argues against. The standard resolution is to record, disclose it
-prominently, retain briefly, and restrict access to one named person.
+**In code:** a vetting state on `profiles`, and `available_teachers` (`0010`) excludes any
+teacher who has not cleared it. A teacher who has not been vetted can hold an account and
+complete their profile; they cannot be picked.
 
-**When it ships, three things move in the same change or the product contradicts itself:**
+## 11. Recording — DECIDED
+
+**Decided 2026-09-04: every session is recorded, retained 30 days, then deleted automatically.
+A session that is the subject of a `session_report` is preserved until the report is closed.**
+
+The tension is real and worth naming rather than glossing. For one-to-one adult-to-minor video,
+recording is the primary deterrent and the only evidence that exists when a child reports
+something. Safety argues for it; privacy argues against.
+
+**Why this does not contradict §5.1**, which rejected collecting video: a signup video is taken
+from everyone, before any value is delivered, and verifies nothing. A session recording is a
+byproduct of the service itself, serves a concrete safety purpose, and expires. **The expiry is
+what separates them** — it bounds the honeypot to a rolling 30 days rather than letting it grow
+forever, which is why the retention is part of the decision and not an implementation detail.
+
+**Five things move together, or the product contradicts itself:**
 
 1. The Daily room property that enables recording.
 2. The payment notice — "may be recorded" becomes "will be".
 3. `terms/page.tsx:186`, which currently forbids recording outright.
+4. **`CONSENT_VERSION` bumps and every family re-consents.** Recording is a material change to
+   how a child's data is handled; prior consent is not consent to it. This is exactly the case
+   §6's log exists to handle and §5.1's video could not have.
+5. **`/privacy` stops saying sessions are not recorded** (§8) and states the 30-day retention.
 
-And a fourth, added by this spec: **`CONSENT_VERSION` bumps and every family re-consents.**
-Recording is a material change to how a child's data is handled; prior consent is not consent to
-it. This is precisely the case §6's log exists to handle and §5.1's video could not.
+**Access is restricted to the operator**, by the same service-role-only posture as
+`session_reports` (`0017`). A teacher may not download a recording of their own session — the
+recording exists as evidence about them, not as a resource for them.
 
-## 12. Escalation — what happens when a child reports something
+## 12. Escalation — DECIDED
 
-`session_reports` collects evidence and raises a Sentry alert. Nothing else is defined, and
-Sentry is a deliberate compromise recorded in the previous spec: *a safety report is not an
-error*.
+`session_reports` collects evidence and raises a Sentry alert. Everything after that was
+undefined. Sentry remains a deliberate compromise recorded in the previous spec: *a safety
+report is not an error*.
 
-**Required before the pilot, and none of it is code:**
+**Decided 2026-09-04:**
 
-- **Who reads a `conduct` report, and within what window.** A named person and a stated time.
-- **Who they contact.** The guardian on the account — which §4 is what makes possible.
-- **What happens to the teacher meanwhile.** Recommended: a `conduct` report suspends the
-  teacher from `available_teachers` pending review. Erring toward a lost lesson is the correct
-  direction of error.
-- **The external escalation path** — when a report goes to the police rather than to an operator.
+- **A `conduct` report suspends the teacher immediately and automatically** — they drop out of
+  `available_teachers` before any human looks at it. An innocent teacher loses at most a day of
+  lessons; the other direction of error is a child. **Automatic, not operator-initiated**,
+  because a report filed at 2am must not wait for someone to wake up.
+- **The operator reviews within 24 hours** and either reinstates or removes. The operator is the
+  founder for the pilot; this stops being honest the moment there is a second one.
+- **The guardian on the account is contacted** — which §4 is what makes possible at all.
+- **A reinstatement is recorded, not just performed.** The review outcome is evidence in the same
+  way the report is; a teacher reinstated twice is a pattern nobody will see if reinstatement
+  leaves no row.
 
-**Required in code, in admin (piece 3):** reading reports without the service role; suspending a
-teacher; recording that a report was reviewed and what was decided. Until then the operator
-reads their own alerts, which is honest only for a pilot of this size.
+**⚠ Auto-suspension makes the report endpoint an attack surface, which it was not before.**
+The previous spec left reporting deliberately un-rate-limited, which was fine while a report only
+raised an alert. Now a report *acts*: it removes a teacher from the platform with no human in the
+loop. The RLS participation check means only someone who actually had a session with that teacher
+can file, which bounds it — but a student who wants a teacher gone can now achieve it instantly,
+and repeatedly.
+
+**Required before signups open beyond the pilot** (not before the pilot itself, where every
+family is known to the operator, and where a teacher suspended in error is one phone call away
+from reinstatement):
+
+- **One auto-suspension per reporter per teacher.** A second report from the same student against
+  the same teacher still files and still alerts; it does not re-suspend. This kills the repeat
+  vector without discarding evidence.
+- **A rate limit on reporting**, which §16 previously listed as deferred and which this decision
+  promotes to required.
+
+Recorded explicitly because it is the kind of hole that appears only when two decisions meet:
+neither auto-suspension nor an open report endpoint is dangerous alone.
+
+**Still open, and it is the one thing in this section that is not code:** the external escalation
+path — the threshold at which a report goes to the police rather than to the operator, and who
+makes that call. It needs the legal input in §17.
+
+**Required in admin (piece 3):** reading reports without the service role; reinstating a
+suspended teacher; recording the review outcome; and retrieving the preserved recording (§11)
+for a report under review. Until admin exists the operator reads their own alerts and acts in
+SQL, which is honest only at pilot size.
 
 ## 13. Schema changes
 
@@ -326,7 +392,9 @@ reads their own alerts, which is honest only for a pilot of this size.
 | `0018` | `profiles`: add `learner_first_name text`, `learner_grade text check (… '6th'…'12th')`, `guardian_phone_verified_at timestamptz`. |
 | `0018` | `enforce_session_insert`: snapshot `learner_first_name` into `sessions.student_name`, falling back to `full_name` when null, so pre-existing rows and teacher-side reads are unaffected. |
 | `0019` | `consent_events` table, insert-only RLS, `record_consent()` security-definer RPC, service-role-only read (`revoke select … from anon, authenticated` **explicitly by name** — `revoke … from public` does not remove a named grant; `0012` shipped that bug). |
-| `0020` | Teacher vetting state on `profiles`, and `available_teachers` (`0010`) excludes teachers who have not cleared it. Gated on §10. |
+| `0020` | `profiles.vetting_state text not null default 'unvetted' check (… 'unvetted','cleared','suspended','removed')`, plus `vetted_at`, `vetted_by`, and `vetting_note` — recording that the ID was checked, by whom, and when, **never the document** (§10). `available_teachers` (`0010`) returns only `cleared`. |
+| `0021` | A `conduct` report sets `vetting_state = 'suspended'` in the same transaction that inserts the report — a trigger, not application code, so it holds for every caller and cannot be forgotten by a future write path (`0013`'s discipline). Plus `report_reviews`: an append-only row per review with the outcome, so a reinstatement is evidence and not just a state change (§12). |
+| `0022` | Recording: `sessions.recording_id text`, `recording_expires_at timestamptz`, `recording_preserved boolean not null default false`. The expiry is a stored column rather than a computed one so the sweep is a plain indexed query, and preservation is a flag the report trigger sets. Gated on §11 shipping. |
 
 `0006` stays unapplied. Nothing here needs it.
 
@@ -358,7 +426,12 @@ silently rolled back with them and every verification count came back `0` with n
 | Consent as an append-only log | One more table. Cheap; the alternative loses history on every version bump. |
 | Blocking interstitial on Google sign-in | Friction on the fastest signup path. Accepted: the alternative is accounts with no consent. |
 | Retention: reports and consent kept indefinitely | Holding data longer than strictly needed. Deliberate — it is the evidence. |
-| `conduct` suspends a teacher pending review | An innocent teacher loses lessons. Correct direction of error. |
+| `conduct` auto-suspends a teacher pending review | An innocent teacher loses up to a day of lessons. Correct direction of error; the alternative errs against a child. |
+| Vetting = ID + agreement + demo, no background check | A teacher passes who a formal check would have caught. Bounded while the operator knows every teacher personally; §10 says when that stops being true. |
+| ID checked but not stored | Cannot re-examine the document later. Deliberate — storing them recreates §5.1's honeypot for teachers. |
+| Record every session, 30-day expiry | Storage cost, and a rolling window of sensitive video. The expiry is what makes it defensible; without it this is the option §5.1 argues against. |
+| Recordings withheld from teachers | A teacher cannot review their own lesson. Deliberate: the recording is evidence about them. |
+| Pilot charges real money before legal sign-off | Exposure on a consent model no lawyer has reviewed. Bounded by pilot size, operator-verified guardians, and a published refund policy. |
 
 ## 16. Out of scope, explicitly
 
@@ -366,21 +439,53 @@ silently rolled back with them and every verification count came back `0` with n
 - **Stripe Connect, scheduled tier, chat, ranking** — still deferred per `CLAUDE.md`.
 - **Resend for report emails** — carried forward from the previous spec; Sentry remains the
   compromise until admin exists.
-- **Rate limiting on reporting**, and a retention sweep on `notification_events` — both still
-  open from the previous spec. §8 now commits to a 90-day period, so the sweep has a number.
+- **A retention sweep on `notification_events`** — still open from the previous spec. §8 now
+  commits to a 90-day period, so the sweep has a number.
+- **Rate limiting on reporting is no longer deferred.** §12's auto-suspension promoted it to
+  required-before-general-signup; it is out of scope only for the pilot itself.
 - **Verifying the child's age.** Not achievable, and not what is required.
 
-## 17. What still needs a lawyer
+## 17. The pilot gate, and what still needs a lawyer
 
-This spec reasons from the schema and from the shape of the risk. It is not legal advice, and
-three things must be confirmed by someone qualified before real money is taken from real
-families:
+**Decided 2026-09-04: the pilot charges real money, at the real price, with legal review running
+in parallel rather than blocking it.**
+
+Running the pilot free was considered and rejected on discovering what it actually costs.
+`src/lib/session.ts:37` states the rule the state machine is built around — *"The only route to
+`active` is through `paid`"* — and `accepted` transitions only to `paid`, `payment_expired` or
+`cancelled`. The schema agrees at every level: `sessions.hourly_rate check (> 0)`,
+`amount_paid_paise check (> 0)`, and cycle 3's `/sessions` lists on
+`amount_paid_paise IS NOT NULL OR refund_ref IS NOT NULL` (`student-sessions.ts:12`). **A free
+pilot would mean no session ever reaching `active`, no call ever starting, and an empty session
+record for every student** — closed by adding a `waived` path through the most safety-critical
+state machine in the product, all of it thrown away the day charging begins. The refund policy
+that a free pilot would have deferred is owed before launch regardless, so writing it now is
+permanent work rather than avoided work.
+
+**Therefore blocking the first paid session, and neither needs a lawyer:**
+
+- The refund policy, published, answering the no-show case (§9).
+- Guardian verification by operator call, recorded as `consent_events.path = 'operator_verified'`
+  (§5).
+
+**Still requiring qualified legal input.** This spec reasons from the schema and from the shape
+of the risk; it is not legal advice. Three questions:
 
 1. **What counts as verifiable parental consent** under India's DPDP Act, which treats everyone
-   under 18 as a child — and therefore whether §5's OTP-plus-payment is sufficient.
-2. **The retention periods in §8**, against financial-record requirements.
-3. **The escalation duties in §12** — specifically what must be reported to authorities, by whom,
-   and how fast.
+   under 18 as a child — and therefore whether §5's operator call, and later OTP-plus-payment,
+   is sufficient.
+2. **The retention periods in §8**, against financial-record requirements — and specifically
+   whether 30 days is defensible for recordings of children.
+3. **The external escalation threshold in §12** — what must be reported to authorities, by whom,
+   and how fast. This is the one decision in §§10–12 left deliberately open.
 
-Everything in §§4–9 and §13 can be built before those answers land. §§10–12 cannot be closed
-without them.
+**Sequencing.** §§4–9 and §13 can be built now. §§10–12 are decided and buildable, except the
+external escalation threshold. The legal answers can change §5's verification mechanism and §8's
+retention numbers — both are configuration rather than architecture, which is why the pilot is
+not gated on them.
+
+**One honest note carried forward from the previous handoff:** the engineering here is calibrated
+for a platform serving thousands of families. There are currently two test accounts and the
+product has never met a real student. The safety machinery is not premature — the first real
+child is exactly when it has to already exist — but the rest of the roadmap should stay honest
+about that gap.
