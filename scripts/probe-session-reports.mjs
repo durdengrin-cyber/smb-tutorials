@@ -87,16 +87,24 @@ try {
   ok(!spoof.ok, `a participant cannot file a report under another user's id (HTTP ${spoof.status}, code ${spoofBody?.code ?? "?"})`);
 
   // 4. THE ONE THAT MATTERS: no client can read reports at all.
+  //
+  // 0016 made this true with RLS alone (the read returned 200 and zero rows).
+  // 0017 revoked the SELECT PRIVILEGE as well, so the read is now REFUSED
+  // outright — a strictly stronger property, and one that does not depend on a
+  // policy staying correct. Accept either shape so the probe still passes if
+  // 0017 has not been applied yet, but say which was observed.
   const readMine = await fetch(`${URL}/rest/v1/session_reports?select=*`, { headers: SH });
-  const rowsMine = readMine.ok ? await readMine.json() : null;
-  ok(readMine.ok && Array.isArray(rowsMine) && rowsMine.length === 0,
-     `the reporter reads back ZERO reports, including their own (HTTP ${readMine.status}, ${rowsMine?.length ?? "?"} rows)`);
+  const bodyMine = await readMine.json().catch(() => null);
+  const minePrivilegeRevoked = !readMine.ok;
+  const mineEmpty = readMine.ok && Array.isArray(bodyMine) && bodyMine.length === 0;
+  ok(minePrivilegeRevoked || mineEmpty,
+     `the reporter cannot read reports, including their own (HTTP ${readMine.status}${minePrivilegeRevoked ? ", privilege REVOKED — 0017 applied" : ", RLS-empty — 0017 not applied"})`);
 
   // 5. Least of all the teacher the report is about.
   const readTeacher = await fetch(`${URL}/rest/v1/session_reports?select=*`, { headers: TH });
-  const rowsTeacher = readTeacher.ok ? await readTeacher.json() : null;
-  ok(Array.isArray(rowsTeacher) && rowsTeacher.length === 0,
-     `the reported teacher reads back ZERO reports (${rowsTeacher?.length ?? "?"} rows)`);
+  const bodyTeacher = await readTeacher.json().catch(() => null);
+  ok(!readTeacher.ok || (Array.isArray(bodyTeacher) && bodyTeacher.length === 0),
+     `the reported teacher cannot read reports (HTTP ${readTeacher.status})`);
 
   // 6. The operator can, or the feature is write-only theatre.
   const readService = await (await fetch(
@@ -113,6 +121,45 @@ try {
   ok(!badReason.ok && badReasonBody?.code === "23514",
      `an unknown reason is refused by the check constraint, not RLS (HTTP ${badReason.status}, code ${badReasonBody?.code ?? "?"})`);
 
+  // ---- 8. The report SURVIVES deletion of the teacher it is about. ----
+  //
+  // The chain is live today: auth.users -> profiles -> sessions -> the report.
+  // Before 0017 every link cascaded, so deleting the REPORTED TEACHER's auth
+  // user — one click in the Supabase dashboard, no product code — destroyed the
+  // evidence about them. This is the assertion that proves the fix, and it runs
+  // the real deletion rather than reasoning about the constraints.
+  const snapRes = await fetch(
+    `${URL}/rest/v1/session_reports?select=teacher_name,subject,session_at&session_id=eq.${sessionId}`,
+    { headers: serviceHeaders(env) });
+  const snapBody = await snapRes.json().catch(() => null);
+  // A 400 here means the snapshot columns do not exist, i.e. 0017 has not been
+  // applied. Report that as the finding it is rather than crashing on it — a
+  // probe that dies is indistinguishable from a probe nobody ran.
+  const beforeSnap = Array.isArray(snapBody) ? snapBody[0] : null;
+  const snapshotExists = Boolean(beforeSnap?.teacher_name && beforeSnap?.subject);
+  ok(snapshotExists,
+     snapshotExists
+       ? `the report snapshots who and what it is about (${beforeSnap.teacher_name} / ${beforeSnap.subject})`
+       : `the report snapshots who and what it is about — MISSING (migration 0017 not applied; HTTP ${snapRes.status})`);
+
+  await deleteThrowawayUser(env, teacher.id);
+  created.splice(created.indexOf(teacher.id), 1); // deliberately deleted; do not re-delete in cleanup
+
+  const survRes = await fetch(
+    `${URL}/rest/v1/session_reports?select=id,session_id`,
+    { headers: serviceHeaders(env) });
+  const survivors = await survRes.json().catch(() => null);
+  const kept = Array.isArray(survivors)
+    ? survivors.find((r) => r.session_id === sessionId || (snapshotExists && r.session_id === null))
+    : null;
+  ok(Boolean(kept),
+     kept
+       ? `the report survives the reported teacher's deletion (kept, session_id now ${kept.session_id ?? "null"})`
+       : `the report survives the reported teacher's deletion — DESTROYED by the cascade (migration 0017 not applied)`);
+
+  if (kept) {
+    await fetch(`${URL}/rest/v1/session_reports?id=eq.${kept.id}`, { method: "DELETE", headers: serviceHeaders(env) });
+  }
   await fetch(`${URL}/rest/v1/sessions?id=eq.${sessionId}`, { method: "DELETE", headers: serviceHeaders(env) });
 } finally {
   console.log("\ncleanup");

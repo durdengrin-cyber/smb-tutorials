@@ -154,6 +154,19 @@ report is not an error and will sit among exceptions. Close by installing `resen
 sending domain, and routing `session_reports` inserts to a real address. Blocked on a Resend
 account.
 
+**2a. ~~The read control was a single mechanism~~ — CLOSED 2026-09-04 by migration `0017`.**
+`revoke select … from anon, authenticated` now stands beside RLS, so the table is not one policy
+mistake from being readable. Proved by the probe: the reporter and the reported teacher both get
+**HTTP 403 (privilege revoked)**, where before they got 200-with-zero-rows.
+
+**2b. ~~Cascade deletion destroyed reports~~ — CLOSED 2026-09-04 by migration `0017`.** The report
+now snapshots `teacher_name`, `subject` and `session_at` via a `BEFORE INSERT` trigger (so the
+application cannot forget and a direct insert cannot bypass it), and both foreign keys are
+`ON DELETE SET NULL`. Proved by the probe, which deletes the reported teacher for real and asserts
+the report survives. The reporter's NAME is deliberately not snapshotted: the report is evidence
+about a teacher, and someone who deletes their account should not have their name preserved in a
+table they can never see.
+
 **2. No one can read reports in the product.** By design today — there is no admin. Reports are
 readable only via the service role, i.e. a script. **This is acceptable only while the operator is
 one person who reads their own alerts.** Admin (redesign piece 3) must give reports a real
