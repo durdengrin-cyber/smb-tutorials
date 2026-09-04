@@ -63,6 +63,20 @@ hits a sign-in wall, and a signed-in *teacher* cannot view `/teachers` at all. R
 
 ### Outstanding, not blocking
 
+- **🆕 A signed-in user cannot reach the landing page (found by the user, 2026-09-04).** The
+  header logo in `src/components/app-shell.tsx:23` links to `/home`, but `/home` is a RESOLVER,
+  not a page (`src/app/(app)/home/page.tsx` calls `resolveHome(role)` and redirects). So a
+  student clicking the logo goes `/home` → `/sessions` — back to the page they were already on.
+  It reads as a dead logo. The signed-out header (`marketing-header.tsx:8`) links to `/`
+  correctly; only the signed-in shell is affected.
+  **Today's routing change made it more visible:** before `resolveHome("student")` became
+  `/sessions`, the logo at least moved a student from `/teachers` to `/find`. Now, clicked from
+  `/sessions`, it is a literal no-op.
+  **Not fixed — user asked to record it and fix later.** The decision it needs first: should the
+  signed-in logo go to `/` (the marketing page, which advertises features that do not exist yet)
+  or stay role-aware? A "Home" nav entry pointing at `/` may be the better answer than changing
+  the logo, since the logo's current behaviour is right for teachers.
+
 - **🔜 NEXT UP: Google OAuth is unconfigured.** `node scripts/probe-auth-providers.mjs` exits 1
   naming `google` and will until the dashboard config is done. Steps in the cycle-1 handoff.
   **User flagged this on 2026-09-04 as the next thing to do after the student session record.**
