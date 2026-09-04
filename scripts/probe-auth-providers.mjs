@@ -4,19 +4,23 @@
 // clicked the button; this makes it a check rather than a discovery.
 //
 // Run: node scripts/probe-auth-providers.mjs
-import { readFileSync } from "node:fs";
+//
+// Uses the SHARED readEnv rather than parsing .env.local itself. It had its own
+// copy, and that copy did not strip surrounding quotes — .env.local is written
+// by the Vercel CLI, which quotes values, so this probe built
+// `"https://…"/auth/v1/settings` and died with an Invalid URL TypeError. It had
+// therefore never once reported a provider state, while project_state.md
+// recorded it as "exits 1 naming google". A check that cannot run is worse than
+// no check: it looks like coverage. Deleted the duplicate instead of patching
+// it, since the bug existed only because it was a duplicate.
+//
+// Note the shared helper resolves .env.local relative to the CWD, so run this
+// from the repo root, as with every other probe here.
+import { readEnv } from "./probe-accounts.mjs";
 
 const REQUIRED = ["email", "google"];
 
-const env = Object.fromEntries(
-  readFileSync(new URL("../.env.local", import.meta.url), "utf8")
-    .split("\n")
-    .filter((l) => l.trim() && !l.trim().startsWith("#"))
-    .map((l) => {
-      const i = l.indexOf("=");
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
-    })
-);
+const env = readEnv();
 
 const url = env.NEXT_PUBLIC_SUPABASE_URL;
 const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
