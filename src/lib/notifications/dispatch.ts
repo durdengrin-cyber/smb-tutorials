@@ -10,12 +10,37 @@ export const MAX_DEVICES_PER_TEACHER = 20;
 // Road 2 of the fan-out (spec §5.1). Road 1 is the existing realtime card,
 // and the two know nothing about each other on purpose: one failing still
 // leaves one landing.
+export type NotificationOutcome =
+  | "sent" | "failed" | "gone" | "no_devices" | "read_error" | "threw";
+
+export interface NotificationEvent {
+  session_id: string | null;
+  teacher_id: string;
+  device_id: string | null;
+  outcome: NotificationOutcome;
+  status_code: number | null;
+  detail: string | null;
+}
+
 export async function notifyTeacherOfRequest(
   teacherId: string,
   studentName: string,
-  subject: string
+  subject: string,
+  sessionId: string | null = null
 ): Promise<{ sent: number; pruned: number }> {
   const supabase = createDispatchClient();
+  const events: NotificationEvent[] = [];
+
+  // Never let logging break delivery. This is the observability road, not the
+  // delivery road, and a failure to WRITE a log must not cost a teacher the
+  // notification the log exists to explain.
+  const flush = async () => {
+    if (!events.length) return;
+    const { error: logError } = await supabase
+      .from("notification_events")
+      .insert(events);
+    if (logError) console.error("[notify] event log write failed", logError);
+  };
 
   const { data: devices, error } = await supabase
     .from("teacher_devices")
@@ -30,8 +55,20 @@ export async function notifyTeacherOfRequest(
     .order("created_at", { ascending: false })
     .limit(MAX_DEVICES_PER_TEACHER);
 
+  // "We never tried" and "we tried and it failed" look identical from the
+  // outside, and a teacher asking why their phone was silent needs them told
+  // apart. dispatch.ts used to collapse both into one bare return.
   if (error || !devices?.length) {
     if (error) console.error("[notify] device read failed", error);
+    events.push({
+      session_id: sessionId,
+      teacher_id: teacherId,
+      device_id: null,
+      outcome: error ? "read_error" : "no_devices",
+      status_code: null,
+      detail: error ? (error.message ?? "device read failed") : null,
+    });
+    await flush();
     return { sent: 0, pruned: 0 };
   }
 
@@ -51,13 +88,35 @@ export async function notifyTeacherOfRequest(
   let sent = 0;
 
   results.forEach((r, i) => {
+    const base = {
+      session_id: sessionId,
+      teacher_id: teacherId,
+      device_id: devices[i].id,
+    };
     if (r.status !== "fulfilled") {
       failed.push(devices[i].id);
+      // A throw is not the same as a push service saying no, and the reason
+      // is usually ours (a missing VAPID key throws exactly here).
+      events.push({
+        ...base, outcome: "threw", status_code: null,
+        detail: String(r.reason?.message ?? r.reason ?? "").slice(0, 500),
+      });
       return;
     }
-    if (r.value.ok) { sent++; return; }
-    if (r.value.gone) gone.push(devices[i].id);
-    else failed.push(devices[i].id);
+    if (r.value.ok) {
+      sent++;
+      // SendResult's success variant is `{ ok: true }` — no status to record,
+      // and inventing one would be a fact the port never reported.
+      events.push({ ...base, outcome: "sent", status_code: null, detail: null });
+      return;
+    }
+    if (r.value.gone) {
+      gone.push(devices[i].id);
+      events.push({ ...base, outcome: "gone", status_code: r.value.status ?? null, detail: r.value.error ?? null });
+    } else {
+      failed.push(devices[i].id);
+      events.push({ ...base, outcome: "failed", status_code: r.value.status ?? null, detail: r.value.error ?? null });
+    }
   });
 
   // 404/410 is the only death signal a subscription has, so it is the only
@@ -106,5 +165,6 @@ export async function notifyTeacherOfRequest(
       console.error("[notify] delivery result stamp failed", resultsError);
   }
 
+  await flush();
   return { sent, pruned: gone.length };
 }

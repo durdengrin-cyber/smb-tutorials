@@ -857,6 +857,20 @@ when that one is closed.
 the table itself will still accept unbounded rows per teacher. Trim inside `register_device` if
 the row count ever matters for reasons other than fan-out.
 
+**9. `notification_events` has no retention sweep.** `0015` writes one row per device per
+session request and nothing prunes it. At trial volume that is nothing; add a sweep before it
+matters. Recorded here rather than left to be discovered.
+
+**10. Session recording is a launch requirement, decided 2026-09-04, deliberately NOT built
+yet.** When it ships, three things move together or the product contradicts itself:
+`createSessionRoom` gains the recording property; the payment notice changes from *"sessions may
+be recorded"* to *"will be"*; and `src/app/(marketing)/terms/page.tsx:186` — which today states
+**"No Recording Without Consent: you may not record… any portion of a live session"** — must be
+rewritten in the SAME commit. Shipping recording while that clause stands would put a
+contradiction in production. Budget ~₹50–75 per 60-minute session for recording plus storage
+(verify against daily.co/pricing), which is a real 10–15% slice of a ₹500 lesson and should be
+priced in rather than discovered.
+
 ## 16. Out of scope, explicitly
 
 Student dashboard · student push · offline/caching · presence sharding · a general E2E

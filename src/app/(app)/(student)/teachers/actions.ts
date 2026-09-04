@@ -93,7 +93,10 @@ export async function requestSession(input: {
       await notifyTeacherOfRequest(
         input.teacherId,
         session.student_name ?? "A student",
-        input.subject
+        input.subject,
+        // Correlates the delivery log with the request it belongs to, so
+        // "why didn't it ring for THIS student" is an answerable question.
+        session.id
       );
     } catch (e) {
       // Road 2 failing must never take the request down with it — road 1 is
