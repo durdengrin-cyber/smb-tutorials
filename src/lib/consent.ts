@@ -13,3 +13,10 @@ export { GRADES, type Grade, isGrade } from "./taxonomy";
 // dependency-free leaf: anything can import CONSENT_VERSION without dragging
 // in the parsers.
 export const CONSENT_VERSION = "2026-09-05-guardian";
+
+// The one question every entry path asks. A version rather than a boolean,
+// because a material change to the wording is a new agreement and an old one
+// must not be silently read as consent to it.
+export function needsConsent(profile: { consentVersion: string | null }): boolean {
+  return profile.consentVersion !== CONSENT_VERSION;
+}

@@ -4,11 +4,13 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { resolveHome, signInRedirect, type Role } from "@/lib/routes";
+import { needsConsent } from "@/lib/consent";
 
 export interface Identity {
   userId: string;
   role: Role;
   fullName: string;
+  consentVersion: string | null;
 }
 
 // Cached for the lifetime of one request, so a layout, a nested layout and the
@@ -24,7 +26,7 @@ export const getIdentity = cache(async (): Promise<Identity | null> => {
   // handle_new_user() reads at signup (migration 0001) — never read it here.
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id, role, full_name")
+    .select("id, role, full_name, consent_version")
     .eq("id", user.id)
     .single();
 
@@ -43,6 +45,7 @@ export const getIdentity = cache(async (): Promise<Identity | null> => {
     userId: profile.id,
     role: profile.role as Role,
     fullName: profile.full_name,
+    consentVersion: profile.consent_version as string | null,
   };
 });
 
@@ -54,6 +57,12 @@ async function currentPath(): Promise<string> {
 export async function requireUser(): Promise<Identity> {
   const identity = await getIdentity();
   if (!identity) redirect(signInRedirect(await currentPath()));
+  // Every authenticated page passes through here, so this is the only place
+  // the question has to be asked. Spec §7 names the OAuth callback; that would
+  // close Google alone and leave the next entry path to remember on its own.
+  if (needsConsent(identity) && (await currentPath()) !== "/consent") {
+    redirect("/consent");
+  }
   return identity;
 }
 
