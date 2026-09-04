@@ -215,8 +215,25 @@ reconciliation that only ever removed availability would be its own bug.
 
 ### Not covered
 
-- **Step 9 — Android.** Not run. Doze delay is therefore unmeasured, and Android push is proven
-  only by the same construction argument iOS had until today.
+- ~~**Step 9 — Android.**~~ **RUN AND PASSED 2026-09-04.** The user reports: notification received
+  as intended, tapping it opened the app, accepted the request, and the room opened as designed.
+
+  Corroborated in `notification_events`, independently of the report:
+
+  | Event | Time (UTC) |
+  |---|---|
+  | session requested | `16:28:29` |
+  | **sent → `fcm.googleapis.com`** (Android) | **`16:28:34`** |
+  | **sent → `web.push.apple.com`** (iPhone) | **`16:28:34`** |
+  | session started, room minted | `16:29:21` |
+
+  **Five seconds. No meaningful Doze delay** — Android matched iOS's three. Zero failures on
+  either device; both `last_ok_at` stamped.
+
+  **This also proved something the iPhone walk could not: the multi-device fan-out.** One request
+  reached two different push services in a single dispatch. Until this run the dispatcher had
+  never sent to more than one device, so `MAX_DEVICES_PER_TEACHER`, the `Promise.allSettled`
+  fan-out and the per-device delivery log were all proven only by construction.
 - **Step 11 — the decline case.** Not run. That a teacher who denies permission reads "Can't
   reach you" and is hidden from students is still unproven by execution.
 
