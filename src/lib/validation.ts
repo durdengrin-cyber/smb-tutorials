@@ -104,6 +104,15 @@ export function parseTutorSignUp(fd: FormData): Result<TutorSignUp> {
   const fullName = str(fd, "fullName");
   if (!fullName) return fail("Enter your full name.");
 
+  // Checked on the SERVER, exactly as parseStudentSignUp does, and for the
+  // same reason: 0014 fixed the student box and missed this one, so tutor
+  // consent stayed browser-only decoration and was never recorded at all.
+  // Requiring it here is what makes a missing `name` on the checkbox fail
+  // loudly instead of shipping silently a second time.
+  if (!fd.get("consent")) {
+    return fail("Please agree to the Terms of Service and Tutor Agreement.");
+  }
+
   const email = str(fd, "email");
   if (!email.includes("@")) return fail("Enter a valid email address.");
 

@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   profileUpdateCalls: [] as unknown[],
   rpcCalls: [] as { fn: string; args: unknown }[],
   rpcError: null as null | { message: string },
+  signUpCalls: [] as { email: string; options?: { data?: Record<string, unknown> } }[],
 }));
 
 // redirect() ends the happy path by throwing, the way Next's really does.
@@ -26,6 +27,10 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: {
       getUser: async () => ({ data: { user: state.user } }),
+      signUp: async (args: { email: string; options?: { data?: Record<string, unknown> } }) => {
+        state.signUpCalls.push(args);
+        return { data: { user: { id: "new-teacher-id" } }, error: null };
+      },
     },
     from: (table: string) => {
       if (table === "sessions") {
@@ -79,6 +84,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 import { signUpTutor } from "./actions";
+import { CONSENT_VERSION } from "@/lib/validation";
 
 function validTutorFormData(): FormData {
   const fd = new FormData();
@@ -94,6 +100,7 @@ function validTutorFormData(): FormData {
   fd.append("curricula", "CBSE");
   fd.append("grades", "10th");
   fd.append("subjects", "Science|Physics");
+  fd.set("consent", "yes");
   return fd;
 }
 
@@ -104,6 +111,7 @@ beforeEach(() => {
   state.profileUpdateCalls = [];
   state.rpcCalls = [];
   state.rpcError = null;
+  state.signUpCalls = [];
 });
 
 describe("signUpTutor — history-check failure closed", () => {
@@ -174,5 +182,37 @@ describe("signUpTutor — the upgrade goes through become_teacher", () => {
     expect(result).toEqual({
       error: "Could not upgrade this account to a teacher account.",
     });
+  });
+});
+
+// 0014 recorded consent for students and stopped there, so every teacher on the
+// platform had consent_accepted_at NULL — the checkbox they ticked left no
+// trace. Both routes into a teacher account have to leave one: a fresh signup,
+// and the Google account that arrived as a student and is upgrading. The
+// timestamp is the SERVER's in both cases; the client only ever says whether.
+describe("signUpTutor — consent is recorded, not just required", () => {
+  it("stamps consent onto a brand-new teacher signup", async () => {
+    state.user = null;
+
+    await expect(signUpTutor(null, validTutorFormData())).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(state.signUpCalls).toHaveLength(1);
+    const meta = state.signUpCalls[0].options?.data ?? {};
+    expect(meta.consent_version).toBe(CONSENT_VERSION);
+    expect(Date.parse(String(meta.consent_accepted_at))).not.toBeNaN();
+  });
+
+  it("stamps consent when a Google account upgrades to a teacher", async () => {
+    await expect(signUpTutor(null, validTutorFormData())).rejects.toThrow("NEXT_REDIRECT");
+
+    // handle_new_user already ran for this account, as a student, with no
+    // consent — Google sends none. The enrichment update is the only place
+    // left to write it.
+    const withConsent = state.profileUpdateCalls.find(
+      (p) => (p as Record<string, unknown>).consent_version !== undefined
+    ) as Record<string, unknown> | undefined;
+    expect(withConsent).toBeDefined();
+    expect(withConsent!.consent_version).toBe(CONSENT_VERSION);
+    expect(Date.parse(String(withConsent!.consent_accepted_at))).not.toBeNaN();
   });
 });

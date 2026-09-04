@@ -233,7 +233,16 @@ export function TutorForm() {
 
       {/* Terms */}
       <div className="flex items-start">
-        <input type="checkbox" required className="mt-1 mr-2" />
+        {/* name="consent" matters: without it this never reaches the server
+            and `required` is browser-only decoration. Validated again in
+            parseTutorSignUp, which is what makes its absence fail loudly. */}
+        <input
+          type="checkbox"
+          name="consent"
+          value="yes"
+          required
+          className="mt-1 mr-2"
+        />
         <span className="text-sm text-gray-600">
           I agree to SMB Tutorials&apos;{" "}
           <Link

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { parseTutorSignUp } from "@/lib/validation";
+import { parseTutorSignUp, CONSENT_VERSION } from "@/lib/validation";
 import type { AuthState } from "@/lib/form-state";
 import { canBecomeTeacher, type Role } from "@/lib/routes";
 
@@ -13,6 +13,10 @@ export async function signUpTutor(
   const parsed = parseTutorSignUp(formData);
   if (!parsed.ok) return { error: parsed.error };
   const v = parsed.value;
+
+  // Stamped once, here, so both routes into a teacher account record the same
+  // agreement: the client says WHETHER they agreed, the server says WHEN.
+  const consentAcceptedAt = new Date().toISOString();
 
   const supabase = await createClient();
 
@@ -101,7 +105,15 @@ export async function signUpTutor(
       email: v.email,
       password: v.password,
       options: {
-        data: { role: "teacher", full_name: v.fullName, phone: v.phone },
+        data: {
+          role: "teacher",
+          full_name: v.fullName,
+          phone: v.phone,
+          // handle_new_user copies these onto the profile (0014), so the
+          // consent survives independently of the auth record.
+          consent_accepted_at: consentAcceptedAt,
+          consent_version: CONSENT_VERSION,
+        },
       },
     });
     if (error || !data.user) return { error: error?.message ?? "Sign up failed." };
@@ -119,6 +131,13 @@ export async function signUpTutor(
       hourly_rate: v.hourlyRate,
       hours_per_week: v.hoursPerWeek,
       demo_video_url: v.demoVideoUrl,
+      // The Google route has no other home for this: handle_new_user already
+      // ran for that account, as a student, and Google sends no consent. Set
+      // on the new-signup route too, where it is a harmless re-statement of
+      // what handle_new_user just wrote, so neither route can drift into
+      // leaving a teacher with no record of what they agreed to.
+      consent_accepted_at: consentAcceptedAt,
+      consent_version: CONSENT_VERSION,
     })
     .eq("id", teacherId);
   if (profileError) {

@@ -95,6 +95,7 @@ describe("parseTutorSignUp", () => {
     curricula: ["CBSE"],
     grades: ["11th", "12th"],
     subjects: ["Science|Physics", "Science|Chemistry"],
+    consent: "yes",
   };
 
   it("expands curricula × grades × subjects into rows", () => {
@@ -143,6 +144,19 @@ describe("parseTutorSignUp", () => {
       expect(r.value.specialization).toBeNull();
       expect(r.value.teachingLevel).toBeNull();
     }
+  });
+
+  // The same defect 0014 closed on the student form, still open on this one:
+  // the tutor checkbox carried `required` and no `name`, so it never left the
+  // browser, and this parser never asked for it. A teacher agreeing to how a
+  // child's data is handled is not a lesser agreement than a parent doing so —
+  // and the trial teachers are real people signing a real document.
+  it("refuses a tutor signup with no consent, however valid the rest is", () => {
+    const withoutConsent: Record<string, string | string[]> = { ...base };
+    delete withoutConsent.consent;
+    const r = parseTutorSignUp(fd(withoutConsent));
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/terms/i);
   });
 
   it("dedupes repeated subject selections", () => {
