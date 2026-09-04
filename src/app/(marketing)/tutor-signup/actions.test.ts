@@ -215,4 +215,16 @@ describe("signUpTutor — consent is recorded, not just required", () => {
     expect(withConsent!.consent_version).toBe(CONSENT_VERSION);
     expect(Date.parse(String(withConsent!.consent_accepted_at))).not.toBeNaN();
   });
+
+  it("logs a consent event when a Google account upgrades", async () => {
+    await expect(signUpTutor(null, validTutorFormData())).rejects.toThrow("NEXT_REDIRECT");
+
+    const call = state.rpcCalls.find((c) => c.fn === "record_consent");
+    expect(call).toBeDefined();
+    expect(call!.args).toEqual({
+      p_version: CONSENT_VERSION,
+      p_path: "tutor_signup",
+      p_detail: null,
+    });
+  });
 });

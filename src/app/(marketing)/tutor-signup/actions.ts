@@ -101,6 +101,19 @@ export async function signUpTutor(
     }
 
     teacherId = existingUser.id;
+
+    // handle_new_user wrote this account's profile long ago, as a student, and
+    // Google sends no consent -- so nothing has logged the agreement this form
+    // just collected. The RPC stamps auth.uid() and now() in SQL (0019).
+    const { error: consentError } = await supabase.rpc("record_consent", {
+      p_version: CONSENT_VERSION,
+      p_path: "tutor_signup",
+      p_detail: null,
+    });
+    if (consentError) {
+      console.error("[tutorSignUp] consent log failed", consentError);
+      return { error: "Could not record your agreement. Try again in a moment." };
+    }
   } else {
     const { data, error } = await supabase.auth.signUp({
       email: v.email,
