@@ -69,6 +69,13 @@ export function parseSignIn(
   return { ok: true, value: { email, password } };
 }
 
+// Bump when the consent wording changes materially, so an old agreement is
+// never silently read as agreement to new terms. Lives here rather than in
+// auth/actions.ts because that file is "use server", where only async
+// functions may be exported — exporting a const there empties the module and
+// every import of it fails. tsc does not catch that; only the build does.
+export const CONSENT_VERSION = "2026-09-04";
+
 export function parseStudentSignUp(fd: FormData): Result<StudentSignUp> {
   const fullName = str(fd, "fullName");
   const email = str(fd, "email");
@@ -79,6 +86,13 @@ export function parseStudentSignUp(fd: FormData): Result<StudentSignUp> {
   if (password.length < 8)
     return fail("Password must be at least 8 characters.");
   if (password !== confirm) return fail("Passwords do not match.");
+  // Checked on the SERVER, not just by the browser. The box existed before
+  // this but carried no `name`, so it never left the page: `required` stops a
+  // human in a browser and stops nothing else. A consent record that any
+  // non-browser client can skip is not a record.
+  if (!fd.get("consent")) {
+    return fail("Please confirm you're the parent or guardian, or 18 or older.");
+  }
   return { ok: true, value: { fullName, email, password } };
 }
 

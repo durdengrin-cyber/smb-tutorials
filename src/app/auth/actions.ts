@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { parseSignIn, parseStudentSignUp } from "@/lib/validation";
+import { parseSignIn, parseStudentSignUp, CONSENT_VERSION } from "@/lib/validation";
 import type { AuthState } from "@/lib/form-state";
 import { safeNext } from "@/lib/routes";
 
@@ -33,7 +33,17 @@ export async function signUpStudent(
   const { error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { role: "student", full_name: fullName } },
+    options: {
+      data: {
+        role: "student",
+        full_name: fullName,
+        // Stamped server-side: the client says WHETHER they agreed, the
+        // server says WHEN. handle_new_user copies both onto the profile so
+        // the consent survives independently of the auth record.
+        consent_accepted_at: new Date().toISOString(),
+        consent_version: CONSENT_VERSION,
+      },
+    },
   });
   if (error) return { error: error.message };
 

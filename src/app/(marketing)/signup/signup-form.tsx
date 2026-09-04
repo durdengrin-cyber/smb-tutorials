@@ -83,9 +83,19 @@ export function SignUpForm() {
         </div>
 
         <div className="flex items-start">
-          <input type="checkbox" required className="mt-1 mr-2" />
+          {/* name="consent" matters: without it this never reaches the server
+              and `required` is browser-only decoration. Validated again in
+              parseStudentSignUp. */}
+          <input
+            type="checkbox"
+            name="consent"
+            value="yes"
+            required
+            className="mt-1 mr-2"
+          />
           <span className="text-sm text-gray-600">
-            I agree to the{" "}
+            I am this student&apos;s parent or guardian, or I am 18 or older,
+            and I agree to the{" "}
             <Link
               href="/terms"
               className="text-teal-600 hover:text-teal-700 underline"

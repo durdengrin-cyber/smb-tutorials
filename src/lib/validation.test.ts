@@ -30,9 +30,27 @@ describe("parseStudentSignUp", () => {
         email: "a@b.com",
         password: "secret123",
         confirmPassword: "secret123",
+        consent: "yes",
       })
     );
     expect(r.ok && r.value.fullName).toBe("Asha");
+  });
+
+  // The consent box carried no `name` before 2026-09-04, so it never left the
+  // browser: `required` stopped a human and stopped nothing else. A consent
+  // record any non-browser client can skip is not a record, and this is the
+  // agreement that has to hold up if a session is ever recorded.
+  it("refuses a signup with no consent, however valid the rest is", () => {
+    const r = parseStudentSignUp(
+      fd({
+        fullName: "Asha",
+        email: "a@b.com",
+        password: "secret123",
+        confirmPassword: "secret123",
+      })
+    );
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/parent or guardian/i);
   });
 
   it("rejects password mismatch", () => {

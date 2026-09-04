@@ -237,8 +237,19 @@ export function WaitingClient({
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
           {teacherName} accepted
         </h2>
-        <p className="text-gray-600 mb-8">
+        <p className="text-gray-600 mb-4">
           Pay <Money paise={amountPaise} /> to start your session.
+        </p>
+        {/* Said BEFORE the money moves, not in a policy page nobody opens.
+            Deliberately "may be" and not "will be": recording is not built
+            yet, and a payment screen that states something untrue is worse
+            than one that says nothing. When recording ships, this wording is
+            already accurate and the /terms clause forbidding recording
+            (terms/page.tsx) must change in the same commit. */}
+        <p className="text-sm text-gray-500 mb-8 max-w-sm mx-auto">
+          For everyone&apos;s safety, sessions may be recorded. By paying, you
+          confirm you&apos;re the student&apos;s parent or guardian, or 18 or
+          older.
         </p>
         {error && <FormError className="mb-4">{error}</FormError>}
         {/* Cancel belongs here, not only before the teacher answers. M3 spec
