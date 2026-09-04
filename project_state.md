@@ -2,10 +2,11 @@
 
 ## ▶ START HERE (updated 2026-08-28)
 
-> **Session 5 (2026-09-01 → 09-03): jump to the "▶ Cycle 2" block below. Both owed reviews are
-> done, all four merge blockers are fixed, migration `0012` is applied, and the dispatcher
-> credential is ratified. NO MERGE BLOCKERS REMAIN — the branch is unpushed and ready. What is
-> left is Task 17, the locked-phone walk, which needs a human and a phone.**
+> **Session 5 (2026-09-01 → 09-04): CYCLE 2 IS FUNCTIONALLY COMPLETE. Both reviews done, all
+> blockers fixed, migrations `0007`–`0012` applied, credential ratified, and **the locked-phone
+> walk PASSED on 2026-09-04** — real push, real lock screen, 3-second delivery. The walk found
+> three defects; two are fixed, one (a real Home Screen icon) is owed before launch. See the
+> "▶ Cycle 2" block below.**
 
 **Cycle 1 of the redesign — IA + design system — is COMPLETE and SHIPPED TO PRODUCTION.**
 `main` @ `f5fdb97`, 37 commits merged and pushed, verified live route-by-route against
@@ -140,7 +141,50 @@ branch, suggests the exact command you just ran, and rejects it again. Pass the 
 third argument. That is why the preview vars are branch-scoped; other preview branches have no
 VAPID vars. Production is unaffected.
 
-**Remaining: Task 17's WALK only** — everything mechanical around it is done and green.
+### ✅ TASK 17 PERFORMED 2026-09-04 — PASSED. Cycle 2 is functionally complete.
+
+**The user ran the walk on a real iPhone. Steps 1–8 and 10. "Worked seamlessly."**
+Steps 6 and 7 — a notification on a LOCKED lock screen, and tapping it opening the dashboard
+with the request still live — **were observed by a human**. The session completed end to end.
+
+Corroborated in the database independently of the report: device registered `03:24:41`, session
+requested `03:27:57`, **push delivered and `last_ok_at` stamped `03:28:00`** — three seconds —
+`failure_count` 0, session started `03:29:49`. That row is also the first live proof of migration
+`0012`'s `record_device_results`; nothing had ever written `last_ok_at` before.
+
+**A debt three cycles old is closed.** Before this, no push had ever actually been executed by
+this project.
+
+**The walk found three things. Two are fixed; one is owed.**
+
+- **F3 (most serious, FIXED).** After the session the dashboard read "Available until …" while
+  the row held `declared = false, declared_until = NULL`, so the student list was empty and
+  *correct*. `renewLease()` returned `{ skipped: true }` for BOTH "no write due" and "not
+  declared at all", and the toggle ignored `skipped` — so an open dashboard had **no path** to
+  learn its lease was gone. Spec §6.3's exact forbidden failure, via the UI instead of push, and
+  worse under §7's "all devices, first-class": going offline on the phone left the laptop lying.
+  **Fixed at the root** — the tick now always returns the authoritative lease and so reconciles
+  rather than merely renewing. `shouldRenew` still gates the write, so §4.1's arithmetic holds.
+- **F1 (FIXED, cause unconfirmed).** The dashboard flashed "Can't reach you" when opened from the
+  notification. `dashboard/page.tsx` discarded the error from its device-count read, making a
+  failed read indistinguishable from zero devices. Error now checked and logged. **This does not
+  confirm the flash's cause** — it may have been first-paint ordering; the log is there to say so
+  if it recurs.
+- **F2 (OWED, pre-launch).** The iOS Home Screen icon is the placeholder committed in `6694ca7` —
+  the user reports "just SMB as letters on the logo". iOS did pick up an icon rather than falling
+  back to a screenshot, so no `apple-touch-icon` is strictly required, but **a real icon is owed
+  before launch.**
+
+**Not covered by the walk:** step 9 (Android — Doze delay unmeasured, Android push still proven
+only by construction) and step 11 (the decline case — that a teacher who denies permission reads
+"Can't reach you" and is hidden from students is still unproven by execution).
+
+**Note for re-testing:** the teacher's row is currently `declared = false`. Mr. Azad must click
+"Available now" again before he appears to students.
+
+---
+
+**Superseded: Task 17's WALK** — everything mechanical around it is done and green.
 
 **▶ Walk against https://smb-tutorials-p13avjou4-durdengrin-6266s-projects.vercel.app**
 (cycle-2 preview built from branch head `371a6ef`, HTTP 200, no deployment protection, VAPID
