@@ -63,8 +63,11 @@ hits a sign-in wall, and a signed-in *teacher* cannot view `/teachers` at all. R
 
 ### Outstanding, not blocking
 
-- **Google OAuth is unconfigured.** `node scripts/probe-auth-providers.mjs` exits 1 naming
-  `google` and will until the dashboard config is done. Steps in the handoff.
+- **🔜 NEXT UP: Google OAuth is unconfigured.** `node scripts/probe-auth-providers.mjs` exits 1
+  naming `google` and will until the dashboard config is done. Steps in the cycle-1 handoff.
+  **User flagged this on 2026-09-04 as the next thing to do after the student session record.**
+  The sign-in and sign-up pages already render a `GoogleButton`, so today it is a visible control
+  that cannot work — the same defect class as marketing copy advertising deferred features.
 - **`PAYMENT_PROVIDER=razorpay` in `.env.local`** — the stub is deleted; an unset provider throws
   by design. Production already had it set, so production is unaffected.
 - **The two-browser manual walk was never performed.** Three agents could not drive a browser.
