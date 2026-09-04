@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.92.2",
+    "@sentry/nextjs": "^10.73.0",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "class-variance-authority": "^0.7.1",

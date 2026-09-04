@@ -11,6 +11,7 @@ import {
 } from "@/lib/session";
 import { isCurriculum, isGrade, isSubjectOf } from "@/lib/taxonomy";
 import { notifyTeacherOfRequest } from "@/lib/notifications/dispatch";
+import { reportError } from "@/lib/observability/report";
 
 export async function requestSession(input: {
   teacherId: string;
@@ -101,7 +102,16 @@ export async function requestSession(input: {
     } catch (e) {
       // Road 2 failing must never take the request down with it — road 1 is
       // still live and the catch-up query still runs on the teacher's mount.
-      console.error("[requestSession] push fan-out failed", e);
+      //
+      // But silence is what made this unanswerable. after() discards whatever
+      // happens in here, so before reportError existed a total fan-out failure
+      // left nothing behind but a line in a Vercel log nobody reads. The
+      // teacher's phone stayed quiet and no one found out until they said so.
+      reportError(e, {
+        where: "requestSession.push",
+        teacherId: input.teacherId,
+        sessionId: session.id,
+      });
     }
   });
 
