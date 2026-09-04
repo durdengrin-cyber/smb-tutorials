@@ -8,10 +8,10 @@ import {
   type Curriculum,
   type Stream,
 } from "./taxonomy";
-// Grade comes from consent.ts, not taxonomy.ts: both define the identical
-// 6th-12th domain, and importing both under the same names would collide.
-// consent.ts is the copy in scope here because parseStudentSignUp needs it
-// for learnerGrade; parseTutorSignUp's grade checks reuse the same values.
+// Grade comes from consent.ts (which re-exports it from taxonomy.ts) rather
+// than straight from taxonomy.ts, because parseStudentSignUp needs consent.ts
+// anyway for learnerGrade — importing the same names from both modules here
+// would collide. parseTutorSignUp's grade checks reuse this same import.
 import { isGrade, type Grade } from "./consent";
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
