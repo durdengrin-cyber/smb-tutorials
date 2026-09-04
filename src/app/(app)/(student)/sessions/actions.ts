@@ -12,10 +12,15 @@ export async function reportSession(input: {
 }): Promise<{ ok: true } | { error: string }> {
   // requireConsentedUser(), not a bare getUser(): a Server Action is
   // resolved by ID and run before any page renders, so requireUser()'s
-  // redirect on /consent never gets a chance to fire for this call. This
-  // does not add a real barrier to filing a safety report — every path that
-  // creates or joins a session is consent-gated too, so an account that
-  // could not have consented could not have been in a session to report on.
+  // redirect on /consent never gets a chance to fire for this call.
+  //
+  // This CAN genuinely block a report: a CONSENT_VERSION bump makes an
+  // existing account with real session history unconsented again, and that
+  // account is refused here until it re-consents. Nothing is lost in
+  // practice, though -- /sessions (and every other page this account can
+  // reach) already routes it through requireUser() first, which redirects to
+  // /consent before it ever gets back here. The sequence is "re-consent, then
+  // report," not "blocked from reporting."
   const identity = await requireConsentedUser();
   if (!identity) return { error: "Sign in first." };
   const supabase = await createClient();

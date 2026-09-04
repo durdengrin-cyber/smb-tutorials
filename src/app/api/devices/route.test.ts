@@ -5,7 +5,15 @@ import { CONSENT_VERSION } from "@/lib/consent";
 // — no requireUser(), no consent check. This route has no page render in
 // front of it at all (a service worker calls it directly), so requireUser()'s
 // redirect to /consent could never have protected it. requireConsentedUser()
-// is the backstop; these tests are what would have caught its absence.
+// is the backstop for POST.
+//
+// DELETE is deliberately NOT gated on consent (round-2 review): it only ever
+// removes the caller's own device row, so a signed-in-but-unconsented account
+// must still be able to call it -- SignOutButton fires this on every
+// sign-out, including for a teacher a CONSENT_VERSION bump just sent to
+// /consent, and a 401 there is swallowed by that button's catch, leaving a
+// stale device with an up-to-four-hour availability lease still able to push
+// session requests.
 const state = vi.hoisted(() => ({
   user: null as null | { id: string },
   consentVersion: null as string | null,
@@ -84,17 +92,45 @@ describe("POST /api/devices consent gate", () => {
   });
 });
 
-describe("DELETE /api/devices consent gate", () => {
-  it("refuses an unconsented account", async () => {
-    state.consentVersion = null;
+describe("DELETE /api/devices auth (not consent) gate", () => {
+  it("refuses a signed-out caller", async () => {
+    state.user = null;
     const res = await DELETE(jsonRequest({ endpoint: "e" }));
     expect(res.status).toBe(401);
     expect(state.deleteCalls).toHaveLength(0);
   });
 
+  // The behavior round 2 introduced: DELETE must NOT 401 an unconsented
+  // account the way POST does. If someone "helpfully" re-gates this for
+  // consistency with POST, this is the test that catches it.
+  it("lets an unconsented account remove a device", async () => {
+    state.consentVersion = null;
+    const res = await DELETE(jsonRequest({ endpoint: "e" }));
+    expect(res.status).toBe(200);
+    expect(state.deleteCalls).toHaveLength(1);
+  });
+
   it("lets a consented account remove a device", async () => {
     const res = await DELETE(jsonRequest({ endpoint: "e" }));
     expect(res.status).toBe(200);
+    expect(state.deleteCalls).toHaveLength(1);
+  });
+});
+
+describe("POST vs DELETE consent asymmetry", () => {
+  // Pins the asymmetry itself, in one place, so it reads as deliberate design
+  // rather than as two tests that happen to disagree: the same unconsented
+  // account is refused by POST (registering a device is a real action) and
+  // let through by DELETE (removing your own device is not).
+  it("refuses an unconsented account's POST but allows its DELETE", async () => {
+    state.consentVersion = null;
+
+    const postRes = await POST(jsonRequest({ endpoint: "e", keys: { p256dh: "p", auth: "a" } }));
+    expect(postRes.status).toBe(401);
+    expect(state.rpcCalls).toHaveLength(0);
+
+    const deleteRes = await DELETE(jsonRequest({ endpoint: "e" }));
+    expect(deleteRes.status).toBe(200);
     expect(state.deleteCalls).toHaveLength(1);
   });
 });

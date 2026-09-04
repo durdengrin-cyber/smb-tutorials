@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireConsentedUser } from "@/lib/auth";
+import { requireConsentedUser, getIdentity } from "@/lib/auth";
 
 // The service worker cannot call a Server Action, so registration lands here.
 // It is a thin shell over register_device, which does the real work under
@@ -39,7 +39,18 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const supabase = await createClient();
-  const identity = await requireConsentedUser();
+  // Deliberately getIdentity(), not requireConsentedUser(): removing your OWN
+  // device registration is not an action consent should stand between, and
+  // RLS already scopes the delete below to the caller's own rows. Gating this
+  // like POST would break sign-out cleanup for exactly the account that just
+  // hit the consent gate -- SignOutButton fires this DELETE on every sign-out,
+  // including a teacher a CONSENT_VERSION bump just sent to /consent. A 401
+  // here is swallowed by that button's catch, so teacher_devices would keep
+  // the row and their availability lease (up to four hours) would keep
+  // pushing session requests to a device they signed out of. Do not "fix"
+  // this back to requireConsentedUser() for consistency with POST -- POST
+  // registers a new device (a real action); DELETE only ever removes one.
+  const identity = await getIdentity();
   if (!identity) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
   const body = await request.json().catch(() => null);
