@@ -8,18 +8,26 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 // claiming it.
 //
 // The rule that makes it bearable rather than infuriating: scroll POSITION
-// drives the scenes, scroll SPEED is never touched. The page always moves at
+// drives the stops, scroll SPEED is never touched. The page always moves at
 // the rate the person scrolls.
 
-const SCENES = 4;
-const VH_PER_SCENE = 70;
+// Four scroll STOPS, but only three rendered PANELS. Stops 0 and 1 are the
+// same screen — the online list, before and after a row is chosen — so they
+// must not be two panels that cross-fade into each other. Doing that faded the
+// whole list out and back in at the boundary, which read as the screen
+// glitching rather than as a row being picked. One panel, one row highlight.
+const STOPS = 4;
+const VH_PER_STOP = 70;
 
-// Which step in the track is lit for each scene. Scenes 2 and 3 (waiting and
-// connected) are both the third step — asking and answering are one step to a
-// parent, even though they are two screens.
-const STEP_FOR_SCENE = [0, 1, 2, 2];
+// stop -> which panel is on screen
+const PANEL_FOR_STOP = [0, 0, 1, 2];
 
-const URL_FOR_SCENE = [
+// stop -> which step in the track is lit. The last two stops are both step 3:
+// asking and answering are one step to a parent, even though they are two
+// screens.
+const STEP_FOR_STOP = [0, 1, 2, 2];
+
+const URL_FOR_STOP = [
   "smbtutorials.com/find",
   "smbtutorials.com/find",
   "smbtutorials.com/waiting",
@@ -41,7 +49,10 @@ const TEACHERS = [
 function TeacherRow({ t, hot }: { t: (typeof TEACHERS)[number]; hot?: boolean }) {
   return (
     <div
-      className={`grid grid-cols-[1fr_auto] items-center gap-3 border-b border-hair px-4 py-3 ${
+      // The highlight IS the transition between the first two scroll stops, so
+      // it animates. Everything else on this screen stays put — that is the
+      // point: only the chosen row should change, not the whole list.
+      className={`grid grid-cols-[1fr_auto] items-center gap-3 border-b border-hair px-4 py-3 transition-colors duration-300 ${
         hot ? "bg-muted" : ""
       }`}
     >
@@ -96,7 +107,7 @@ function useScrollDriven() {
 
 export function FlowDemo() {
   const wrap = useRef<HTMLDivElement>(null);
-  const [scene, setScene] = useState(0);
+  const [stop, setStop] = useState(0);
   const ready = useScrollDriven();
 
   useEffect(() => {
@@ -112,7 +123,7 @@ export function FlowDemo() {
         if (!el) return;
         const total = el.offsetHeight - window.innerHeight;
         const p = total > 0 ? Math.min(1, Math.max(0, -el.getBoundingClientRect().top / total)) : 0;
-        setScene(Math.min(SCENES - 1, Math.floor(p * SCENES)));
+        setStop(Math.min(STOPS - 1, Math.floor(p * STOPS)));
       });
     };
 
@@ -125,7 +136,10 @@ export function FlowDemo() {
     };
   }, [ready]);
 
-  const litStep = STEP_FOR_SCENE[scene];
+  const litStep = STEP_FOR_STOP[stop];
+  const panel = PANEL_FOR_STOP[stop];
+  // The row highlight IS the transition between the first two stops.
+  const rowChosen = stop >= 1;
 
   return (
     <div
@@ -139,11 +153,11 @@ export function FlowDemo() {
       // resolve identically on the server and the client, so nothing moves.
       //
       // The tall track exists only where the scroll behaviour does. Height is
-      // derived from the scene count so adding a scene needs no new number.
+      // derived from the stop count so adding a stop needs no new number.
       // The height is computed, so it goes through a custom property: Tailwind's
       // JIT only emits CSS for class strings it can find literally in source,
       // and an interpolated arbitrary value is invisible to it.
-      style={{ "--track-h": `${SCENES * VH_PER_SCENE}vh` } as React.CSSProperties}
+      style={{ "--track-h": `${STOPS * VH_PER_STOP}vh` } as React.CSSProperties}
       className="relative lg:motion-safe:h-[var(--track-h)]"
     >
       <div className="flex items-center py-12 lg:motion-safe:sticky lg:motion-safe:top-[var(--header-h)] lg:motion-safe:min-h-[calc(100vh-var(--header-h))] lg:motion-safe:py-0">
@@ -182,27 +196,25 @@ export function FlowDemo() {
               <i className="block size-2 rounded-full bg-border" />
               <i className="block size-2 rounded-full bg-border" />
               <span className="ml-2 font-mono text-[10px] text-muted-foreground">
-                {URL_FOR_SCENE[scene]}
+                {URL_FOR_STOP[stop]}
               </span>
             </div>
 
-            {/* Fallback stacks every scene; the scroll build absolutely
-                positions them and cross-fades. Both render all four, so the
-                frame is never empty. */}
+            {/* Three panels. The fallback stacks them; the scroll build
+                absolutely positions them and cross-fades between them. Without
+                JS the stop stays 0, so panel 0 shows and the rest sit hidden —
+                a valid hero screenshot, not a pile. */}
             <div className="grid gap-0.5 lg:motion-safe:relative lg:motion-safe:block lg:motion-safe:min-h-[292px]">
-              {[0, 1, 2, 3].map((i) => (
+              {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  // Without JS the scene index stays 0, so scene 0 shows and
-                  // the rest sit hidden behind it — a valid hero screenshot
-                  // rather than four scenes piled on top of each other.
                   className={`border-t border-hair lg:motion-safe:absolute lg:motion-safe:inset-0 lg:motion-safe:border-t-0 lg:motion-safe:transition-all lg:motion-safe:duration-500 ${
-                    scene === i
+                    panel === i
                       ? ""
                       : "lg:motion-safe:pointer-events-none lg:motion-safe:translate-y-2.5 lg:motion-safe:opacity-0"
                   }`}
                 >
-                  {(i === 0 || i === 1) && (
+                  {i === 0 && (
                     <>
                       <div className="border-b border-hair px-4 py-3.5">
                         <p className="mb-1.5 font-mono text-[10px] tracking-wider text-primary">
@@ -211,12 +223,12 @@ export function FlowDemo() {
                         <h2 className="text-base font-black tracking-tight">Online right now</h2>
                       </div>
                       {TEACHERS.map((t, n) => (
-                        <TeacherRow key={t.initials} t={t} hot={i === 1 && n === 0} />
+                        <TeacherRow key={t.initials} t={t} hot={rowChosen && n === 0} />
                       ))}
                     </>
                   )}
 
-                  {i === 2 && (
+                  {i === 1 && (
                     <div className="px-5 py-11 text-center">
                       <p className="mb-3 font-mono text-[11px] tabular-nums tracking-wider text-primary">
                         ASKING · 47s LEFT
@@ -231,7 +243,7 @@ export function FlowDemo() {
                     </div>
                   )}
 
-                  {i === 3 && (
+                  {i === 2 && (
                     <div className="grid grid-rows-[1fr_auto] bg-foreground/95">
                       <div className="grid grid-cols-2 gap-0.5 p-0.5">
                         {[

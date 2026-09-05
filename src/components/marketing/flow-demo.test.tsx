@@ -20,13 +20,22 @@ describe("FlowDemo", () => {
   // Everyone on a phone, everyone with reduced motion, and everyone before JS
   // runs sees the fallback. All four scenes must be in the DOM and readable —
   // never an empty frame waiting for a scroll that will not come.
-  it("renders every scene so the fallback is never blank", () => {
+  it("renders every panel so the fallback is never blank", () => {
     render(<FlowDemo />);
-    // Scenes 0 and 1 are the same screen, one with a row highlighted, so this
-    // heading legitimately appears twice.
-    expect(screen.getAllByText(/online right now/i).length).toBe(2);
+    expect(screen.getByText(/online right now/i)).toBeInTheDocument();
     expect(screen.getByText(/waiting for/i)).toBeInTheDocument();
     expect(screen.getAllByText(/R\. Azad/).length).toBeGreaterThan(0);
+  });
+
+  // The online list must exist EXACTLY once. It was briefly built as two
+  // panels — the list, and the list with a row highlighted — which cross-faded
+  // into each other at the boundary. Fading a screen out and back into an
+  // almost identical screen reads as a glitch, not as a row being chosen.
+  // Choosing a row is a highlight on one row, not a new screen.
+  it("does not duplicate the online list into two panels", () => {
+    render(<FlowDemo />);
+    expect(screen.getAllByText(/online right now/i)).toHaveLength(1);
+    expect(screen.getAllByText(/S\. Kulkarni/)).toHaveLength(1);
   });
 
   // The stacked fallback is the DEFAULT state, not something JS falls back to.
