@@ -1,12 +1,95 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-05)
+## ▶ START HERE (updated 2026-09-05, evening)
+
+**Cycle: visual identity.** Spec `docs/superpowers/specs/2026-09-05-visual-identity-design.md`.
+
+**Branch `feat/visual-identity-tokens` — 21 commits ahead of `main`, pushed, tree clean, and
+NOT merged and NOT in production.** `main` holds only the plan-1 document. Production still shows
+the demo teal, still hotlinks Unsplash, and `/about` 404s there. There is no handoff document for
+this cycle; this block is it.
+
+**Verified green on this branch 2026-09-05 by running them, exit codes recorded:**
+- `npx vitest run` → **0** · **318 passed / 3 skipped** (41 files passed / 1 skipped)
+- `npx tsc --noEmit` → **0** · `npx eslint .` → **0** · `npm run build` → **0**
+
+Both plans' "Done when" boxes check out by command: Geist retired, `#0f766e` gone from
+`globals.css`, no Unsplash hotlink, `/about` linked from the footer, the name spelled
+`SMB Tutorials` 14× with **zero** singular — and **the `/terms` no-recording clause survived
+the repaint byte-identical** (no `+`/`-` line in its diff mentions recording).
+
+Database probes were deliberately NOT run: `git diff --name-only main..HEAD` shows no `supabase/`
+and no `scripts/` changes. This branch is frontend only.
+
+### What is done
+
+- **Plan 1 — the token system** (`plans/2026-09-05-visual-identity-system.md`), all 6 tasks.
+  Archivo + IBM Plex Mono replace Geist; the §5.2 palette replaces shadcn's stock greys and the
+  demo teal; **`next-themes` is actually mounted** (it had been a dependency shipping inert, so
+  `.dark` never applied); a theme toggle in both the signed-in and signed-out headers; a palette
+  regression test.
+- **Plan 2 — the marketing surface** (`plans/2026-09-05-visual-identity-marketing.md`), all 7
+  tasks. The scroll-driven hero, every marketing page repainted onto tokens, one spelling, a
+  footer and an `/about` route, guard tests.
+- **A design-QA round after plan 2** — five `fix(design)` commits found by the owner reviewing
+  the hero: it never went sticky, a post-hydration reflow, the online list re-appearing mid-scroll,
+  step 1 having no screen, and the responsive pass. **That last one reached into `/find`,
+  `waiting-client` and `consent`, so part of plan 3's scope is already done** and plan 3 is smaller
+  than the spec assumes.
+
+### What is not
+
+- **Plan 3 is not written.** Spec §9 describes it: the app-surface re-theme, the rest of the
+  responsive pass, the share card, `apple-touch-icon`, real app icons.
+- **All three of spec §12's blockers are still open** (confirmed by the owner, 2026-09-05): the
+  domain, the wordmark, the dedication copy. Plan 3's scope cannot be settled until at least the
+  domain is.
+- **Nobody has opened this on a handset**, and spec §5.6 makes that the owner's. Preview alias,
+  stable across pushes — Vercel hashed the `/` out of the branch name, unlike cycle 2:
+  `https://smb-tutorials-git-feat-visual-5af6e1-durdengrin-6266s-projects.vercel.app`
+  All seven marketing routes curl 200, and it is built from HEAD (deployment created 18:45:34,
+  HEAD committed 18:45:30).
+
+### 🚩 The finding worth carrying: the site shows two domains at once
+
+`/privacy` (8×), `/terms` (4×) and the footer send parents to **`support@smbtutorial.com`
+— singular**. The new hero's device chrome shows **`smbtutorials.com` — plural**. Neither is
+confirmed as owned. Spec §7 flagged the split and plan 2 deliberately deferred the support
+address behind the domain decision, so this is **not a regression** — but the hero is new, so the
+two spellings are now visible in one session, on published legal documents. The domain already
+gates the share card, the password reset and the email sender; this is a fourth reason to settle it.
+
+**Not a finding, worth knowing:** every marketing route builds `ƒ` (server-rendered on demand),
+`/about` included, because `MarketingLayout` reads cookies — also the source of the known
+`[MarketingLayout] identity lookup failed` build lines. Pre-existing. It does mean the
+WhatsApp-tap landing page gets no static caching.
+
+### The dedication is pulled, on purpose — do not restore it
+
+**The footer's dedication paragraph was removed 2026-09-05 at the owner's instruction, "for now".**
+What stood there was *our* placeholder, not their words, and spec §2 reserves that copy to them.
+`src/components/marketing-footer.tsx` keeps a comment marking the spot and saying so; the link row
+lost its `border-t border-hair pt-6` with it, since that rule only made sense *between* the
+dedication and the links and read as a stray second rule beneath the footer's own top border.
+`/about` never rendered a dedication — it has only a comment. **An agent that re-adds this from
+the spec has made a mistake.**
+
+### Next decision, and it is the owner's
+
+Merge and ship plans 1–2 — accepting spec §11's brief seam, a repainted marketing surface
+beside un-repainted app screens — or hold and write plan 3 first so all three ship together.
+
+---
+
+## ▶ START HERE (updated 2026-09-05, morning) — SUPERSEDED by the block above
 
 **🛑 Read `docs/superpowers/handoffs/2026-09-05-guardian-consent-execution.md` first.** It is the
 state at the close of the 2026-09-05 session. Everything below it is history.
 
-**Everything is committed, pushed, merged and deployed. `main` == `origin/main`. Tree clean.
-Nothing in flight.** Shipped 2026-09-05; the feature branch is deleted.
+**The guardian-consent cycle is committed, pushed, merged and deployed**, and its feature branch
+is deleted. **"Nothing in flight" is no longer true** — see the visual-identity block above; the
+whole of that cycle sits unmerged on `feat/visual-identity-tokens`. Everything else below is
+accurate for guardian-consent.
 
 **Verified against the live site route-by-route** (not the Vercel dashboard — this project has
 shipped a "Ready" deployment that 404'd every path): `/`, `/privacy`, `/terms`, `/signup`,
