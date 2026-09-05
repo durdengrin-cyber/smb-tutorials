@@ -3,6 +3,7 @@ import { NAV } from "@/lib/nav";
 import type { Identity } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { SignOutButton } from "@/components/sign-out-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Responsive by construction: a top bar everywhere, plus a bottom tab bar on
 // small screens. The product is built for whatever device someone has, not for
@@ -39,6 +40,7 @@ export function AppShell({
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {identity.fullName}
             </span>
+            <ThemeToggle />
             <SignOutButton />
           </div>
         </div>

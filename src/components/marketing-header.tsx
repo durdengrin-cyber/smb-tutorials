@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function MarketingHeader({ signedIn }: { signedIn: boolean }) {
   return (
@@ -16,11 +17,14 @@ export function MarketingHeader({ signedIn }: { signedIn: boolean }) {
             </span>
           </div>
         </Link>
-        <Button asChild>
-          <Link href={signedIn ? "/home" : "/signin"}>
-            {signedIn ? "Go to your dashboard" : "Sign in"}
-          </Link>
-        </Button>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Button asChild>
+            <Link href={signedIn ? "/home" : "/signin"}>
+              {signedIn ? "Go to your dashboard" : "Sign in"}
+            </Link>
+          </Button>
+        </div>
       </div>
     </header>
   );
