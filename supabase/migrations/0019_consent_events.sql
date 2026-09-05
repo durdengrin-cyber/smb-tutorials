@@ -79,8 +79,12 @@ grant execute on function public.record_consent(text, text, text) to authenticat
 
 -- A brand-new signup has no session yet when the row must be written, so
 -- handle_new_user writes it in the same transaction that creates the profile.
--- Unchanged from 0014 except for that insert: metadata is still client
--- controlled, so only these values are ever honoured.
+-- profiles.consent_accepted_at still takes the metadata value as a
+-- convenience for reads (never evidence, per record_consent above). The
+-- consent_events insert below deliberately leaves accepted_at out of its
+-- column list so the table's default now() applies: metadata is
+-- client-supplied and is never trusted for the evidence log, on this path
+-- or any other.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -110,12 +114,11 @@ begin
   );
 
   if v_consent_at is not null and v_version is not null then
-    insert into public.consent_events (user_id, version, path, accepted_at, subject_email)
+    insert into public.consent_events (user_id, version, path, subject_email)
     values (
       new.id,
       v_version,
       case when v_role = 'teacher' then 'tutor_signup' else 'student_signup' end,
-      v_consent_at,
       coalesce(new.email, '')
     );
   end if;
