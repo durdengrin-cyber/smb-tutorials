@@ -170,7 +170,10 @@ Recorded in `docs/superpowers/specs/2026-09-04-child-safety-and-consent-design.m
   a free pilot means no session ever reaching `active`, no call ever starting, and an empty
   `/sessions` for every student.
 
-**Still open and needing a lawyer:** what counts as verifiable parental consent under DPDP;
+**Legal review: the user owns it and it is under way (acknowledged 2026-09-05).** They will
+flag anything that needs to change. This does not gate the pilot — spec §17 already decided the
+pilot charges real money with legal review running in parallel. The three questions are kept
+listed below so they are not quietly lost, not because anyone is waiting on this session: what counts as verifiable parental consent under DPDP;
 whether 30 days is defensible for recordings of children; and the external escalation threshold
 (when a report goes to police, and who decides). §§4–9 and §13 do not wait on these.
 
