@@ -167,6 +167,34 @@ with shadows. Structure carries meaning: numbered steps only where there is a re
 **No emoji anywhere.** Replaced by structure and mono labels, not by an icon set — nothing to
 commission, nothing to maintain.
 
+### 5.6 Responsive — audited 2026-09-05, unverified on hardware
+
+**Nobody has checked the page contents at phone width.** `app-shell.tsx` has a proper bottom tab
+bar, so cycle 1 handled the *chrome*, but most pages carry **zero** responsive breakpoints and
+the contents were never audited. The iPhone and Android walks that passed on 2026-09-04 covered
+the **teacher** flow — push, lock screen, dashboard, accept. **`/find` has never been opened on a
+phone.**
+
+**The concrete finding, and it is on the student's most-used screen.** `find/page.tsx:66` and
+`:108` render `grid-cols-3` with no breakpoint, inside a card with `p-8`. At 360px — a common
+Android width — that leaves roughly **85px per button** after padding and gaps. The options are
+`CBSE` / `State Board` / `ICSE`, then `Science` / `Commerce` / `Arts`. "State Board" cannot fit,
+so it wraps to two lines. Not broken (`h-auto` lets the buttons grow) but visibly cramped on
+exactly the device it matters on.
+
+Same pattern in `tutor-signup/subject-picker.tsx:40` and `(marketing)/page.tsx:106`.
+
+**In plan 3:**
+- The four fixed `grid-cols-3` become responsive (one or two columns at phone width).
+- Heavy padding (`p-8`, `p-12`) gets a smaller phone-width value; `(marketing)/page.tsx` has
+  eight unqualified instances.
+- **A middle breakpoint for the scroll-driven hero.** The prototype has a single break at 880px;
+  between 881px and the 1120px max-width — small laptops, landscape tablets — the two-column
+  hero leaves too little room for the device frame.
+
+**Verification is the owner's**, on a real handset. Most traffic arrives from a WhatsApp tap on a
+phone, so this is not a detail.
+
 ## 6. Imagery
 
 **Decided: no photographs of children. Not stock, not real.** Real ones need consent that should
@@ -227,8 +255,8 @@ not a preference:
 2. **The marketing surface.** `/`, `/signup`, `/tutor-signup`, `/signin`, `/privacy`, `/terms`,
    plus the new About page. Unsplash images out, emoji out, product screenshots in, one spelling
    throughout, and the scroll-driven hero (§5.4). This is where the identity becomes visible.
-3. **The app surface and the share card.** Re-theming the product screens, `opengraph-image`,
-   `apple-touch-icon` and real app icons.
+3. **The app surface, the responsive pass, and the share card.** Re-theming the product screens,
+   `opengraph-image`, `apple-touch-icon`, real app icons — and §5.6.
 
 **Plan 2 is where the value lands, but plan 1 must ship first** — repainting pages against tokens
 that do not exist yet means doing it twice.
