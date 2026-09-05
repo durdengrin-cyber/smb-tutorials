@@ -55,7 +55,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="px-8 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
           <PageHeader
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
 
           <Card>
             <CardContent className="p-6">
-              <h3 className="font-bold text-gray-900 mb-3">You&apos;re live for</h3>
+              <h3 className="font-bold text-foreground mb-3">You&apos;re live for</h3>
               {subjects && subjects.length > 0 ? (
                 <ul className="flex flex-wrap gap-2">
                   {subjects.map((s) => (

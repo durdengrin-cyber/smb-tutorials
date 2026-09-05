@@ -64,7 +64,7 @@ export function NotificationSetup({ variant }: { variant: "full" | "card" }) {
     <>
       {action === "install_ios" && (
         <>
-          <h2 className="font-bold text-gray-900">
+          <h2 className="font-bold text-foreground">
             One more step so students can reach you
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -76,7 +76,7 @@ export function NotificationSetup({ variant }: { variant: "full" | "card" }) {
       )}
       {action === "enable" && (
         <>
-          <h2 className="font-bold text-gray-900">Turn on notifications</h2>
+          <h2 className="font-bold text-foreground">Turn on notifications</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             We&apos;ll notify you when a student asks for a session, even
             with your phone locked.
@@ -89,7 +89,7 @@ export function NotificationSetup({ variant }: { variant: "full" | "card" }) {
       )}
       {action === "blocked" && (
         <>
-          <h2 className="font-bold text-gray-900">Can&apos;t reach you</h2>
+          <h2 className="font-bold text-foreground">Can&apos;t reach you</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Notifications are blocked for this site, so students aren&apos;t
             being shown to you when your dashboard is closed. You can turn
@@ -102,7 +102,7 @@ export function NotificationSetup({ variant }: { variant: "full" | "card" }) {
 
   if (variant === "full") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="w-full max-w-md">
           <Card className="p-6">{body}</Card>
           <p className="mt-4 text-center text-sm">

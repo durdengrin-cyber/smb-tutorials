@@ -54,7 +54,7 @@ export default async function SessionsPage() {
   const rows = (data ?? []).filter(moneyTouched);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="px-8 py-12">
         <div className="mx-auto max-w-3xl space-y-8">
           <PageHeader
@@ -92,7 +92,7 @@ export default async function SessionsPage() {
                       <Card>
                         <CardContent className="p-6">
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
-                            <h3 className="font-semibold text-gray-900">
+                            <h3 className="font-semibold text-foreground">
                               {s.subject} with {teacherName}
                             </h3>
                             <span className="text-sm text-muted-foreground">
@@ -111,7 +111,7 @@ export default async function SessionsPage() {
                               "No charge recorded"
                             )}
                             {s.refund_ref && (
-                              <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900">
+                              <span className="ml-2 rounded-full bg-success/12 px-2 py-0.5 text-xs font-medium text-success">
                                 Refunded
                               </span>
                             )}

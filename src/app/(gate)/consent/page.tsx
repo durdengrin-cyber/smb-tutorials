@@ -13,8 +13,8 @@ export default async function ConsentPage() {
   // button after submitting) can resubmit and write a duplicate consent_event.
   if (!needsConsent(identity)) redirect(resolveHome(identity.role));
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-10 sm:px-8 sm:py-12">
-      <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-sm p-5 sm:p-8 border border-gray-100">
+    <div className="min-h-screen bg-background px-4 py-10 sm:px-8 sm:py-12">
+      <div className="max-w-lg mx-auto bg-card rounded-2xl shadow-sm p-5 sm:p-8 border border-hair">
         <ConsentForm role={identity.role} />
       </div>
     </div>

@@ -110,7 +110,7 @@ export default async function TeachersPage({
   const criteria = [subject, curriculum, grade].filter(Boolean).join(" • ");
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="px-8 py-12">
         <div className="max-w-6xl mx-auto">
           <PageHeader
@@ -123,10 +123,10 @@ export default async function TeachersPage({
           {error ? (
             <Card>
               <CardContent className="p-12 text-center">
-                <p className="text-gray-900 font-semibold mb-2">
+                <p className="text-foreground font-semibold mb-2">
                   Couldn&apos;t load teachers
                 </p>
-                <p className="text-gray-600">Refresh to try again.</p>
+                <p className="text-muted-foreground">Refresh to try again.</p>
               </CardContent>
             </Card>
           ) : (

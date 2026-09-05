@@ -21,17 +21,12 @@ for (const dir of ["src/app/(app)", "src/app/(gate)"]) {
 // empty its own entries is not done. Task 7 asserts it reaches zero, after
 // which this file becomes a plain regression guard like the marketing one.
 const PENDING = new Set([
-  "src/components/notification-setup.tsx",
-  "src/app/(app)/(student)/teachers/page.tsx",
   "src/app/(app)/(student)/teachers/teacher-card.tsx",
   "src/app/(app)/(student)/teachers/online-list.tsx",
-  "src/app/(app)/(teacher)/dashboard/page.tsx",
   "src/app/(app)/(teacher)/dashboard/incoming-request.tsx",
   "src/app/(app)/(teacher)/dashboard/session-history.tsx",
   "src/app/(app)/(student)/find/page.tsx",
-  "src/app/(app)/(student)/sessions/page.tsx",
   "src/app/(app)/(student)/waiting/[sessionId]/waiting-client.tsx",
-  "src/app/(gate)/consent/page.tsx",
   "src/app/(gate)/consent/consent-form.tsx",
 ]);
 
