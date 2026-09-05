@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { FlowDemo } from "./flow-demo";
 
 const mql = (matches: boolean) =>
@@ -77,5 +78,36 @@ describe("FlowDemo", () => {
     expect(screen.getByText(/pick the subject/i)).toBeInTheDocument();
     expect(screen.getByText(/ask a teacher who is online/i)).toBeInTheDocument();
     expect(screen.getByText(/they accept, the lesson starts/i)).toBeInTheDocument();
+  });
+
+  // Reported by the owner 2026-09-06: on a desktop the hero rendered as static
+  // cards stacked one below another instead of the scroll-driven frame.
+  //
+  // Root cause, and it is NOT really the breakpoint. The headline is sized off
+  // the VIEWPORT (`clamp(2rem,4.6vw,3.6rem)`), which knows nothing about the
+  // column it sits in. At 1024px that is ~47px inside a ~450px column, so it
+  // wrapped to five lines beside a squeezed frame. e6c4474 treated the symptom
+  // by pushing columns AND scroll-driving up to xl (1280px) — which handed
+  // every browser window under 1280px the phone fallback, when spec §5.4 says
+  // that fallback is for <=880px. A 400px band of desktop widths got a
+  // treatment designed for phones.
+  //
+  // The fix sizes the headline per band, so scroll-driving can engage at lg
+  // (1024px) as §5.6's "middle breakpoint" always intended. Asserted against
+  // the source because a CSS media query cannot be exercised in jsdom.
+  it("engages the scroll-driven hero on laptops, not only above 1280px", () => {
+    const src = readFileSync("src/components/marketing/flow-demo.tsx", "utf8");
+    expect(src).toMatch(/lg:motion-safe:sticky/);
+    expect(src).not.toMatch(/xl:motion-safe:sticky/);
+  });
+
+  // The two must never disagree. When columns and scroll-driving engaged at
+  // different widths, the frame was squeezed by a layout the script thought
+  // was still stacked — the original defect, in a different guise.
+  it("turns columns on at the same width it starts driving the scroll", () => {
+    const src = readFileSync("src/components/marketing/flow-demo.tsx", "utf8");
+    const driveAt = src.match(/(lg|xl):motion-safe:sticky/)?.[1];
+    const columnsAt = src.match(/(lg|xl):grid-cols-\[/)?.[1];
+    expect(columnsAt).toBe(driveAt);
   });
 });
