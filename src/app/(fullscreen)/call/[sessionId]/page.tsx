@@ -78,8 +78,8 @@ export default async function CallPage({
   } catch (e) {
     console.error(`[call] token mint failed for ${sessionId}:`, e);
     return (
-      <main className="min-h-screen bg-background flex items-center justify-center p-8">
-        <div className="bg-card rounded-2xl shadow-sm border border-hair p-12 max-w-md w-full text-center">
+      <main className="min-h-screen bg-background flex items-center justify-center p-5 sm:p-8">
+        <div className="bg-card rounded-2xl shadow-sm border border-hair p-6 max-w-md w-full text-center sm:p-12">
           <h2 className="text-xl font-bold text-foreground mb-1">
             Couldn&apos;t open the call
           </h2>
