@@ -9,9 +9,9 @@ export { GRADES, type Grade, isGrade } from "./taxonomy";
 // guardian rewrite: the holder is now the parent or legal guardian, not
 // "parent OR 18+".
 //
-// Lives here rather than in validation.ts so this module stays a
-// dependency-free leaf: anything can import CONSENT_VERSION without dragging
-// in the parsers.
+// Lives here rather than in validation.ts so this module avoids depending on
+// validation.ts and the parsers: anything can import CONSENT_VERSION without
+// pulling them in.
 export const CONSENT_VERSION = "2026-09-05-guardian";
 
 // The one question every entry path asks. A version rather than a boolean,

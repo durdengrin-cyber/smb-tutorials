@@ -253,7 +253,7 @@ export function TutorForm() {
           </Link>{" "}
           and{" "}
           <Link
-            href="/terms"
+            href="/terms#tutor-agreement"
             className="text-teal-600 hover:text-teal-700 underline"
           >
             Tutor Agreement

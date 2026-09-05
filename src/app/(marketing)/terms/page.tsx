@@ -168,7 +168,7 @@ export default function TermsPage() {
               </div>
             </section>
 
-            <section className="mb-10">
+            <section id="tutor-agreement" className="mb-10">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
                 Tutor Agreement
               </h2>
