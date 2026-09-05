@@ -62,26 +62,26 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
   return (
     <Card className="p-6">
       <div className="flex items-baseline justify-between mb-4">
-        <h3 className="font-bold text-gray-900">Your sessions</h3>
+        <h3 className="font-bold text-foreground">Your sessions</h3>
         <div className="text-right">
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="font-mono text-2xl font-bold tabular-nums text-foreground">
             {billableError ? "—" : <Money paise={earnedPaise} />}
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             {billableError ? "couldn't load earnings" : "earned · pending payout"}
           </p>
         </div>
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           No sessions yet. Go available and your first request will appear here.
         </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-100">
+              <tr className="text-left text-muted-foreground border-b border-hair">
                 <th className="py-2 font-semibold">Student</th>
                 <th className="py-2 font-semibold">Subject</th>
                 <th className="py-2 font-semibold">When</th>
@@ -91,15 +91,17 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-gray-50">
-                  <td className="py-2 text-gray-900">
+                <tr key={r.id} className="border-b border-hair">
+                  <td className="py-2 text-foreground">
                     {r.student_name || "A student"}
                   </td>
-                  <td className="py-2 text-gray-600">{r.subject}</td>
-                  <td className="py-2 text-gray-600">{when(r.created_at)}</td>
-                  <td className="py-2 text-gray-600">{r.status}</td>
-                  <td className="py-2 text-gray-900 text-right">
-                    ₹{r.hourly_rate}/hr
+                  <td className="py-2 text-muted-foreground">{r.subject}</td>
+                  <td className="py-2 text-muted-foreground">{when(r.created_at)}</td>
+                  <td className="py-2 text-muted-foreground">{r.status}</td>
+                  <td className="py-2 text-right">
+                    <span className="font-mono text-sm tabular-nums text-foreground">
+                      ₹{r.hourly_rate}/hr
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -107,7 +109,7 @@ export async function SessionHistory({ teacherId }: { teacherId: string }) {
           </table>
         </div>
       )}
-      <p className="text-xs text-gray-500 mt-4">
+      <p className="text-xs text-muted-foreground mt-4">
         Payouts are made manually while payments are being set up.
         {rows.length === PAGE && ` Showing your latest ${PAGE} sessions; earnings cover all of them.`}
       </p>

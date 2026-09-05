@@ -276,13 +276,13 @@ export function IncomingRequest({
   // the very events that clear `request`, so an error rendered inside the
   // prompt would unmount in the same tick it was set.
   const banner = error && (
-    <Card className="flex flex-row items-start justify-between gap-4 border-red-200 bg-red-50 px-6 py-4">
-      <p className="text-red-700 text-sm">{error}</p>
+    <Card className="flex flex-row items-start justify-between gap-4 border-destructive/30 bg-destructive/12 px-6 py-4">
+      <p className="text-destructive text-sm">{error}</p>
       <Button
         type="button"
         variant="ghost"
         onClick={() => setError(null)}
-        className="shrink-0 text-red-700 hover:bg-red-100"
+        className="shrink-0 text-destructive hover:bg-destructive/20"
       >
         Dismiss
       </Button>
@@ -335,30 +335,30 @@ export function IncomingRequest({
   return (
     <>
       {banner}
-      <Card className="border-2 border-teal-500 p-6 shadow-xl">
+      <Card className="border-2 border-primary p-6 shadow-xl">
         {request.status === "paid" ? (
           <>
-            <p className="text-lg font-bold text-gray-900 mb-1">
+            <p className="text-lg font-bold text-foreground mb-1">
               {request.student_name} has paid
             </p>
-            <p className="text-sm text-gray-600">Opening your room…</p>
+            <p className="text-sm text-muted-foreground">Opening your room…</p>
           </>
         ) : request.status === "accepted" ? (
           <>
-            <p className="text-lg font-bold text-gray-900 mb-1">
+            <p className="text-lg font-bold text-foreground mb-1">
               Waiting for {request.student_name} to pay — {left}s
             </p>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Your room opens as soon as their payment clears.
             </p>
           </>
         ) : (
           <>
-            <p className="text-lg font-bold text-gray-900 mb-1">
+            <p className="text-lg font-bold text-foreground mb-1">
               New student request — {request.student_name} wants {request.subject}{" "}
               now, ₹{request.hourly_rate}/hr
             </p>
-            <p className="text-sm text-gray-600 mb-4">{left}s to respond</p>
+            <p className="text-sm text-muted-foreground mb-4">{left}s to respond</p>
             <div className="flex gap-3">
               <Button type="button" disabled={busy} onClick={() => accept(request.id)}>
                 Accept
