@@ -37,10 +37,45 @@ and no `scripts/` changes. This branch is frontend only.
   `waiting-client` and `consent`, so part of plan 3's scope is already done** and plan 3 is smaller
   than the spec assumes.
 
+### Plan 3 executed 2026-09-06 — subagent-driven, 8 tasks + a final fix wave
+
+**Green, measured by running them:** `npx vitest run` **336 passed / 3 skipped**, `tsc` 0,
+`eslint` 0, `build` 0. Every "Done when" target at zero: literal colour classes on the product
+surface, emoji outside `(marketing)`, guard `PENDING` entries, raw hex in the guarded set.
+
+**Two defects the cycle existed to find, and one it created:**
+
+1. **The plan missed an entire route group.** `src/app/(fullscreen)` — `/call`, where the lesson
+   happens — was never in the File Structure table and was not walked by the guard: 19 literals
+   and an emoji. Root cause: the audit ran over a set of directories that was *assumed* rather
+   than enumerated. `ls -d src/app/*/` would have caught it. Closed as an added Task 8.
+2. **Task 8 then introduced a light-theme regression.** It added `--stage`, fixed dark in both
+   themes so the video backdrop does not go pale — sound — but every *other* token still flips,
+   so the error banner on that stage measured **2.28** contrast in light. Fixed by moving the
+   banner to an opaque `bg-card`; the constraint is now documented beside `--stage`.
+3. **A wrong premise in the contrast test, written into the plan by me.** It asserted solid token
+   values and claimed a 12% tint "composites toward the ground, so this is the conservative
+   check". Backwards — a tint moves the ground *toward the text*, so contrast always falls.
+   `text-primary` on `bg-primary/12` was **4.20** over `--background` and **3.91** over `--muted`,
+   both under AA. Fixed, and `theme.test.ts` now asserts the **composited** case.
+
+**The guard was inverted from an inclusion list to an exclusion list** (`app-surface.test.ts`):
+it now walks `src/app` and `src/components` wholesale — `.ts` as well as `.tsx` — excluding
+`(marketing)` (own guard) and tests, with a narrow per-check `ALLOW` for `ui/dialog.tsx`'s overlay
+scrim and `google-button.tsx`'s Google brand hexes. **Coverage went from ~15 files to ~70.** This
+is the structural fix for defect 1: a new route group is now guarded on creation.
+
+**One new token:** `--success` (light `#2f6b46`, dark `#7fc79b`). Deliberately NOT a `--warning`
+pair — the brand accent IS gold, so an amber warning token would be the same swatch as the
+identity in dark theme. "In a session" therefore takes `--primary`: engagement, not alarm.
+
+**Still deferred to plan 4**, all blocked on the domain and the wordmark: the share card,
+`apple-touch-icon`, the real app icons.
+
 ### What is not
 
-- **Plan 3 IS now written** (2026-09-05): `plans/2026-09-05-visual-identity-app-surface.md`,
-  7 tasks. **It deliberately covers less than spec §9's plan 3.** The share card,
+- **Plan 3 IS now written AND EXECUTED** (2026-09-05/06): `plans/2026-09-05-visual-identity-app-surface.md`,
+  7 tasks planned, **8 executed** — see the execution block below. Originally 7 tasks. **It deliberately covers less than spec §9's plan 3.** The share card,
   `apple-touch-icon` and the real app icons are split into a future **plan 4**, because they are
   blocked on the domain and the wordmark and nothing else in the cycle depends on them.
   Plan 3 is the app-surface re-theme plus the padding remainder of §5.6 — and it opens with a
