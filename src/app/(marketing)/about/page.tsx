@@ -29,8 +29,10 @@ export default function AboutPage() {
               championed, that every child should be given the means to learn,
               and never around religious authority, which would read as a
               membership marker the moment the audience widens beyond the
-              community. Placed here and echoed as one line in the footer;
-              deliberately absent from the hero and the signup flow. */}
+              community. Deliberately absent from the hero and the signup flow.
+              The footer echo was PULLED on 2026-09-05 at the owner's request —
+              see marketing-footer.tsx. Nothing renders here or there until the
+              owner writes the copy; do not fill it in from this spec note. */}
         </div>
       </main>
     </div>
