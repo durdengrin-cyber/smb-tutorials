@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { FlowDemo } from "./flow-demo";
 
@@ -16,6 +16,44 @@ const mql = (matches: boolean) =>
 beforeEach(() => {
   vi.stubGlobal("matchMedia", mql(false));
 });
+
+
+// The existing mql() answers every query the same way, which cannot express
+// "narrow AND motion is fine" — the phone case. This one answers per query.
+const mqlFor = (answers: Record<string, boolean>) =>
+  vi.fn().mockImplementation((q: string) => ({
+    matches: Object.entries(answers).some(([k, v]) => q.includes(k) && v),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+  }));
+
+// jsdom has no IntersectionObserver. Capture the callback so a test can drive
+// it, the way a real phone scroll would.
+function stubIntersectionObserver() {
+  const observed: Element[] = [];
+  let cb: IntersectionObserverCallback | undefined;
+  class IO {
+    constructor(c: IntersectionObserverCallback) {
+      cb = c;
+    }
+    observe(el: Element) {
+      observed.push(el);
+    }
+    disconnect() {}
+    unobserve() {}
+  }
+  vi.stubGlobal("IntersectionObserver", IO);
+  return {
+    observed,
+    enter: (el: Element) =>
+      cb?.(
+        [{ target: el, isIntersecting: true } as unknown as IntersectionObserverEntry],
+        {} as IntersectionObserver
+      ),
+  };
+}
 
 describe("FlowDemo", () => {
   // Everyone on a phone, everyone with reduced motion, and everyone before JS
@@ -131,5 +169,37 @@ describe("FlowDemo", () => {
     // exactly how the two drifted apart the first time.
     const strays = [...src.matchAll(/max-width:\s*(\d+)px/g)].map((m) => m[1]);
     expect(strays, "hardcoded max-width beside the constant").toEqual([]);
+  });
+
+  // Chosen by the owner 2026-09-06 after reporting that the phone hero was
+  // four static screenshots in a pile. Most traffic arrives from a WhatsApp
+  // tap on a phone, so this is the surface that matters most and it had the
+  // least considered treatment.
+  //
+  // The rule the spec sets for the desktop hero applies here too: scroll
+  // POSITION drives the scenes, scroll SPEED is never touched. So no sticky,
+  // no height track, no hijack — the panels stay stacked and the step track
+  // and the URL follow whichever panel you have scrolled to.
+  it("lights the matching step as each panel scrolls into view on a phone", () => {
+    vi.stubGlobal("matchMedia", mqlFor({ "max-width": true, "reduced-motion": false }));
+    const io = stubIntersectionObserver();
+    render(<FlowDemo />);
+
+    // One observer entry per panel — the panels are what a phone scrolls past.
+    expect(io.observed.length).toBe(4);
+
+    // Scrolling the third panel into view must move the chrome URL onto the
+    // route that panel actually depicts.
+    act(() => io.enter(io.observed[2]));
+    expect(screen.getByText("smbtutorials.com/waiting")).toBeInTheDocument();
+  });
+
+  // The accessibility contract is unchanged: someone who asked for less motion
+  // gets the plain stack, and nothing observes anything.
+  it("observes nothing when the viewer asked to reduce motion", () => {
+    vi.stubGlobal("matchMedia", mqlFor({ "max-width": true, "reduced-motion": true }));
+    const io = stubIntersectionObserver();
+    render(<FlowDemo />);
+    expect(io.observed.length).toBe(0);
   });
 });

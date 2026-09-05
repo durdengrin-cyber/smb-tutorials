@@ -26,6 +26,15 @@ const VH_PER_STOP = 60;
 //   3 and 4 are genuinely different screens (waiting, then connected).
 const PANEL_FOR_STOP = [0, 1, 1, 2, 3];
 
+// The inverse: the first stop that shows each panel. On a phone the panels are
+// what you scroll past, so the panel is the input and the stop is derived —
+// the opposite of the desktop build, where scroll position gives the stop and
+// the panel follows.
+const STOP_FOR_PANEL = PANEL_FOR_STOP.reduce<number[]>((acc, panel, stop) => {
+  if (acc[panel] === undefined) acc[panel] = stop;
+  return acc;
+}, []);
+
 // stop -> which step in the track is lit. Every step now has a screen of its
 // own: step 1 is the subject picker, which the card was previously missing
 // entirely, so steps 1 and 2 both showed the teacher list.
@@ -130,10 +139,56 @@ function useScrollDriven() {
   );
 }
 
+// A phone gets neither the sticky build nor the dead stack. Scroll POSITION
+// still drives the scenes — the spec's rule holds on every device — but there
+// is no sticky and no height track, so the page moves at exactly the speed the
+// reader moves it. Reduced motion still collapses to the plain stack.
+function useScrollLinked() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const motion = window.matchMedia(REDUCED);
+      const narrow = window.matchMedia(NARROW);
+      motion.addEventListener("change", onChange);
+      narrow.addEventListener("change", onChange);
+      return () => {
+        motion.removeEventListener("change", onChange);
+        narrow.removeEventListener("change", onChange);
+      };
+    },
+    () =>
+      !window.matchMedia(REDUCED).matches && window.matchMedia(NARROW).matches,
+    () => false
+  );
+}
+
 export function FlowDemo() {
   const wrap = useRef<HTMLDivElement>(null);
   const [stop, setStop] = useState(0);
   const ready = useScrollDriven();
+  const linked = useScrollLinked();
+  const panelRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // The phone path. IntersectionObserver rather than a scroll handler: the
+  // browser decides when a panel is in view, off the main thread, so nothing
+  // competes with the scroll the reader is performing.
+  useEffect(() => {
+    if (!linked) return; // desktop drives itself; reduced motion stays static
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          const i = panelRefs.current.indexOf(e.target as HTMLDivElement);
+          if (i >= 0) setStop(STOP_FOR_PANEL[i]);
+        }
+      },
+      // Only the panel crossing the middle band counts, so the step track
+      // never flickers between two panels that are both partly visible.
+      { rootMargin: "-45% 0px -45% 0px" }
+    );
+    for (const el of panelRefs.current) if (el) io.observe(el);
+    return () => io.disconnect();
+  }, [linked]);
 
   useEffect(() => {
     if (!ready) return; // stacked fallback stays; nothing to listen to
@@ -202,7 +257,7 @@ export function FlowDemo() {
                 <div
                   key={s.n}
                   className={`grid grid-cols-[44px_1fr] items-baseline gap-3.5 border-b border-hair py-3 transition-opacity duration-500 ${
-                    litStep === i ? "" : "lg:motion-safe:opacity-35"
+                    litStep === i ? "" : linked ? "opacity-35" : "lg:motion-safe:opacity-35"
                   }`}
                 >
                   <span className="font-mono text-[11px] text-primary">{s.n}</span>
@@ -233,6 +288,9 @@ export function FlowDemo() {
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
+                  ref={(el) => {
+                    panelRefs.current[i] = el;
+                  }}
                   className={`border-t border-hair lg:motion-safe:absolute lg:motion-safe:inset-0 lg:motion-safe:border-t-0 lg:motion-safe:transition-all lg:motion-safe:duration-500 ${
                     panel === i
                       ? ""
