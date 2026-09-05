@@ -346,7 +346,8 @@ export function IncomingRequest({
         ) : request.status === "accepted" ? (
           <>
             <p className="text-lg font-bold text-foreground mb-1">
-              Waiting for {request.student_name} to pay — {left}s
+              Waiting for {request.student_name} to pay —{" "}
+              <span className="font-mono tabular-nums">{left}s</span>
             </p>
             <p className="text-sm text-muted-foreground">
               Your room opens as soon as their payment clears.
@@ -356,9 +357,11 @@ export function IncomingRequest({
           <>
             <p className="text-lg font-bold text-foreground mb-1">
               New student request — {request.student_name} wants {request.subject}{" "}
-              now, ₹{request.hourly_rate}/hr
+              now, <span className="font-mono tabular-nums">₹{request.hourly_rate}/hr</span>
             </p>
-            <p className="text-sm text-muted-foreground mb-4">{left}s to respond</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              <span className="font-mono tabular-nums">{left}s</span> to respond
+            </p>
             <div className="flex gap-3">
               <Button type="button" disabled={busy} onClick={() => accept(request.id)}>
                 Accept
