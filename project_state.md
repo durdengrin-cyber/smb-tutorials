@@ -39,8 +39,14 @@ and no `scripts/` changes. This branch is frontend only.
 
 ### What is not
 
-- **Plan 3 is not written.** Spec §9 describes it: the app-surface re-theme, the rest of the
-  responsive pass, the share card, `apple-touch-icon`, real app icons.
+- **Plan 3 IS now written** (2026-09-05): `plans/2026-09-05-visual-identity-app-surface.md`,
+  7 tasks. **It deliberately covers less than spec §9's plan 3.** The share card,
+  `apple-touch-icon` and the real app icons are split into a future **plan 4**, because they are
+  blocked on the domain and the wordmark and nothing else in the cycle depends on them.
+  Plan 3 is the app-surface re-theme plus the padding remainder of §5.6 — and it opens with a
+  defect worth knowing: **the app surface is broken in dark theme today.** `ui/card.tsx` already
+  reads `--card`, so a Card goes dark while `teacher-card.tsx:29`'s `text-gray-900` stays
+  near-black — dark text on a dark card, on the student's browse screen. Not written yet: plan 4.
 - **All three of spec §12's blockers are still open** (confirmed by the owner, 2026-09-05): the
   domain, the wordmark, the dedication copy. Plan 3's scope cannot be settled until at least the
   domain is.
