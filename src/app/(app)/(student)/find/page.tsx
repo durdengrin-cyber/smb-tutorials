@@ -57,13 +57,13 @@ export default function FindPage() {
           />
 
           <Card>
-            <CardContent className="p-8">
+            <CardContent className="p-5 sm:p-8">
             {/* Curriculum */}
             <div className="mb-6">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Curriculum
               </label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {CURRICULA.map((c) => (
                   <Button
                     key={c}
@@ -105,7 +105,7 @@ export default function FindPage() {
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Core Field
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {STREAMS.map((s) => (
                     <Button
                       key={s}

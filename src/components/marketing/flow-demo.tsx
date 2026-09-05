@@ -105,7 +105,7 @@ function useScrollDriven() {
   return useSyncExternalStore(
     (onChange) => {
       const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-      const narrow = window.matchMedia("(max-width: 1023px)");
+      const narrow = window.matchMedia("(max-width: 1279px)");
       motion.addEventListener("change", onChange);
       narrow.addEventListener("change", onChange);
       return () => {
@@ -115,7 +115,7 @@ function useScrollDriven() {
     },
     () =>
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
-      !window.matchMedia("(max-width: 1023px)").matches,
+      !window.matchMedia("(max-width: 1279px)").matches,
     () => false
   );
 }
@@ -173,10 +173,10 @@ export function FlowDemo() {
       // JIT only emits CSS for class strings it can find literally in source,
       // and an interpolated arbitrary value is invisible to it.
       style={{ "--track-h": `${STOPS * VH_PER_STOP}vh` } as React.CSSProperties}
-      className="relative lg:motion-safe:h-[var(--track-h)]"
+      className="relative xl:motion-safe:h-[var(--track-h)]"
     >
-      <div className="flex items-center py-12 lg:motion-safe:sticky lg:motion-safe:top-[var(--header-h)] lg:motion-safe:min-h-[calc(100vh-var(--header-h))] lg:motion-safe:py-0">
-        <div className="grid w-full items-center gap-14 lg:grid-cols-[1.02fr_.98fr]">
+      <div className="flex items-center py-12 xl:motion-safe:sticky xl:motion-safe:top-[var(--header-h)] xl:motion-safe:min-h-[calc(100vh-var(--header-h))] xl:motion-safe:py-0">
+        <div className="grid w-full items-center gap-14 xl:grid-cols-[1.02fr_.98fr]">
           <div>
             <h1 className="mb-5 text-balance text-[clamp(2rem,4.6vw,3.6rem)] font-black leading-[0.94] tracking-[-0.05em]">
               Your child is stuck. A teacher is{" "}
@@ -192,7 +192,7 @@ export function FlowDemo() {
                 <div
                   key={s.n}
                   className={`grid grid-cols-[44px_1fr] items-baseline gap-3.5 border-b border-hair py-3 transition-opacity duration-500 ${
-                    litStep === i ? "" : "lg:motion-safe:opacity-35"
+                    litStep === i ? "" : "xl:motion-safe:opacity-35"
                   }`}
                 >
                   <span className="font-mono text-[11px] text-primary">{s.n}</span>
@@ -219,14 +219,14 @@ export function FlowDemo() {
                 absolutely positions them and cross-fades between them. Without
                 JS the stop stays 0, so panel 0 shows and the rest sit hidden —
                 a valid hero screenshot, not a pile. */}
-            <div className="grid gap-0.5 lg:motion-safe:relative lg:motion-safe:block lg:motion-safe:min-h-[292px]">
+            <div className="grid gap-0.5 xl:motion-safe:relative xl:motion-safe:block xl:motion-safe:min-h-[292px]">
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className={`border-t border-hair lg:motion-safe:absolute lg:motion-safe:inset-0 lg:motion-safe:border-t-0 lg:motion-safe:transition-all lg:motion-safe:duration-500 ${
+                  className={`border-t border-hair xl:motion-safe:absolute xl:motion-safe:inset-0 xl:motion-safe:border-t-0 xl:motion-safe:transition-all xl:motion-safe:duration-500 ${
                     panel === i
                       ? ""
-                      : "lg:motion-safe:pointer-events-none lg:motion-safe:translate-y-2.5 lg:motion-safe:opacity-0"
+                      : "xl:motion-safe:pointer-events-none xl:motion-safe:translate-y-2.5 xl:motion-safe:opacity-0"
                   }`}
                 >
                   {i === 0 && (

@@ -37,7 +37,7 @@ export function SubjectPicker() {
         <Label className="mb-3">
           Curriculum * <span className="font-normal text-muted-foreground">(select all you teach)</span>
         </Label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {CURRICULA.map((c) => (
             <Chip key={c} name="curricula" value={c} label={c} />
           ))}

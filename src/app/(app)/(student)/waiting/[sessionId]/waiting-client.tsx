@@ -24,7 +24,7 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 flex items-center justify-center p-8">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 flex items-center justify-center p-5 sm:p-8">
       <Card className="max-w-md w-full p-12 text-center shadow-xl">
         <div className="relative w-28 h-28 mx-auto mb-6">
           <div className="absolute inset-0 rounded-full border-4 border-teal-100" />

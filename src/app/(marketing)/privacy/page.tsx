@@ -3,9 +3,9 @@ import { PageHeader } from "@/components/page-header";
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-background">
-      <main className="px-8 py-12">
+      <main className="px-4 py-10 sm:px-8 sm:py-12">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-card rounded-2xl shadow-sm p-12 border border-hair">
+          <div className="bg-card rounded-2xl shadow-sm p-6 sm:p-12 border border-hair">
             <PageHeader
               title="Privacy Policy"
               description="Last updated: September 5, 2026"
