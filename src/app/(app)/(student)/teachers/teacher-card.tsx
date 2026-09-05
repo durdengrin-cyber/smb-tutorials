@@ -24,16 +24,19 @@ export function TeacherCard({
 }) {
   return (
     <Card className="gap-0 py-0 hover:shadow-lg transition-shadow duration-300">
-      <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-6 text-center">
-        <div className="text-6xl mb-3">🧑‍🏫</div>
-        <h3 className="text-xl font-bold text-gray-900">{teacher.full_name}</h3>
-        <p className="text-teal-600 font-medium">{teacher.subject}</p>
+      <div className="bg-muted p-6 text-center">
+        <h3 className="text-xl font-bold tracking-tight text-foreground">
+          {teacher.full_name}
+        </h3>
+        <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-primary">
+          {teacher.subject}
+        </p>
       </div>
 
       <CardContent className="p-6">
         {teacher.experience_years !== null && (
           <div className="flex items-center justify-end mb-4">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               {teacher.experience_years} yrs exp.
             </span>
           </div>
@@ -41,26 +44,26 @@ export function TeacherCard({
 
         {teacher.qualification && (
           <div className="mb-4">
-            <p className="text-sm font-semibold text-gray-700 mb-1">Education</p>
-            <p className="text-sm text-gray-600">{teacher.qualification}</p>
+            <p className="text-sm font-semibold text-muted-foreground mb-1">Education</p>
+            <p className="text-sm text-muted-foreground">{teacher.qualification}</p>
           </div>
         )}
 
         {teacher.specialization && (
           <div className="mb-4">
-            <p className="text-sm font-semibold text-gray-700 mb-1">
+            <p className="text-sm font-semibold text-muted-foreground mb-1">
               Specialization
             </p>
-            <p className="text-sm text-gray-600">{teacher.specialization}</p>
+            <p className="text-sm text-muted-foreground">{teacher.specialization}</p>
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-between pt-4 border-t border-hair">
           <div>
-            <span className="text-2xl font-bold text-gray-900">
+            <span className="text-2xl font-bold text-foreground">
               ₹{teacher.hourly_rate ?? "—"}
             </span>
-            <span className="text-sm text-gray-600">/hour</span>
+            <span className="text-sm text-muted-foreground">/hour</span>
           </div>
           <Button type="button" onClick={onStart} disabled={!onStart || starting}>
             {starting ? "Asking…" : "Start now →"}

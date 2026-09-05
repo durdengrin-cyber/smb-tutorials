@@ -235,7 +235,7 @@ export function OnlineList({
         : null;
 
   const connBanner = degraded && (
-    <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700">
+    <div className="mb-6 rounded-xl border border-border bg-muted px-4 py-3 text-foreground">
       {degraded}
     </div>
   );
@@ -245,7 +245,7 @@ export function OnlineList({
       <>
         {connBanner}
         {banner && (
-          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+          <div className="mb-6 rounded-xl border border-primary/30 bg-primary/12 px-4 py-3 text-primary">
             {banner}
           </div>
         )}
@@ -286,15 +286,15 @@ export function OnlineList({
     <>
       {connBanner}
       {banner && (
-        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+        <div className="mb-6 rounded-xl border border-primary/30 bg-primary/12 px-4 py-3 text-primary">
           {banner}
         </div>
       )}
       {error && <FormError className="mb-4">{error}</FormError>}
       {!canStart && (
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-700">
+        <div className="mb-6 rounded-xl border border-border bg-muted px-4 py-3 text-muted-foreground">
           Pick a subject on{" "}
-          <a href="/find" className="text-teal-600 font-semibold hover:underline">
+          <a href="/find" className="text-primary font-semibold hover:underline">
             Find a teacher
           </a>{" "}
           to start a session — these teachers are online now.
