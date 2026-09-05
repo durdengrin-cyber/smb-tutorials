@@ -2,23 +2,23 @@ import { PageHeader } from "@/components/page-header";
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <main className="px-8 py-12">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-sm p-12 border border-gray-100">
+          <div className="bg-card rounded-2xl shadow-sm p-12 border border-hair">
             <PageHeader
               title="Terms & Conditions"
               description="Last updated: August 28, 2026"
             />
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 Refund Policy
               </h2>
-              <p className="text-gray-700 mb-3">
+              <p className="text-muted-foreground mb-3">
                 Our no-show and refund policy is as follows:
               </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li>
                   <strong>Tutor does not join:</strong> Full refund.
                 </li>
@@ -43,11 +43,11 @@ export default function TermsPage() {
                   payment method within 7 business days.
                 </li>
               </ul>
-              <p className="text-gray-700 mt-3">
+              <p className="text-muted-foreground mt-3">
                 Contact{" "}
                 <a
                   href="mailto:support@smbtutorial.com"
-                  className="text-teal-600 hover:text-teal-700 font-medium"
+                  className="text-primary hover:text-primary font-medium"
                 >
                   support@smbtutorial.com
                 </a>{" "}
@@ -56,25 +56,25 @@ export default function TermsPage() {
             </section>
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 Tutor Professional Conduct &amp; Penalties
               </h2>
 
-              <p className="text-gray-700 mb-4">
+              <p className="text-muted-foreground mb-4">
                 To maintain the integrity of our marketplace, all tutors at SMB
                 Tutorial are held to a high standard of professional
                 accountability.
               </p>
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   1. Attendance &amp; Reliability
                 </h3>
-                <p className="text-gray-700 mb-3">
+                <p className="text-muted-foreground mb-3">
                   Tutors are expected to be present and punctual for all
                   confirmed sessions.
                 </p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
                     <strong>Tutor No-Show:</strong> Repeatedly failing to attend
                     confirmed sessions may result in suspension from the
@@ -90,14 +90,14 @@ export default function TermsPage() {
               </div>
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   2. Platform Circumvention
                 </h3>
-                <p className="text-gray-700 mb-3">
+                <p className="text-muted-foreground mb-3">
                   Attempting to take a student &quot;off-platform&quot; to avoid
                   SMB Tutorial service fees is a critical violation.
                 </p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
                     <strong>The Act:</strong> Sharing personal payment links,
                     phone numbers, or external booking links with intent to
@@ -110,10 +110,10 @@ export default function TermsPage() {
               </div>
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   3. Content &amp; Quality Violations
                 </h3>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
                     <strong>Misrepresentation:</strong> Tutors found to have
                     falsified credentials, certifications, or experience will be
@@ -127,10 +127,10 @@ export default function TermsPage() {
               </div>
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   4. Conduct &amp; Harassment
                 </h3>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
                     <strong>Prohibited Behavior:</strong> Any form of harassment,
                     hate speech, or inappropriate personal communication with a
@@ -145,15 +145,15 @@ export default function TermsPage() {
               </div>
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   5. Live Booking &amp; Acceptance (&quot;Instant Connect&quot;
                   Rule)
                 </h3>
-                <p className="text-gray-700 mb-3">
+                <p className="text-muted-foreground mb-3">
                   Tutors who toggle their status to &quot;Live / Available
                   Now&quot; must be ready to accept bookings immediately.
                 </p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
                     <strong>Acceptance Window:</strong> Tutors have a short,
                     fixed window to accept an instant session request. Failure
@@ -169,15 +169,15 @@ export default function TermsPage() {
             </section>
 
             <section id="tutor-agreement" className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 Tutor Agreement
               </h2>
-              <p className="text-gray-700 mb-4">
+              <p className="text-muted-foreground mb-4">
                 By creating a tutor account and accepting sessions on SMB
                 Tutorial, you agree to the following as binding conditions of
                 teaching on the platform.
               </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li>
                   <strong>Identity Verification:</strong> You must provide a
                   government-issued ID, verified against the name on your
@@ -197,21 +197,21 @@ export default function TermsPage() {
             </section>
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 Student Code of Conduct &amp; Safety Policy
               </h2>
 
-              <p className="text-gray-700 mb-4">
+              <p className="text-muted-foreground mb-4">
                 At SMB Tutorial, we are committed to providing a respectful,
                 productive, and safe learning environment. By using our platform,
                 students agree to adhere to the following standards of behavior.
               </p>
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   1. Professionalism &amp; Respect
                 </h3>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
                     <strong>Zero Tolerance for Harassment:</strong> Any form of
                     hate speech, discrimination (based on race, gender, religion,
@@ -233,10 +233,10 @@ export default function TermsPage() {
               </div>
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   2. Live Session Integrity
                 </h3>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
                     <strong>No Recording Without Consent:</strong> You may not
                     record, screen-capture, or distribute any portion of a live
@@ -258,10 +258,10 @@ export default function TermsPage() {
               </div>
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   3. Academic Integrity
                 </h3>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
                     <strong>No &quot;Do My Homework&quot;:</strong> Tutors are
                     mentors, not ghostwriters. You may not ask a tutor to
@@ -279,18 +279,18 @@ export default function TermsPage() {
               </div>
             </section>
 
-            <section className="bg-teal-50 rounded-xl p-6 mt-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
+            <section className="bg-muted rounded-xl p-6 mt-8">
+              <h3 className="text-lg font-bold text-foreground mb-2">
                 Questions About Our Policies?
               </h3>
-              <p className="text-gray-700 mb-3">
+              <p className="text-muted-foreground mb-3">
                 If you have any questions about these terms and conditions,
                 please contact us at:
               </p>
-              <p className="text-gray-900">
+              <p className="text-foreground">
                 <a
                   href="mailto:support@smbtutorial.com"
-                  className="text-teal-600 hover:text-teal-700 font-semibold"
+                  className="text-primary hover:text-primary font-semibold"
                 >
                   support@smbtutorial.com
                 </a>

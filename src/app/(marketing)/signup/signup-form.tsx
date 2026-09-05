@@ -15,9 +15,9 @@ export function SignUpForm() {
   const [state, formAction, isPending] = useActionState(signUpStudent, null);
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+    <div className="bg-card rounded-2xl shadow-xl p-8 border border-hair">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+        <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
           <span className="text-white font-bold text-2xl">SMB</span>
         </div>
         <PageHeader as="h1" title="Create Account" description="Start your learning journey" />
@@ -27,10 +27,10 @@ export function SignUpForm() {
 
       <div className="relative mb-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
+          <div className="w-full border-t border-border"></div>
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-4 bg-white text-gray-500">
+          <span className="px-4 bg-card text-muted-foreground">
             Or sign up with email
           </span>
         </div>
@@ -125,13 +125,13 @@ export function SignUpForm() {
             required
             className="mt-1 mr-2"
           />
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-muted-foreground">
             I am this student&apos;s parent or legal guardian, and I agree to the{" "}
-            <Link href="/terms" className="text-teal-600 hover:text-teal-700 underline">
+            <Link href="/terms" className="text-primary hover:text-primary underline">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="text-teal-600 hover:text-teal-700 underline">
+            <Link href="/privacy" className="text-primary hover:text-primary underline">
               Privacy Policy
             </Link>
           </span>
@@ -145,11 +145,11 @@ export function SignUpForm() {
       </form>
 
       <div className="mt-6 text-center">
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Already have an account?{" "}
           <Link
             href="/signin"
-            className="text-teal-600 hover:text-teal-700 font-semibold"
+            className="text-primary hover:text-primary font-semibold"
           >
             Sign In
           </Link>

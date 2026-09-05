@@ -20,23 +20,23 @@ export function SignInForm({
   const error = state?.error ?? initialError;
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+    <div className="bg-card rounded-2xl shadow-xl p-8 border border-hair">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+        <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
           <span className="text-white font-bold text-2xl">SMB</span>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Sign In</h1>
-        <p className="text-gray-600">Access your account</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">Sign In</h1>
+        <p className="text-muted-foreground">Access your account</p>
       </div>
 
       <GoogleButton label="Continue with Google" />
 
       <div className="relative mb-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
+          <div className="w-full border-t border-border"></div>
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-4 bg-white text-gray-500">
+          <span className="px-4 bg-card text-muted-foreground">
             Or sign in with email
           </span>
         </div>
@@ -69,7 +69,7 @@ export function SignInForm({
         <div className="flex items-center justify-between text-sm">
           <label className="flex items-center">
             <input type="checkbox" className="mr-2" />
-            <span className="text-gray-600">Remember me</span>
+            <span className="text-muted-foreground">Remember me</span>
           </label>
           <Button type="button" variant="link" className="h-auto p-0">
             Forgot password?
@@ -84,11 +84,11 @@ export function SignInForm({
       </form>
 
       <div className="mt-6 text-center">
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Don&apos;t have an account?{" "}
           <Link
             href="/signup"
-            className="text-teal-600 hover:text-teal-700 font-semibold"
+            className="text-primary hover:text-primary font-semibold"
           >
             Sign Up
           </Link>

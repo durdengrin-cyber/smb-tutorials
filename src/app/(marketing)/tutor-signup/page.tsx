@@ -8,7 +8,7 @@ export default function TutorSignUpPage() {
       <main className="px-8 py-12">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
-            <div className="text-6xl mb-4">👨‍🏫</div>
+            <div className="text-6xl mb-4">‍</div>
             <PageHeader
               title="Join as a Tutor"
               description="Start teaching and making a difference today"

@@ -1,51 +1,62 @@
 import Link from "next/link";
 import { SignUpForm } from "./signup-form";
 
-const BENEFITS = [
-  { icon: "🎯", text: "Learn any subject from qualified experts" },
-  { icon: "⚡", text: "See who's online now and start right away" },
-  { icon: "💪", text: "Achieve your learning goals faster" },
+// The left panel used to be a hotlinked Unsplash photo of children under a
+// teal gradient, with three emoji benefit badges. Spec §6 removes photographs
+// of children entirely, and a signup form does not need decoration — so the
+// panel now carries the only three things a parent hesitating at this step
+// actually wants confirmed. Each is something the product does today.
+const ASSURANCES = [
+  {
+    label: "VERIFIED",
+    text: "Every teacher's government ID is checked against the name on their account before they teach.",
+  },
+  {
+    label: "GUARDIAN",
+    text: "You hold the account. Your child is named on it so their teacher knows who they are teaching, and gets no login of their own.",
+  },
+  {
+    label: "PRIVATE",
+    text: "Lessons are live and never recorded. Report a problem and a person reads it the same day.",
+  },
 ];
 
 export default function SignUpPage() {
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Left side - Image */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=1200&fit=crop"
-          alt="Happy students learning"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-600/95 to-teal-600/95"></div>
+    <div className="flex min-h-screen bg-background">
+      <div className="hidden border-r border-border bg-card lg:flex lg:w-1/2">
+        <div className="flex flex-col justify-center gap-10 p-16">
+          <div>
+            <h2 className="mb-4 text-balance text-4xl font-black tracking-tighter">
+              One teacher, one child, right now.
+            </h2>
+            <p className="max-w-[42ch] text-base text-muted-foreground">
+              You are two minutes from your child being able to ask someone
+              qualified the moment they are stuck.
+            </p>
+          </div>
 
-        <div className="relative z-10 flex flex-col justify-center p-16 text-white">
-          <h2 className="text-5xl font-bold mb-6">Start Learning Today!</h2>
-          <p className="text-xl opacity-90 mb-8">
-            Connect with expert tutors and start learning right away
-          </p>
-
-          <div className="space-y-4">
-            {BENEFITS.map(({ icon, text }) => (
-              <div key={text} className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                  <span className="text-2xl">{icon}</span>
-                </div>
-                <p className="text-lg">{text}</p>
+          <div className="grid gap-px border border-border bg-border">
+            {ASSURANCES.map((a) => (
+              <div key={a.label} className="bg-card p-5">
+                <span className="mb-2 block font-mono text-[11px] tracking-wider text-primary">
+                  {a.label}
+                </span>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {a.text}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Right side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
-        <div className="max-w-md w-full">
+      <div className="flex w-full items-center justify-center p-6 lg:w-1/2">
+        <div className="w-full max-w-md">
           <div className="mb-6">
             <Link
               href="/signin"
-              className="text-teal-600 hover:text-teal-700 font-medium inline-flex items-center gap-2"
+              className="inline-flex items-center gap-2 font-medium text-primary hover:underline"
             >
               ← Back to Sign In
             </Link>

@@ -2,27 +2,27 @@ import { PageHeader } from "@/components/page-header";
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <main className="px-8 py-12">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-sm p-12 border border-gray-100">
+          <div className="bg-card rounded-2xl shadow-sm p-12 border border-hair">
             <PageHeader
               title="Privacy Policy"
               description="Last updated: September 5, 2026"
             />
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 Who we are and how to reach us
               </h2>
-              <p className="text-gray-700">
+              <p className="text-muted-foreground">
                 SMB Tutorial connects students in grades 6&ndash;12 with
                 tutors for one-to-one video lessons. If you have a question
                 about this policy, or about the data we hold on your family,
                 write to{" "}
                 <a
                   href="mailto:support@smbtutorial.com"
-                  className="text-teal-600 hover:text-teal-700 font-medium"
+                  className="text-primary hover:text-primary font-medium"
                 >
                   support@smbtutorial.com
                 </a>
@@ -31,10 +31,10 @@ export default function PrivacyPage() {
             </section>
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 Who holds the account
               </h2>
-              <p className="text-gray-700">
+              <p className="text-muted-foreground">
                 An account on SMB Tutorial is held by a student&apos;s parent
                 or legal guardian. The student is named on the account so
                 their tutor knows who they are teaching; the student does not
@@ -45,15 +45,15 @@ export default function PrivacyPage() {
             </section>
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 What we collect
               </h2>
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   For every family
                 </h3>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
                     <strong>Guardian details:</strong> your name, email
                     address, and phone number.
@@ -88,10 +88,10 @@ export default function PrivacyPage() {
               </div>
 
               <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   For tutors, additionally
                 </h3>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
                     Qualification, years of experience, specialization, and
                     teaching level.
@@ -112,15 +112,15 @@ export default function PrivacyPage() {
             </section>
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 Who processes it
               </h2>
-              <p className="text-gray-700 mb-4">
+              <p className="text-muted-foreground mb-4">
                 We don&apos;t sell your data. We do use these outside
                 services to run the platform, and each only sees what it
                 needs to do its job:
               </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li>
                   <strong>Supabase</strong> &mdash; our database and sign-in
                   provider. Everything described above lives here.
@@ -154,10 +154,10 @@ export default function PrivacyPage() {
             </section>
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 Sessions are not recorded
               </h2>
-              <p className="text-gray-700">
+              <p className="text-muted-foreground">
                 A tutoring session is a live video call between the student
                 and the tutor. We do not record it, and we do not store a
                 copy of it anywhere. Nothing said or shown during a session is
@@ -166,10 +166,10 @@ export default function PrivacyPage() {
             </section>
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 How long we keep things
               </h2>
-              <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li>
                   <strong>Notification delivery logs</strong> (whether a
                   session alert reached a tutor&apos;s device): our policy is
@@ -190,7 +190,7 @@ export default function PrivacyPage() {
                   reported, and evidence that expires isn&apos;t evidence.
                 </li>
               </ul>
-              <p className="text-gray-700 mt-4">
+              <p className="text-muted-foreground mt-4">
                 These are the defaults while an account stays open. Deleting
                 an account moves faster than any of the timers above for your
                 own session and payment records — see &quot;Deletion,
@@ -199,21 +199,21 @@ export default function PrivacyPage() {
             </section>
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 Deletion, honestly
               </h2>
-              <p className="text-gray-700 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Write to{" "}
                 <a
                   href="mailto:support@smbtutorial.com"
-                  className="text-teal-600 hover:text-teal-700 font-medium"
+                  className="text-primary hover:text-primary font-medium"
                 >
                   support@smbtutorial.com
                 </a>{" "}
                 to ask us to delete your account. Here is exactly what that
                 does and doesn&apos;t do.
               </p>
-              <p className="text-gray-700 mb-4">
+              <p className="text-muted-foreground mb-4">
                 <strong>What we delete:</strong> your profile, including the
                 student&apos;s name and grade; your session and payment
                 history; and, for a tutor account, your subject listings,
@@ -222,10 +222,10 @@ export default function PrivacyPage() {
                 tutor or student on the other side of it &mdash; that record
                 is removed for both of you.
               </p>
-              <p className="text-gray-700 mb-4">
+              <p className="text-muted-foreground mb-4">
                 <strong>What survives, on purpose:</strong>
               </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li>
                   <strong>Reports.</strong> If a report was filed about a
                   tutoring session, we keep the tutor&apos;s name, the
@@ -249,10 +249,10 @@ export default function PrivacyPage() {
             </section>
 
             <section className="mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 Children
               </h2>
-              <p className="text-gray-700">
+              <p className="text-muted-foreground">
                 Every student on this platform is in grades 6 through 12
                 &mdash; a minor, by design. That&apos;s why the account
                 belongs to a parent or legal guardian and not the student:
@@ -261,7 +261,7 @@ export default function PrivacyPage() {
                 time by contacting{" "}
                 <a
                   href="mailto:support@smbtutorial.com"
-                  className="text-teal-600 hover:text-teal-700 font-medium"
+                  className="text-primary hover:text-primary font-medium"
                 >
                   support@smbtutorial.com
                 </a>
@@ -269,14 +269,14 @@ export default function PrivacyPage() {
               </p>
             </section>
 
-            <section className="bg-teal-50 rounded-xl p-6 mt-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
+            <section className="bg-muted rounded-xl p-6 mt-8">
+              <h3 className="text-lg font-bold text-foreground mb-2">
                 Questions, or want your data deleted?
               </h3>
-              <p className="text-gray-900">
+              <p className="text-foreground">
                 <a
                   href="mailto:support@smbtutorial.com"
-                  className="text-teal-600 hover:text-teal-700 font-semibold"
+                  className="text-primary hover:text-primary font-semibold"
                 >
                   support@smbtutorial.com
                 </a>

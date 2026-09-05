@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const SELECT =
-  "h-8 w-full rounded-lg border border-input bg-white px-2.5 py-1 text-sm font-medium text-gray-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+  "h-8 w-full rounded-lg border border-input bg-card px-2.5 py-1 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 export function TutorForm() {
   const [state, formAction, isPending] = useActionState(signUpTutor, null);
@@ -18,11 +18,11 @@ export function TutorForm() {
   return (
     <form
       action={formAction}
-      className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 space-y-6"
+      className="bg-card rounded-2xl shadow-xl p-8 border border-hair space-y-6"
     >
       {/* Personal Information */}
       <div>
-        <h3 className="text-xl font-bold text-gray-900 mb-4">
+        <h3 className="text-xl font-bold text-foreground mb-4">
           Personal Information
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
@@ -49,7 +49,7 @@ export function TutorForm() {
           <div className="space-y-2">
             <Label htmlFor="tutor-password">
               Password *{" "}
-              <span className="font-normal text-gray-500">
+              <span className="font-normal text-muted-foreground">
                 (you&apos;ll use this to sign in)
               </span>
             </Label>
@@ -88,7 +88,7 @@ export function TutorForm() {
 
       {/* Education & Qualifications */}
       <div>
-        <h3 className="text-xl font-bold text-gray-900 mb-4">
+        <h3 className="text-xl font-bold text-foreground mb-4">
           Education &amp; Qualifications
         </h3>
         <div className="space-y-4">
@@ -119,7 +119,7 @@ export function TutorForm() {
 
       {/* Teaching Preferences */}
       <div>
-        <h3 className="text-xl font-bold text-gray-900 mb-4">
+        <h3 className="text-xl font-bold text-foreground mb-4">
           Teaching Preferences
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
@@ -170,12 +170,12 @@ export function TutorForm() {
 
       {/* Demo Video */}
       <div>
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Demo Video</h3>
+        <h3 className="text-xl font-bold text-foreground mb-4">Demo Video</h3>
         <div className="space-y-3">
           <Label htmlFor="tutor-demoVideoUrl">
             Demo Video Link (YouTube or Google Drive) *
           </Label>
-          <p className="text-sm text-gray-500 mb-3">
+          <p className="text-sm text-muted-foreground mb-3">
             Upload your 2-5 minute demo video to YouTube or Google Drive, then
             paste the link here. This helps students see your teaching style.
           </p>
@@ -190,7 +190,7 @@ export function TutorForm() {
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800 mb-2">
-              <strong>📹 How to Upload Your Demo Video:</strong>
+              <strong> How to Upload Your Demo Video:</strong>
             </p>
             <div className="space-y-3">
               <div>
@@ -216,11 +216,11 @@ export function TutorForm() {
             </div>
           </div>
 
-          <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
-            <p className="text-sm text-teal-800">
-              <strong>💡 Demo Video Tips:</strong>
+          <div className="bg-muted border border-border rounded-lg p-4">
+            <p className="text-sm text-primary">
+              <strong> Demo Video Tips:</strong>
             </p>
-            <ul className="text-sm text-teal-700 mt-2 space-y-1 ml-4">
+            <ul className="text-sm text-primary mt-2 space-y-1 ml-4">
               <li>• Good lighting and clear audio</li>
               <li>• Explain a concept step-by-step</li>
               <li>• Use whiteboard or screen sharing</li>
@@ -243,25 +243,25 @@ export function TutorForm() {
           required
           className="mt-1 mr-2"
         />
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-muted-foreground">
           I agree to SMB Tutorials&apos;{" "}
           <Link
             href="/terms"
-            className="text-teal-600 hover:text-teal-700 underline"
+            className="text-primary hover:text-primary underline"
           >
             Terms of Service
           </Link>{" "}
           and{" "}
           <Link
             href="/terms#tutor-agreement"
-            className="text-teal-600 hover:text-teal-700 underline"
+            className="text-primary hover:text-primary underline"
           >
             Tutor Agreement
           </Link>
           , and{" "}
           <Link
             href="/privacy"
-            className="text-teal-600 hover:text-teal-700 underline"
+            className="text-primary hover:text-primary underline"
           >
             Privacy Policy
           </Link>
@@ -296,7 +296,7 @@ export function TutorForm() {
         )}
       </Button>
 
-      <p className="text-sm text-gray-500 text-center">
+      <p className="text-sm text-muted-foreground text-center">
         Our team will review your application and contact you within 2-3
         business days.
       </p>
