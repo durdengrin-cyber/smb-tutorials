@@ -17,19 +17,22 @@ export const STATUS_COPY: Record<
   available: {
     label: "Available now",
     description: "Students can see you and start a session.",
-    tone: "bg-emerald-100 text-emerald-900",
+    tone: "bg-success/12 text-success",
   },
   in_session: {
     label: "In a session",
     description:
       "Hidden from students while you finish this session. You'll be visible again automatically.",
-    tone: "bg-amber-100 text-amber-900",
+    // --primary, not a warning colour: the brand accent IS gold, so an amber
+    // "warning" token would be the same swatch as the identity in dark theme.
+    // This state is engagement, not alarm.
+    tone: "bg-primary/12 text-primary",
   },
   unreachable: {
     label: "Can't reach you",
     description:
       "You're marked available, but we can't reach your device, so students aren't being shown to you.",
-    tone: "bg-red-100 text-red-900",
+    tone: "bg-destructive/12 text-destructive",
   },
 };
 

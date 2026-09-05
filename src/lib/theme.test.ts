@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { contrastRatio } from "@/lib/contrast";
 
 const css = readFileSync("src/app/globals.css", "utf8");
 
@@ -41,4 +42,37 @@ describe("the token system", () => {
     expect(root).toMatch(/--primary:\s*#8f5f2b/);
     expect(root).not.toMatch(/--accent:\s*#8f5f2b/);
   });
+});
+
+// Parses one theme block into { tokenName: hex }. Only hex values — the radius
+// and font tokens are not colours and must not reach contrastRatio.
+function palette(selector: string): Record<string, string> {
+  const block = css.match(new RegExp(`${selector} \\{([\\s\\S]*?)\\n\\}`))?.[1] ?? "";
+  const out: Record<string, string> = {};
+  for (const m of block.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)) {
+    out[m[1]] = m[2];
+  }
+  return out;
+}
+
+// Status colour is the one place where "it looks fine to me" is worth least:
+// these are the pills a teacher reads at a glance to know whether students can
+// see them. AA against BOTH the page ground and a card, because the pills
+// appear on both. Tested against the strong colour rather than the /12 tint —
+// the tint composites toward the ground, so this is the conservative check.
+describe("status colour is legible in both themes", () => {
+  const themes: Record<string, Record<string, string>> = {
+    light: palette(":root"),
+    dark: palette("\\.dark"),
+  };
+
+  for (const [theme, t] of Object.entries(themes)) {
+    for (const key of ["success", "primary", "destructive"]) {
+      it(`${theme}: --${key} meets AA on the ground and on a card`, () => {
+        expect(t[key], `--${key} missing from ${theme}`).toBeTruthy();
+        expect(contrastRatio(t[key], t.background)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(t[key], t.card)).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
 });
