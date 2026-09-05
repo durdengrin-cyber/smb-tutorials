@@ -21,7 +21,15 @@ export function AppShell({
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 border-b bg-background">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-8">
-          <Link href="/home" className="flex items-center gap-2">
+          {/* "/" — the landing page — NOT "/home". /home is a resolver that
+              redirects by role, so it sent a student on /sessions back to
+              /sessions and a teacher on /dashboard back to /dashboard: a no-op
+              logo, and no route back to the landing page from anywhere in the
+              signed-in shell. Safe destination: MarketingHeader takes a
+              `signedIn` prop and offers "Go to your dashboard", so the round
+              trip works both ways. Reported by the owner 2026-09-04, again
+              2026-09-06. */}
+          <Link href="/" className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
               <span className="text-xs font-bold text-primary-foreground">SMB</span>
             </div>
