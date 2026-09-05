@@ -5,9 +5,14 @@
 **🛑 Read `docs/superpowers/handoffs/2026-09-05-guardian-consent-execution.md` first.** It is the
 state at the close of the 2026-09-05 session. Everything below it is history.
 
-**⚠ Unlike every previous entry: work is IN FLIGHT and NOT merged.** Branch
-`feat/guardian-consent-privacy`, **16 commits ahead of `main`, unpushed**. `main` is untouched and
-still equals `origin/main`. Production runs the pre-branch code.
+**Everything is committed, pushed, merged and deployed. `main` == `origin/main` @ `89da21e`.
+Tree clean. Nothing in flight.** 26 commits shipped 2026-09-05; the feature branch is deleted.
+
+**Verified against the live site route-by-route** (not the Vercel dashboard — this project has
+shipped a "Ready" deployment that 404'd every path): `/`, `/privacy`, `/terms`, `/signup`,
+`/tutor-signup`, `/signin` all 200; the refund placeholder is gone; the tutor-agreement anchor
+resolves; the no-recording clause is intact (correct until plan 3); `/signup` collects the
+learner's grade and links to `/privacy`.
 
 - **300 tests passing / 3 skipped** · `tsc` 0 · `eslint` 0 · `build` 0 · **9 probes** (2 new)
 - **Migrations `0018` and `0019` are APPLIED (2026-09-05, via `supabase db push`).** Verified

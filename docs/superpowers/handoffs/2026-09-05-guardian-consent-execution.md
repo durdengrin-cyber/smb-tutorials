@@ -3,9 +3,8 @@
 **Read this first, then `project_state.md`.** Written because this project has lost state to
 git-ignored scratch before.
 
-**⚠ Unlike previous handoffs: this work is NOT merged and NOT pushed.** It sits on branch
-`feat/guardian-consent-privacy`, 16 commits ahead of `main`. `main` is untouched and still equals
-`origin/main`. Nothing is deployed.
+**MERGED AND DEPLOYED 2026-09-05.** 26 commits on `main` @ `89da21e`, pushed, branch deleted.
+Migrations `0018`/`0019` applied. Verified live route-by-route, not from the Vercel dashboard.
 
 ---
 
@@ -13,8 +12,8 @@ git-ignored scratch before.
 
 | | |
 |---|---|
-| Branch | `feat/guardian-consent-privacy` — **21 commits, unpushed, unmerged** |
-| Base | `d6e47a0` on `main` |
+| State | **merged to `main` @ `89da21e`, pushed, deployed** — branch deleted |
+| Shipped | 26 commits on 2026-09-05 |
 | Tests | **300 passing / 3 skipped** (was 260 at session start) |
 | Gates | `tsc --noEmit` 0 · `eslint .` 0 problems · `npm run build` 0 |
 | Probes | **8, all exit 0 against production** — `probe-consent.mjs` is new |
