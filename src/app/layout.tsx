@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
 
 // Archivo carries the identity: 900 tracked tight is the voice (spec §5.3).
 // 400-600 do the ordinary work.
@@ -27,11 +28,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
+    // suppressHydrationWarning: next-themes writes the theme class before
+    // React hydrates, so server and client markup differ by design. Without
+    // it React logs a hydration error on every page load.
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${archivo.variable} ${plexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }
