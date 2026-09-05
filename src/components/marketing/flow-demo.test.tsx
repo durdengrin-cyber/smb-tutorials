@@ -22,6 +22,7 @@ describe("FlowDemo", () => {
   // never an empty frame waiting for a scroll that will not come.
   it("renders every panel so the fallback is never blank", () => {
     render(<FlowDemo />);
+    expect(screen.getByText(/what is your child stuck on/i)).toBeInTheDocument();
     expect(screen.getByText(/online right now/i)).toBeInTheDocument();
     expect(screen.getByText(/waiting for/i)).toBeInTheDocument();
     expect(screen.getAllByText(/R\. Azad/).length).toBeGreaterThan(0);
@@ -59,6 +60,16 @@ describe("FlowDemo", () => {
       "data-ready",
       "true"
     );
+  });
+
+  // Every step in the track must have a screen of its own. Step 1 briefly had
+  // none — "Pick the subject" showed the teacher list, so steps 1 and 2 looked
+  // identical and the card appeared not to advance.
+  it("gives the first step a screen of its own", () => {
+    render(<FlowDemo />);
+    // The picker, not the teacher list.
+    expect(screen.getByText(/what is your child stuck on/i)).toBeInTheDocument();
+    expect(screen.getByText("Curriculum".toUpperCase())).toBeInTheDocument();
   });
 
   it("names the three steps it walks through", () => {

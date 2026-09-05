@@ -16,22 +16,37 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 // must not be two panels that cross-fade into each other. Doing that faded the
 // whole list out and back in at the boundary, which read as the screen
 // glitching rather than as a row being picked. One panel, one row highlight.
-const STOPS = 4;
-const VH_PER_STOP = 70;
+const STOPS = 5;
+const VH_PER_STOP = 60;
 
-// stop -> which panel is on screen
-const PANEL_FOR_STOP = [0, 0, 1, 2];
+// stop -> panel. Two pairs of stops share a panel, for different reasons:
+//   1 and 2 are the online list before and after a row is chosen — choosing a
+//   teacher is a highlight, not a new screen, and cross-fading between two
+//   near-identical lists reads as a glitch.
+//   3 and 4 are genuinely different screens (waiting, then connected).
+const PANEL_FOR_STOP = [0, 1, 1, 2, 3];
 
-// stop -> which step in the track is lit. The last two stops are both step 3:
-// asking and answering are one step to a parent, even though they are two
-// screens.
-const STEP_FOR_STOP = [0, 1, 2, 2];
+// stop -> which step in the track is lit. Every step now has a screen of its
+// own: step 1 is the subject picker, which the card was previously missing
+// entirely, so steps 1 and 2 both showed the teacher list.
+const STEP_FOR_STOP = [0, 1, 1, 2, 2];
 
+// Real routes: /find is the picker, /teachers is the online list.
 const URL_FOR_STOP = [
   "smbtutorials.com/find",
-  "smbtutorials.com/find",
+  "smbtutorials.com/teachers",
+  "smbtutorials.com/teachers",
   "smbtutorials.com/waiting",
   "smbtutorials.com/call",
+];
+
+// What the picker shows, matching src/lib/taxonomy.ts so the mock cannot drift
+// from the real screen.
+const PICKER = [
+  { label: "Curriculum", options: ["CBSE", "State Board", "ICSE"], chosen: "CBSE" },
+  { label: "Class", options: ["8th", "9th", "10th", "11th"], chosen: "10th" },
+  { label: "Core field", options: ["Science", "Commerce", "Arts"], chosen: "Science" },
+  { label: "Subject", options: ["Mathematics", "Physics", "Chemistry"], chosen: "Mathematics" },
 ];
 
 const STEPS = [
@@ -139,7 +154,7 @@ export function FlowDemo() {
   const litStep = STEP_FOR_STOP[stop];
   const panel = PANEL_FOR_STOP[stop];
   // The row highlight IS the transition between the first two stops.
-  const rowChosen = stop >= 1;
+  const rowChosen = stop >= 2;
 
   return (
     <div
@@ -205,7 +220,7 @@ export function FlowDemo() {
                 JS the stop stays 0, so panel 0 shows and the rest sit hidden —
                 a valid hero screenshot, not a pile. */}
             <div className="grid gap-0.5 lg:motion-safe:relative lg:motion-safe:block lg:motion-safe:min-h-[292px]">
-              {[0, 1, 2].map((i) => (
+              {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
                   className={`border-t border-hair lg:motion-safe:absolute lg:motion-safe:inset-0 lg:motion-safe:border-t-0 lg:motion-safe:transition-all lg:motion-safe:duration-500 ${
@@ -215,6 +230,37 @@ export function FlowDemo() {
                   }`}
                 >
                   {i === 0 && (
+                    <div className="px-4 py-4">
+                      <h2 className="mb-3.5 text-base font-black tracking-tight">
+                        What is your child stuck on?
+                      </h2>
+                      <div className="grid gap-3">
+                        {PICKER.map((row) => (
+                          <div key={row.label}>
+                            <p className="mb-1.5 font-mono text-[10px] tracking-wider text-muted-foreground">
+                              {row.label.toUpperCase()}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {row.options.map((o) => (
+                                <span
+                                  key={o}
+                                  className={`rounded-sm border px-2.5 py-1 text-[11.5px] ${
+                                    o === row.chosen
+                                      ? "border-primary bg-primary text-primary-foreground"
+                                      : "border-border text-muted-foreground"
+                                  }`}
+                                >
+                                  {o}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {i === 1 && (
                     <>
                       <div className="border-b border-hair px-4 py-3.5">
                         <p className="mb-1.5 font-mono text-[10px] tracking-wider text-primary">
@@ -228,7 +274,7 @@ export function FlowDemo() {
                     </>
                   )}
 
-                  {i === 1 && (
+                  {i === 2 && (
                     <div className="px-5 py-11 text-center">
                       <p className="mb-3 font-mono text-[11px] tabular-nums tracking-wider text-primary">
                         ASKING · 47s LEFT
@@ -243,7 +289,7 @@ export function FlowDemo() {
                     </div>
                   )}
 
-                  {i === 2 && (
+                  {i === 3 && (
                     <div className="grid grid-rows-[1fr_auto] bg-foreground/95">
                       <div className="grid grid-cols-2 gap-0.5 p-0.5">
                         {[
