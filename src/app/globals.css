@@ -28,6 +28,9 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-hair: var(--hair);
+  /* The marketing header's full height, including its border. The sticky
+     hero offsets against this; hardcoding it in two places lets them drift. */
+  --header-h: 73px;
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);

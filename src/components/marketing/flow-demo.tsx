@@ -79,7 +79,7 @@ function useScrollDriven() {
   return useSyncExternalStore(
     (onChange) => {
       const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-      const narrow = window.matchMedia("(max-width: 880px)");
+      const narrow = window.matchMedia("(max-width: 1023px)");
       motion.addEventListener("change", onChange);
       narrow.addEventListener("change", onChange);
       return () => {
@@ -89,7 +89,7 @@ function useScrollDriven() {
     },
     () =>
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
-      !window.matchMedia("(max-width: 880px)").matches,
+      !window.matchMedia("(max-width: 1023px)").matches,
     () => false
   );
 }
@@ -137,7 +137,13 @@ export function FlowDemo() {
       style={ready ? { height: `${SCENES * VH_PER_SCENE}vh` } : undefined}
       className="relative"
     >
-      <div className="data-[ready=true]:sticky top-[62px] flex min-h-0 items-center data-[ready=true]:min-h-[calc(100vh-62px)]">
+      <div
+        className={
+          ready
+            ? "sticky top-[var(--header-h)] flex min-h-[calc(100vh-var(--header-h))] items-center"
+            : "flex items-center py-12"
+        }
+      >
         <div className="grid w-full items-center gap-14 lg:grid-cols-[1.02fr_.98fr]">
           <div>
             <h1 className="mb-5 text-balance text-[clamp(2rem,4.6vw,3.6rem)] font-black leading-[0.94] tracking-[-0.05em]">
