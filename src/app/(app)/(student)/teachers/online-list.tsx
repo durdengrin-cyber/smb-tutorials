@@ -245,7 +245,7 @@ export function OnlineList({
       <>
         {connBanner}
         {banner && (
-          <div className="mb-6 rounded-xl border border-primary/30 bg-primary/12 px-4 py-3 text-primary">
+          <div className="mb-6 rounded-xl border border-primary/30 bg-primary/12 px-4 py-3 text-foreground">
             {banner}
           </div>
         )}
@@ -286,7 +286,7 @@ export function OnlineList({
     <>
       {connBanner}
       {banner && (
-        <div className="mb-6 rounded-xl border border-primary/30 bg-primary/12 px-4 py-3 text-primary">
+        <div className="mb-6 rounded-xl border border-primary/30 bg-primary/12 px-4 py-3 text-foreground">
           {banner}
         </div>
       )}

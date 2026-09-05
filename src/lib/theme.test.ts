@@ -59,7 +59,11 @@ function palette(selector: string): Record<string, string> {
 // these are the pills a teacher reads at a glance to know whether students can
 // see them. AA against BOTH the page ground and a card, because the pills
 // appear on both. Tested against the strong colour rather than the /12 tint —
-// the tint composites toward the ground, so this is the conservative check.
+// NOT because that is the conservative check. It is the opposite: a
+// translucent bg-token/12 tint moves the composited background TOWARD the
+// token's own colour, so contrast against that same token can only fall
+// versus the solid case, never rise. The dedicated composite describe block
+// below covers that weaker case explicitly, because this one does not.
 describe("status colour is legible in both themes", () => {
   const themes: Record<string, Record<string, string>> = {
     light: palette(":root"),
@@ -72,6 +76,81 @@ describe("status colour is legible in both themes", () => {
         expect(t[key], `--${key} missing from ${theme}`).toBeTruthy();
         expect(contrastRatio(t[key], t.background)).toBeGreaterThanOrEqual(4.5);
         expect(contrastRatio(t[key], t.card)).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+});
+
+// --- alpha-composite helper -------------------------------------------
+// Tailwind's bg-<token>/12 is a translucent fill: the browser paints it at
+// 12% opacity over whatever is already there, so what a reader actually sees
+// is not the token's hex but that hex blended into its parent surface. This
+// mirrors the browser's own compositing (sRGB channels, not linear light —
+// the same space Tailwind's opacity modifier blends in), so the result is
+// the real on-screen colour, not an approximation of it.
+function toRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function toHex(rgb: number[]): string {
+  return "#" + rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+}
+function tintOver(tokenHex: string, surfaceHex: string, alpha = 0.12): string {
+  const fg = toRgb(tokenHex);
+  const bg = toRgb(surfaceHex);
+  return toHex(fg.map((c, i) => alpha * c + (1 - alpha) * bg[i]));
+}
+
+// The bug this exists to catch: text-<token> set on bg-<token>/12 reads fine
+// by eye (same hue, "obviously" on-brand) while failing AA, because the tint
+// eats into the very headroom the solid check above measured. --primary in
+// light theme is exactly this case — 4.91 solid, 0.41 of headroom over the
+// 4.5 floor, and the tint costs about 0.7, so it fails where success and
+// destructive (more headroom) do not.
+//
+// Scoped to the token/surface pairings actually rendered as
+// bg-<token>/12 + text-<token> in the product, not the full 3-token ×
+// 3-surface cross product — some combinations legitimately don't occur:
+//   - success/12 over --card: sessions/page.tsx's "Refunded" badge (inside
+//     Card/CardContent, which does not override Card's own bg-card), and
+//     status-pill.tsx's "available" tone (rendered inside a Card in
+//     availability-toggle.tsx).
+//   - primary/12 over --card: status-pill.tsx's "in_session" tone (same
+//     Card).
+//   - destructive/12 over --card: status-pill.tsx's "unreachable" tone
+//     (same Card).
+//   - destructive/12 over --background: incoming-request.tsx's error
+//     banner. It renders `<Card className="... bg-destructive/12 ...">` —
+//     bg-destructive/12 and Card's own bg-card are the same Tailwind utility
+//     group, so cn()'s tailwind-merge keeps the later class and drops
+//     bg-card entirely. What the tint actually composites over is whatever
+//     is behind the Card in the DOM: the dashboard page's bg-background div.
+// Not present anywhere in the app: any bg-<token>/12 + text-<token> pairing
+// against --muted, and primary/12 + text-primary against --background —
+// online-list.tsx has a bg-primary/12 banner on --background, but its text
+// is text-foreground (fixed by this same commit), not text-primary, so it
+// is not a token-against-its-own-tint pairing and is out of scope here.
+// (Confirmed while diagnosing this: primary/12 over --background is 4.20
+// and over --muted is 3.91 in light theme, both below 4.5 — the numbers
+// that would have made this test fail had either pairing still existed.)
+describe("the 12% tint still clears AA against its own token", () => {
+  const themes: Record<string, Record<string, string>> = {
+    light: palette(":root"),
+    dark: palette("\\.dark"),
+  };
+
+  const used: Array<{ token: "success" | "primary" | "destructive"; surface: "card" | "background" }> = [
+    { token: "success", surface: "card" },
+    { token: "primary", surface: "card" },
+    { token: "destructive", surface: "card" },
+    { token: "destructive", surface: "background" },
+  ];
+
+  for (const [theme, t] of Object.entries(themes)) {
+    for (const { token, surface } of used) {
+      it(`${theme}: --${token}/12 over --${surface} clears 4.5 against --${token}`, () => {
+        const composite = tintOver(t[token], t[surface]);
+        expect(contrastRatio(t[token], composite)).toBeGreaterThanOrEqual(4.5);
       });
     }
   }
