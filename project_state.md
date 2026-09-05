@@ -5,8 +5,8 @@
 **🛑 Read `docs/superpowers/handoffs/2026-09-05-guardian-consent-execution.md` first.** It is the
 state at the close of the 2026-09-05 session. Everything below it is history.
 
-**Everything is committed, pushed, merged and deployed. `main` == `origin/main` @ `89da21e`.
-Tree clean. Nothing in flight.** 26 commits shipped 2026-09-05; the feature branch is deleted.
+**Everything is committed, pushed, merged and deployed. `main` == `origin/main`. Tree clean.
+Nothing in flight.** Shipped 2026-09-05; the feature branch is deleted.
 
 **Verified against the live site route-by-route** (not the Vercel dashboard — this project has
 shipped a "Ready" deployment that 404'd every path): `/`, `/privacy`, `/terms`, `/signup`,
@@ -26,9 +26,47 @@ learner's grade and links to `/privacy`.
   See `CLAUDE.md` and that directory's README.
 - **The M3 child-safety blocker is closed in code**, and its four open policy decisions were
   taken. Three questions still need a lawyer — handoff §6.
-- **Owed before merge:** confirm the refund policy wording. The whole-branch review's verdict is
-  otherwise *ready to merge*.
+- **Refund policy** read and acknowledged by the user; they are refining the commercial terms
+  separately. **Legal review is the user's and under way** — it does not gate the pilot (spec §17).
 - Plans 2 (vetting + escalation) and 3 (recording) are **not written yet**.
+
+---
+
+## ▶ NEXT PRODUCT TIER — micro-doubt sessions, ₹50 / 10 minutes (recorded 2026-09-05)
+
+**User's call, to be built after the current cycle. Not yet specced or decided in detail.**
+
+Came out of a conversation about who the marketing page is for. Reasoning worth keeping:
+
+**Why it is a genuinely different product, not a cheaper version of the current one.**
+`duration_minutes` defaults to 60 and pricing is hourly, which makes today's session a
+*considered purchase* — nobody's child spends ₹500 of a parent's money on impulse. That is why
+the parent is the buyer and the homepage should address them. **A ₹50 / 10-minute session
+inverts that:** it is impulse-priced, so the student becomes the buyer, the trigger and the
+consumer. Same infrastructure, different demand shape.
+
+**Why it is attractive:** almost all the expensive machinery already exists — availability
+leases, instant pick, push dispatch with multi-device fan-out, Daily rooms, payments, consent,
+reports. A micro tier is mostly pricing, duration, and a purchase path.
+
+**The hard problem it creates, and the reason it needs its own design cycle.** As of
+2026-09-05 the **guardian holds the account and the student has no login at all**. An impulse
+purchase by a student is structurally impossible under that model. Something has to give, and
+the options are not equivalent:
+- a parent-funded balance the child spends against, with a cap (keeps the guardian model intact —
+  probably the answer);
+- a student login with delegated spend (reopens every consent question closed this cycle);
+- parent approval per session (kills the impulse, and with it the tier's whole point).
+
+**Other things a spec must answer:** teacher economics on a 10-minute unit (₹50 minus fees, and
+whether a teacher will accept one at all); whether a 10-minute session is worth an accept round
+trip against a 60-second accept window; and the safety surface, since more sessions per child
+means more counterparties per child, against a `session_reports` flow built for hourly lessons.
+
+**Also decided in that conversation, and it shapes both tiers:** the current product is
+*student-triggered, parent-decided, student-consumed*. The need is the child's; the search and
+the payment are the parent's. The marketing surface therefore addresses the parent about the
+child's moment; the app serves the child.
 
 ---
 
