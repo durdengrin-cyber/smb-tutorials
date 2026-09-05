@@ -56,7 +56,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="px-8 py-12">
+      <div className="px-4 py-8 sm:px-8 sm:py-12">
         <div className="max-w-4xl mx-auto space-y-8">
           <PageHeader
             title={`Welcome, ${profile?.full_name ?? identity.fullName}`}

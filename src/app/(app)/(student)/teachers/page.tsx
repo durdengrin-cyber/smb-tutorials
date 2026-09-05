@@ -111,7 +111,7 @@ export default async function TeachersPage({
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="px-8 py-12">
+      <div className="px-4 py-8 sm:px-8 sm:py-12">
         <div className="max-w-6xl mx-auto">
           <PageHeader
             title="Available Teachers"
@@ -122,7 +122,7 @@ export default async function TeachersPage({
 
           {error ? (
             <Card>
-              <CardContent className="p-12 text-center">
+              <CardContent className="p-6 text-center sm:p-12">
                 <p className="text-foreground font-semibold mb-2">
                   Couldn&apos;t load teachers
                 </p>

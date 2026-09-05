@@ -25,7 +25,7 @@ function Shell({
 }) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-5 sm:p-8">
-      <Card className="max-w-md w-full p-12 text-center shadow-xl">
+      <Card className="max-w-md w-full p-6 text-center shadow-xl sm:p-12">
         <div className="relative w-28 h-28 mx-auto mb-6">
           <div className="absolute inset-0 rounded-full border-4 border-primary/30" />
           <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />

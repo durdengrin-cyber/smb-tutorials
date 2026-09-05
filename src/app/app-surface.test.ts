@@ -49,4 +49,10 @@ describe("the app surface", () => {
       expect(readFileSync(f, "utf8"), f).not.toMatch(emoji);
     }
   });
+
+  // The repaint is finished when nothing is exempt. Leaving an entry here
+  // would let a whole file drift while the suite stayed green.
+  it("has no files left unrepainted", () => {
+    expect([...PENDING]).toEqual([]);
+  });
 });

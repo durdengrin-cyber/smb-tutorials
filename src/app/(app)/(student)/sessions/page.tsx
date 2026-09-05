@@ -55,7 +55,7 @@ export default async function SessionsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="px-8 py-12">
+      <div className="px-4 py-8 sm:px-8 sm:py-12">
         <div className="mx-auto max-w-3xl space-y-8">
           <PageHeader
             title="Your sessions"

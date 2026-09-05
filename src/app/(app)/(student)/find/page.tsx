@@ -49,7 +49,7 @@ export default function FindPage() {
         </svg>
       </div>
 
-      <div className="relative z-10 flex items-center justify-center px-8 py-12">
+      <div className="relative z-10 flex items-center justify-center px-4 py-8 sm:px-8 sm:py-12">
         <div className="max-w-2xl w-full">
           <PageHeader
             title="Tell Us What You Need"
@@ -163,7 +163,7 @@ export default function FindPage() {
           {grade && !subject && (
             <div className="mt-12 animate-fadeIn">
               <Card>
-                <CardContent className="p-8 text-center">
+                <CardContent className="p-5 text-center sm:p-8">
                   <h3 className="text-xl font-bold text-foreground mb-3">
                     Looking for a different {stream ? "subject" : "field"}?
                   </h3>
