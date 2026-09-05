@@ -29,7 +29,7 @@ export default function FindPage() {
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
-        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <svg className="w-full h-full text-hair" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern
               id="grid"
@@ -40,7 +40,7 @@ export default function FindPage() {
               <path
                 d="M 40 0 L 0 0 0 40"
                 fill="none"
-                stroke="#14B8A6"
+                stroke="currentColor"
                 strokeWidth="1"
               />
             </pattern>
