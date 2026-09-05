@@ -8,6 +8,21 @@
 - Serverless student↔teacher 1:1 tutoring over peer-to-peer video.
 - Full design + decisions: `docs/superpowers/specs/2026-08-24-smb-tutorials-design.md` (source of truth).
 
+### The name — do not "improve" it
+**SMB stands for Syedna Mohammed Burhanuddin.** The project is named in his honour; he is
+remembered for his emphasis on education. **The name is not up for renaming, ever, and it is not
+an acronym to be optimised.** Read cold it looks like the enterprise abbreviation for "small and
+medium business" — it is not, and an agent that suggests renaming on that basis has made a real
+mistake (one already made in this project on 2026-09-05).
+
+Everything *around* the name — the visual identity, the word that follows "SMB", the colours,
+the positioning — is open. The name itself is settled.
+
+**Still to settle:** the project currently spells itself five ways — `SMB Tutorial`,
+`SMB Tutorials`, `smb-tutorials`, `smbtutorial`, `smbtutorials`. Both of the first two appear on
+`/privacy` and `/terms`, which are published legal documents and should name one entity
+consistently. Pick one form and apply it everywhere.
+
 ## Stack (locked — see spec before changing)
 - Next.js (App Router) on Vercel · Supabase (Postgres + Auth + realtime) · Daily.co (video) · Stripe Checkout · Resend · Tailwind + shadcn/ui.
 - Serverless only — no always-on server/VPS to run.
