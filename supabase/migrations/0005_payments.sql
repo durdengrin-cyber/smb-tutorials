@@ -8,7 +8,6 @@
 -- trigger that guards who may set it is not yet installed — a live window
 -- where 'paid' is writable by a user token, produced by the very migration
 -- meant to prevent that.
-begin;
 
 alter table public.sessions
   add column payment_deadline  timestamptz,
@@ -273,7 +272,6 @@ begin
 end;
 $$;
 
-commit;
 
 -- PRE-FLIGHT, before applying:
 -- select conname from pg_constraint where conrelid='public.sessions'::regclass and contype='c';

@@ -16,7 +16,6 @@
 --    table (teacher_availability) already has this guard
 --    (availability_requires_teacher / teacher_availability_guard); this was
 --    an oversight, not a deliberate asymmetry.
-begin;
 
 -- Same four-arg signature and body as 0008, with one addition: an advisory
 -- lock covering the whole read-modify-write.
@@ -115,4 +114,3 @@ create trigger teacher_devices_guard
   before insert or update on public.teacher_devices
   for each row execute function public.devices_requires_teacher();
 
-commit;

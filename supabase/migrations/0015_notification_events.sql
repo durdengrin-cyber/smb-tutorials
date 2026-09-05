@@ -12,7 +12,6 @@
 -- plus a row for the cases where there was no attempt to make (no devices,
 -- read failure, missing credential) — because "we never even tried" and "we
 -- tried and it failed" look identical from the outside and need telling apart.
-begin;
 
 create table if not exists public.notification_events (
   id          uuid primary key default gen_random_uuid(),
@@ -53,4 +52,3 @@ alter table public.notification_events enable row level security;
 -- it matters — recorded in the spec's hardening section rather than left to
 -- be discovered.
 
-commit;

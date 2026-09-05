@@ -11,7 +11,6 @@
 --
 -- NOTE: migration 0006 is deliberately UNAPPLIED (it would permit role =
 -- 'admin' before a role-write guard exists). Nothing below depends on it.
-begin;
 
 create table public.teacher_availability (
   teacher_id     uuid primary key references public.profiles (id) on delete cascade,
@@ -72,4 +71,3 @@ create trigger teacher_availability_guard
   before insert or update on public.teacher_availability
   for each row execute function public.availability_requires_teacher();
 
-commit;

@@ -4,7 +4,6 @@
 -- wrong in a lesson: no report button, no block, nowhere for it to go. That is
 -- part of the child-safety gap, and a session row already naming the teacher,
 -- the subject and the date is the cheapest place to close it.
-begin;
 
 create table if not exists public.session_reports (
   id          uuid primary key default gen_random_uuid(),
@@ -47,4 +46,3 @@ create policy session_reports_insert on public.session_reports
 -- users — including by the teacher it is about. Reports are read by an
 -- operator script until admin exists (spec §8 item 2).
 
-commit;

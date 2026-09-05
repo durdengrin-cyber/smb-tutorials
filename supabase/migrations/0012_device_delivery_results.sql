@@ -20,7 +20,6 @@
 -- would mean SELECT-then-UPDATE, which two concurrent dispatches to the same
 -- device silently undercount. Postgres can do it atomically in one statement;
 -- nothing else can.
-begin;
 
 create or replace function public.record_device_results(
   p_ok     uuid[],
@@ -79,4 +78,3 @@ revoke all on function public.record_device_results(uuid[], uuid[])
   from public, anon, authenticated;
 grant execute on function public.record_device_results(uuid[], uuid[]) to service_role;
 
-commit;

@@ -8,7 +8,6 @@
 -- And agreeing to buy a lesson is not agreeing to how a child's data is
 -- handled — which is the agreement that actually matters here, and which
 -- becomes load-bearing the day session recording is switched on.
-begin;
 
 alter table public.profiles
   add column if not exists consent_accepted_at timestamptz,
@@ -47,4 +46,3 @@ begin
 end;
 $fn$;
 
-commit;

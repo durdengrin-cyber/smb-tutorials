@@ -5,7 +5,6 @@
 -- that teacher's phone. That is why select is owner-only, why the roster RPC
 -- (0009) publishes a boolean instead of a join, and why the probe's single
 -- most important assertion is that a student reading this table gets nothing.
-begin;
 
 create table public.teacher_devices (
   id             uuid primary key default gen_random_uuid(),
@@ -118,4 +117,3 @@ $$;
 revoke all on function public.register_device(text, text, text, text) from public;
 grant execute on function public.register_device(text, text, text, text) to authenticated;
 
-commit;

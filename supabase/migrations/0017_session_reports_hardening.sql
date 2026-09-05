@@ -1,6 +1,5 @@
 -- Cycle 3 follow-up, spec §8 items 4 and 5. Two independent problems with
 -- session_reports, both found by the final review of the branch that created it.
-begin;
 
 -- ---------------------------------------------------------------------------
 -- 1. A SECOND read control, so RLS is not the only one.
@@ -115,4 +114,3 @@ end $$;
 -- The insert policy still holds: with session_id null the exists() subquery is
 -- false, so a report cannot be filed without naming a session the caller was in.
 
-commit;

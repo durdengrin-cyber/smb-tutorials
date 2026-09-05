@@ -3,7 +3,6 @@
 -- agreement is overwritten. That is the question that matters if anything ever
 -- goes wrong, so the record becomes its own append-only log, following the
 -- notification_events precedent (0015).
-begin;
 
 create table if not exists public.consent_events (
   id            uuid primary key default gen_random_uuid(),
@@ -127,4 +126,3 @@ begin
 end;
 $fn$;
 
-commit;

@@ -17,7 +17,6 @@
 -- constraint and is deliberately unapplied, because with role self-writable it
 -- would turn a student→teacher annoyance into self-service ADMIN promotion.
 -- After this migration, 0006 becomes safe to apply.
-begin;
 
 -- 1. Metadata must never be able to name a privileged role -----------------
 --
@@ -160,4 +159,3 @@ revoke all on function public.become_teacher(text, text, int)
   from public, anon, authenticated;
 grant execute on function public.become_teacher(text, text, int) to authenticated;
 
-commit;

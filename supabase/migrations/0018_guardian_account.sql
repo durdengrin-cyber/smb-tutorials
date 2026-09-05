@@ -2,7 +2,6 @@
 -- Spec §4. sessions.grade has been constrained to '6th'..'12th' since 0002, so
 -- every student on this platform is a minor by construction and there is no
 -- adult-learner case to branch on.
-begin;
 
 alter table public.profiles
   add column if not exists learner_first_name text,
@@ -92,4 +91,3 @@ begin
 end;
 $$;
 
-commit;

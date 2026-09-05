@@ -13,7 +13,6 @@
 -- would refuse work to someone able to take it. has_device is PUBLISHED, not
 -- APPLIED; the client does the final AND against its presence roster,
 -- because the client is the only place both facts exist at once.
-begin;
 
 create or replace function public.available_teachers(
   p_curriculum text,
@@ -73,4 +72,3 @@ $$;
 revoke all on function public.available_teachers(text, text, text, text) from public;
 grant execute on function public.available_teachers(text, text, text, text) to authenticated;
 
-commit;

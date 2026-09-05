@@ -31,7 +31,6 @@
 -- No new trigger: `create or replace function` keeps the existing
 -- `sessions_enforce_insert` trigger's binding, so it does not need
 -- recreating.
-begin;
 
 create or replace function public.enforce_session_insert()
 returns trigger
@@ -100,7 +99,6 @@ begin
 end;
 $$;
 
-commit;
 
 -- PRE-FLIGHT, before applying:
 -- select prosrc from pg_proc where proname = 'enforce_session_insert';
