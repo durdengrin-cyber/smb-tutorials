@@ -462,7 +462,11 @@ The loop now runs: teacher accepts → a 120-second payment window opens → stu
 
 Each probe also asserts that `sessions` **and** `profiles` returned to their pre-run row counts, so a leaked row or a leaked account fails the run.
 
-**The test teacher's password needs no rotation — decided by the user, 2026-08-27. Do not raise it again.** `tutor-check@smbtutorials.in` is a pseudo account that gets deleted before launch, so rotating a credential on an account with a scheduled death is busywork. Two things had to be true first and both are: no probe reads it any more (`PROBE_TEACHER_PASSWORD` is gone as of 2026-08-27, so nothing breaks when the account goes), and it is in no committed file. Deleting the account is already tracked under "Open before real launch" below — **that** is the action, not a rotation.
+**The test teacher's password was reset on 2026-09-05 at the user's request, for ACCESS — not as a security rotation.** `tutor-check@smbtutorials.in` is the M1/M2 test teacher account. The user asked for a known password so they could sign in as a teacher; it was set via the Supabase admin API and verified with a real `/auth/v1/token` sign-in. **The password is not recorded here or in any tracked file** — ask the user, or reset it again the same way.
+
+**Do not propose rotating it for security reasons.** That was raised, decided against by the user on 2026-08-27, and the reasoning still holds: it is a pseudo account with a scheduled death, so rotating its credential is busywork. Nothing depends on it — no probe or source file references the account or `PROBE_TEACHER_PASSWORD` (verified again 2026-09-05) — so nothing breaks when it goes.
+
+**The action that IS still owed is DELETION**, tracked under "Open before real launch" below. It is a pseudo account on `smbtutorials.in`, a domain nobody owns; `scripts/probe-accounts.mjs:58` also mints throwaway accounts there, which is harmless (nothing is ever sent to them, and they are deleted in a `finally`) but worth re-pointing if a real domain is settled.
 
 ### Task 11, closed (2026-08-27)
 
