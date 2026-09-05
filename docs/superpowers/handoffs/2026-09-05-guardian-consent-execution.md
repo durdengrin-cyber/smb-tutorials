@@ -75,8 +75,11 @@ because it documents how to verify state from scratch.
   never pasting it; `db push` applies anything the ledger does not list. It now lives in
   `supabase/migrations-deferred/` with a README. **Marking it applied in the ledger would have
   been a lie** that hid a real schema difference.
-- **The CLI cannot parse the local dotenv file.** Workaround in `CLAUDE.md`: run from a scratch
-  copy. Root cause not yet diagnosed — nobody has identified the offending line.
+- **The CLI could not parse the local dotenv file — diagnosed and FIXED.** One value (the Sentry
+  DSN) had been pasted with a literal newline inside it, so it spanned two physical lines. Next's
+  parser tolerated that for months; the CLI's did not, and its error named only the file, never
+  the line. Joining the two lines fixed it, and `supabase migration list` now runs from the repo
+  root with no scratch-copy dance.
 
 Two credentials notes from the same work: `supabase/.temp/` was untracked but **not** git-ignored
 (one `git add -A` from being committed) and is now ignored — audited first, it holds no password.

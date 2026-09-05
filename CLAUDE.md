@@ -24,8 +24,18 @@
   deferred file left there goes live by accident. Move it there; never mark it applied in the
   ledger, which would hide a real schema difference. See that directory's README.
 - `supabase db query --linked "<sql>"` runs read-only checks against production.
-- **Known snag:** the CLI cannot parse the local dotenv file, so run it from a scratch copy:
-  `cd "$(mktemp -d)" && cp -R <repo>/supabase . && supabase db push`.
+- `supabase migration list` is the fastest answer to "what is actually live?" — every row should
+  show LOCAL == REMOTE. Anything in the LOCAL column with an empty REMOTE will be applied by the
+  next `db push`.
+- Applying DDL is blocked inside Claude Code by the permission classifier, deliberately. A human
+  runs `db push`; the agent prepares, verifies, and reads.
+- **Gotcha, fixed 2026-09-05 — do not reintroduce:** the CLI refused to parse the local dotenv
+  file because one value (the Sentry DSN) had been pasted with a literal newline inside it,
+  splitting it across two lines. Next's parser tolerated it; the CLI's did not, and the error
+  named only the file, not the line. If the CLI ever reports a parse failure again, find the
+  offending line with
+  `grep -nvE '^[A-Z_][A-Z0-9_]*=|^#|^$' <file> | cut -d: -f1` — it prints line numbers only, no
+  values.
 
 ## Build & Deploy
 - GitHub → Vercel auto-deploy: push to `main` = production, PRs = preview.
