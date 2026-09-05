@@ -63,15 +63,15 @@ export function ConsentForm({ role }: { role: Role }) {
               and `required` is browser-only decoration. Validated again in
               acceptConsent. */}
           <input type="checkbox" name="consent" value="yes" required className="mt-1 mr-2" />
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-muted-foreground">
             {role === "student"
               ? "I am this student's parent or legal guardian, and I agree to the "
               : "I agree to the "}
-            <Link href="/terms" className="text-teal-600 hover:text-teal-700 underline">
+            <Link href="/terms" className="text-primary hover:text-primary underline">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="text-teal-600 hover:text-teal-700 underline">
+            <Link href="/privacy" className="text-primary hover:text-primary underline">
               Privacy Policy
             </Link>
           </span>

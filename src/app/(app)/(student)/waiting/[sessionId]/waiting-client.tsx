@@ -24,12 +24,12 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 flex items-center justify-center p-5 sm:p-8">
+    <div className="min-h-screen bg-background flex items-center justify-center p-5 sm:p-8">
       <Card className="max-w-md w-full p-12 text-center shadow-xl">
         <div className="relative w-28 h-28 mx-auto mb-6">
-          <div className="absolute inset-0 rounded-full border-4 border-teal-100" />
-          <div className="absolute inset-0 rounded-full border-4 border-teal-500 border-t-transparent animate-spin" />
-          <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-gray-900">
+          <div className="absolute inset-0 rounded-full border-4 border-primary/30" />
+          <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center text-3xl font-mono font-bold tabular-nums text-foreground">
             {count}
           </div>
         </div>
@@ -234,10 +234,10 @@ export function WaitingClient({
   if (status === "accepted") {
     return (
       <Shell count={left}>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="text-2xl font-bold text-foreground mb-2">
           {teacherName} accepted
         </h2>
-        <p className="text-gray-600 mb-4">
+        <p className="text-muted-foreground mb-4">
           Pay <Money paise={amountPaise} /> to start your session.
         </p>
         {/* Said BEFORE the money moves, not in a policy page nobody opens.
@@ -246,7 +246,7 @@ export function WaitingClient({
             than one that says nothing. When recording ships, this wording is
             already accurate and the /terms clause forbidding recording
             (terms/page.tsx) must change in the same commit. */}
-        <p className="text-sm text-gray-500 mb-8 max-w-sm mx-auto">
+        <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
           For everyone&apos;s safety, sessions may be recorded. By paying, you
           confirm you&apos;re the student&apos;s parent or guardian, or 18 or
           older.
@@ -273,22 +273,22 @@ export function WaitingClient({
   if (status === "paid") {
     return (
       <Shell count={left}>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment received</h2>
-        <p className="text-gray-600">Opening your room…</p>
+        <h2 className="text-2xl font-bold text-foreground mb-2">Payment received</h2>
+        <p className="text-muted-foreground">Opening your room…</p>
       </Shell>
     );
   }
 
   return (
     <Shell count={left}>
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <h2 className="text-2xl font-bold text-foreground mb-2">
         Asking {teacherName}…
       </h2>
       {/* The honest half of a 60s deadline (design spec §5.3, §6.2): a fast
           accept still resolves fast, but a slow one is not a stall — it's a
           locked phone waking up. Kept off the teacher cards on purpose; this
           screen is where the student needs to hear it. */}
-      <p className="text-gray-600 mb-8">
+      <p className="text-muted-foreground mb-8">
         This can take a moment if their phone is asleep.
       </p>
       <Button variant="outline" onClick={cancel} disabled={cancelling}>
