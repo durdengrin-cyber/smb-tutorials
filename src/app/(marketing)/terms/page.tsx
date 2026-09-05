@@ -95,7 +95,7 @@ export default function TermsPage() {
                 </h3>
                 <p className="text-muted-foreground mb-3">
                   Attempting to take a student &quot;off-platform&quot; to avoid
-                  SMB Tutorial service fees is a critical violation.
+                  SMB Tutorials service fees is a critical violation.
                 </p>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
@@ -138,7 +138,7 @@ export default function TermsPage() {
                   </li>
                   <li>
                     <strong>Penalty:</strong> Immediate account termination and
-                    permanent block. SMB Tutorial will cooperate fully with law
+                    permanent block. SMB Tutorials will cooperate fully with law
                     enforcement if conduct is illegal.
                   </li>
                 </ul>
@@ -202,7 +202,7 @@ export default function TermsPage() {
               </h2>
 
               <p className="text-muted-foreground mb-4">
-                At SMB Tutorial, we are committed to providing a respectful,
+                At SMB Tutorials, we are committed to providing a respectful,
                 productive, and safe learning environment. By using our platform,
                 students agree to adhere to the following standards of behavior.
               </p>

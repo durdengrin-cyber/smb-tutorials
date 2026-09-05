@@ -16,7 +16,7 @@ export default function PrivacyPage() {
                 Who we are and how to reach us
               </h2>
               <p className="text-muted-foreground">
-                SMB Tutorial connects students in grades 6&ndash;12 with
+                SMB Tutorials connects students in grades 6&ndash;12 with
                 tutors for one-to-one video lessons. If you have a question
                 about this policy, or about the data we hold on your family,
                 write to{" "}
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
                 Who holds the account
               </h2>
               <p className="text-muted-foreground">
-                An account on SMB Tutorial is held by a student&apos;s parent
+                An account on SMB Tutorials is held by a student&apos;s parent
                 or legal guardian. The student is named on the account so
                 their tutor knows who they are teaching; the student does not
                 have a login of their own. Everywhere below, &quot;your
