@@ -371,7 +371,8 @@ must be applied **before** this app code deploys.
 
 **✅ VAPID keys INSTALLED and VERIFIED (2026-09-03).** Fresh pair generated (`teacher_devices`
 was empty, so nothing was invalidated), written to `.env.local`, and set in Vercel for
-Production, Development, and Preview scoped to `cycle-2/durable-availability`. Subject is
+Production, Development and Preview — the Preview entry was branch-scoped to
+`cycle-2/durable-availability` at the time; **it no longer is, see the CLI note below**. Subject is
 `https://smb-tutorials.vercel.app`. Verified three ways: `web-push` builds a real signed request
 (`vapid` scheme, `aes128gcm`, `k=` matching our public key); the preview was **redeployed** after
 the vars were added; and the public key was found inlined in the deployed chunk
@@ -380,8 +381,13 @@ reached the build.
 
 **⚠ Vercel CLI note:** `vercel env add <name> preview --value <v> --yes` loops — it demands a git
 branch, suggests the exact command you just ran, and rejects it again. Pass the branch as the
-third argument. That is why the preview vars are branch-scoped; other preview branches have no
-VAPID vars. Production is unaffected.
+third argument. **The CLI gotcha is still real; the branch-scoping it caused is NOT — corrected
+2026-09-05.** Those scoped entries were replaced with unscoped ones (created 2026-09-04), so
+**every preview branch now gets the VAPID vars**, this cycle's included. Verified by query rather
+than assumed: `vercel env ls preview <branch>` returns *No Environment Variables found* for BOTH
+`feat/visual-identity-tokens` and `cycle-2/durable-availability` — which is what an absence of
+branch-scoping looks like — while plain `vercel env ls preview` lists all three VAPID names.
+Production and Development hold their own separate entries. Production is unaffected.
 
 ### ✅ TASK 17 PERFORMED 2026-09-04 — PASSED. Cycle 2 is functionally complete.
 
