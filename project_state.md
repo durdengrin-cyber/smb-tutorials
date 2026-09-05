@@ -1,6 +1,28 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-04)
+## ▶ START HERE (updated 2026-09-05)
+
+**🛑 Read `docs/superpowers/handoffs/2026-09-05-guardian-consent-execution.md` first.** It is the
+state at the close of the 2026-09-05 session. Everything below it is history.
+
+**⚠ Unlike every previous entry: work is IN FLIGHT and NOT merged.** Branch
+`feat/guardian-consent-privacy`, **16 commits ahead of `main`, unpushed**. `main` is untouched and
+still equals `origin/main`. Production runs the pre-branch code.
+
+- **300 tests passing / 3 skipped** · `tsc` 0 · `eslint` 0 · `build` 0 · **9 probes** (2 new)
+- **Migrations `0018` and `0019` are committed. Whether they are APPLIED must be checked, not
+  assumed** — see §3 of the handoff for the three verification queries.
+- `probe-consent.mjs` cannot pass until they are applied. Its pre-application failure
+  ("could not find the function public.record_consent") is expected, not a bug.
+- **The M3 child-safety blocker is closed in code**, and its four open policy decisions were
+  taken. Three questions still need a lawyer — handoff §6.
+- **Owed before merge:** confirm the refund policy wording. The whole-branch review's verdict is
+  otherwise *ready to merge*.
+- Plans 2 (vetting + escalation) and 3 (recording) are **not written yet**.
+
+---
+
+## ▶ START HERE (updated 2026-09-04) — SUPERSEDED
 
 **🛑 Read `docs/superpowers/handoffs/2026-09-04-cycle-2-3-complete.md` first.** It is the full
 state at the close of the 2026-09-04 session: what shipped, what is proven, the configuration,
