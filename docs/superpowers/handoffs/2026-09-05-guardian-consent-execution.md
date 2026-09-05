@@ -13,14 +13,18 @@ git-ignored scratch before.
 
 | | |
 |---|---|
-| Branch | `feat/guardian-consent-privacy` — **16 commits, unpushed, unmerged** |
+| Branch | `feat/guardian-consent-privacy` — **21 commits, unpushed, unmerged** |
 | Base | `d6e47a0` on `main` |
 | Tests | **300 passing / 3 skipped** (was 260 at session start) |
 | Gates | `tsc --noEmit` 0 · `eslint .` 0 problems · `npm run build` 0 |
-| Diff | 35 files, +2015 / −130 |
-| Probes | **9** (was 7) — `probe-consent.mjs` is new and cannot pass until the migrations are applied |
-| Migrations | `0018`, `0019` **written and committed — application status: SEE §3** |
-| Production | unchanged; still running the pre-branch code |
+| Probes | **8, all exit 0 against production** — `probe-consent.mjs` is new |
+| Migrations | `0018`, `0019` **APPLIED via `supabase db push`** and verified by query — §3 |
+| Production DB | **schema updated.** The deployed *app* is unchanged — nothing is pushed |
+
+**The split matters:** the database now has the new schema, but production still runs the old
+code. That is safe in this direction — `0018` only adds nullable columns and `0019` only adds a
+table and functions, so the running app neither sees nor needs them. It would NOT be safe in
+reverse.
 
 ## 2. What this branch does
 
