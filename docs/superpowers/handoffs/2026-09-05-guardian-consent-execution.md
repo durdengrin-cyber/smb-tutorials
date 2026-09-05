@@ -37,7 +37,50 @@ The M3 child-safety blocker, closed in code. Four decisions were taken in conver
   current, and `requireConsentedUser()` does the same for every server action and route handler.
 - **`/privacy` exists**, and `/terms` publishes the refund policy and the Tutor Agreement.
 
-## 3. 🛑 THE FIRST THING TO CHECK
+## 3. ✅ MIGRATIONS ARE APPLIED (resolved 2026-09-05)
+
+`0018` and `0019` went in via `supabase db push`, not by hand. Verified by query against
+production, not assumed:
+
+| Check | Result |
+|---|---|
+| 3 new `profiles` columns | ✅ |
+| `consent_events` exists | ✅ |
+| `authenticated` can EXECUTE `record_consent` | ✅ true |
+| `anon` can EXECUTE it | ✅ false |
+| `authenticated` / `anon` can SELECT the log | ✅ false, false — the `0017` control, proven live |
+| `0006` still unapplied | ✅ `CHECK (role = ANY (ARRAY['student','teacher']))` |
+
+**All 8 probes exit 0**, including `probe-consent.mjs`, whose assertion 4 confirms an
+authenticated user reading their own consent row is *refused* (HTTP 403), not merely RLS-empty —
+the distinction that hid the `0012` bug in production once before.
+
+**The migration workflow changed in the same session** — see §3b. The section below is kept only
+because it documents how to verify state from scratch.
+
+## 3b. The CLI replaces hand-pasting
+
+`supabase db push` is now the way. What had to happen first, and why each mattered:
+
+- **The ledger was empty.** All 19 migrations had been applied by hand, so
+  `supabase_migrations.schema_migrations` had no record and `db push` would have re-run
+  everything from `0001`. Repaired: `0001`–`0005` and `0007`–`0017` marked applied.
+- **`begin;`/`commit;` had to go** from all 14 files that carried them. `db push` wraps each
+  migration in its own transaction, so an explicit `commit;` would end it early and run the rest
+  unprotected — the opposite of the safety it was originally added for.
+- **`0006` had to move out of `supabase/migrations/`.** Hand-pasting kept it unapplied by simply
+  never pasting it; `db push` applies anything the ledger does not list. It now lives in
+  `supabase/migrations-deferred/` with a README. **Marking it applied in the ledger would have
+  been a lie** that hid a real schema difference.
+- **The CLI cannot parse the local dotenv file.** Workaround in `CLAUDE.md`: run from a scratch
+  copy. Root cause not yet diagnosed — nobody has identified the offending line.
+
+Two credentials notes from the same work: `supabase/.temp/` was untracked but **not** git-ignored
+(one `git add -A` from being committed) and is now ignored — audited first, it holds no password.
+And applying DDL from inside Claude Code is blocked by the permission classifier, correctly; a
+human runs `db push`.
+
+## 3c. (historical) How to verify migration state from scratch
 
 **Were migrations `0018` and `0019` applied?** The user was mid-paste when this handoff was
 written. Check, do not assume:

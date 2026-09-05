@@ -12,6 +12,21 @@
 - Next.js (App Router) on Vercel · Supabase (Postgres + Auth + realtime) · Daily.co (video) · Stripe Checkout · Resend · Tailwind + shadcn/ui.
 - Serverless only — no always-on server/VPS to run.
 
+## Database migrations — use the CLI, never paste
+- **`supabase db push`** applies migrations. The project is linked and
+  `supabase_migrations.schema_migrations` is the source of truth for what is live. Hand-pasting
+  into the SQL editor is retired — it is what let `0013` silently roll back and left the ledger
+  blank for 19 migrations.
+- **Migration files carry NO `begin;`/`commit;`.** `db push` wraps each file in its own
+  transaction; an explicit `commit;` inside would end it early and run the rest unprotected.
+- **`supabase/migrations-deferred/`** holds migrations that are deliberately NOT applied.
+  `db push` applies everything in `supabase/migrations/` that the ledger does not list, so a
+  deferred file left there goes live by accident. Move it there; never mark it applied in the
+  ledger, which would hide a real schema difference. See that directory's README.
+- `supabase db query --linked "<sql>"` runs read-only checks against production.
+- **Known snag:** the CLI cannot parse the local dotenv file, so run it from a scratch copy:
+  `cd "$(mktemp -d)" && cp -R <repo>/supabase . && supabase db push`.
+
 ## Build & Deploy
 - GitHub → Vercel auto-deploy: push to `main` = production, PRs = preview.
 - Sync before every push: `git fetch origin main` then rebase onto it — never push on a stale base.

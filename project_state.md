@@ -10,10 +10,15 @@ state at the close of the 2026-09-05 session. Everything below it is history.
 still equals `origin/main`. Production runs the pre-branch code.
 
 - **300 tests passing / 3 skipped** · `tsc` 0 · `eslint` 0 · `build` 0 · **9 probes** (2 new)
-- **Migrations `0018` and `0019` are committed. Whether they are APPLIED must be checked, not
-  assumed** — see §3 of the handoff for the three verification queries.
-- `probe-consent.mjs` cannot pass until they are applied. Its pre-application failure
-  ("could not find the function public.record_consent") is expected, not a bug.
+- **Migrations `0018` and `0019` are APPLIED (2026-09-05, via `supabase db push`).** Verified
+  live: 3 new `profiles` columns, `consent_events` exists, `record_consent` executable by
+  `authenticated` and NOT by `anon`, and the table unreadable by both — the `0017` read control
+  proven by query, not assumed.
+- **All 8 probes exit 0 against production**, including the new `probe-consent.mjs`.
+- **Migration workflow changed: the Supabase CLI replaces hand-pasting.** Ledger repaired
+  (`0001`–`0005`, `0007`–`0017` marked applied), `begin;`/`commit;` stripped from all files, and
+  `0006` moved to `supabase/migrations-deferred/` so `db push` cannot apply it by accident.
+  See `CLAUDE.md` and that directory's README.
 - **The M3 child-safety blocker is closed in code**, and its four open policy decisions were
   taken. Three questions still need a lawyer — handoff §6.
 - **Owed before merge:** confirm the refund policy wording. The whole-branch review's verdict is
