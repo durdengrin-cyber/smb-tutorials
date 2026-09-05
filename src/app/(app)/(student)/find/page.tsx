@@ -27,9 +27,15 @@ export default function FindPage() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <svg className="w-full h-full text-hair" xmlns="http://www.w3.org/2000/svg">
+      {/* Background Pattern. text-border, not text-hair, and no wrapper
+          opacity: --border is already the "barely there" end of the token
+          scale (~1.24:1 / ~1.33:1 against --background at full strength,
+          light/dark — the same faint weight every ordinary card border reads
+          at). Stacking opacity-5 on top of --hair, the even fainter token,
+          compounded two subtractions and landed at ~1.006:1: present in the
+          DOM, invisible on screen, in both themes. */}
+      <div className="absolute inset-0">
+        <svg className="w-full h-full text-border" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern
               id="grid"
