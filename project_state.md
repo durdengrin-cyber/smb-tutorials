@@ -1,6 +1,38 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-05, evening)
+## ▶ START HERE (updated 2026-09-06)
+
+**🛑 Read `docs/superpowers/handoffs/2026-09-06-visual-identity-complete.md` first.** It is the
+state at the close of the 2026-09-05/06 session. Everything below it is history.
+
+**The visual identity cycle is COMPLETE on `feat/visual-identity-tokens` — 48 commits, pushed,
+tree clean, and NOT merged.** Production still shows the demo's teal. All three plans executed;
+plan 3 ran subagent-driven, 7 tasks planned and 8 executed.
+
+**344 passed / 3 skipped · `tsc` 0 · `eslint` 0 · `build` 0**, all measured by running them.
+Every "Done when" target at zero: literal colours on the product surface, emoji outside
+`(marketing)`, guard `PENDING`, raw hex in the guarded set.
+
+**🛑 The one thing blocking the merge decision is a handset pass** — nobody has opened any of this
+on a real phone, and spec §5.6 makes that the owner's. The list is handoff §5. Preview alias:
+`https://smb-tutorials-git-feat-visual-5af6e1-durdengrin-6266s-projects.vercel.app`
+
+**Three findings the diff does not show** (handoff §3): the plan missed the entire `(fullscreen)`
+route group — `/call`, the product's core screen; the guard was an inclusion list and is now an
+exclusion list, ~15 files to ~70; and the contrast test carried a backwards premise, so
+`text-primary` on a 12% tint was shipping at 4.20 against an AA floor of 4.5.
+
+**Also fixed this session, both owner-reported:** the signed-in logo pointed at the `/home`
+resolver, so it was a no-op for both roles and nothing led back to the landing page; and the phone
+hero was four static screenshots, which now pins and cross-fades like the desktop.
+
+**Plan 4 — the assets (share card, `apple-touch-icon`, real app icons) — is not written**, and is
+blocked on the domain and the wordmark. **Settling the domain unblocks the share card, the
+password reset and the support address at once.**
+
+---
+
+## ▶ START HERE (updated 2026-09-05, evening) — SUPERSEDED by the block above
 
 **Cycle: visual identity.** Spec `docs/superpowers/specs/2026-09-05-visual-identity-design.md`.
 
