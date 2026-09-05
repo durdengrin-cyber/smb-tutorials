@@ -125,7 +125,41 @@ survives as a link colour against a pale ground. **Same hue, two jobs.**
 Mono is not decoration: it marks the parts of the page that are *live or factual* — the online
 count, step numbers, rates, timers — against Archivo's editorial voice.
 
-### 5.4 Layout
+### 5.4 Motion
+
+**Decided 2026-09-05, after prototyping.** One signature idea, executed properly, plus restrained
+micro-interaction. **Not motion everywhere** — scattered fade-ins on every section is where
+generated design gives itself away, and it is the visual equivalent of a stock photo.
+
+There was a real tension to resolve: the visitor is a parent at 9pm whose child is stuck, arriving
+from a WhatsApp tap. Motion that delays them understanding *this is safe and it is fast* fights
+the product. The resolution is that motion must **express liveness**, which is the product's
+actual essence — teachers online right now, answered in sixty seconds. Motion that expresses time
+passing is on-theme; motion that expresses nothing is decoration.
+
+**The signature: a scroll-driven hero.** One device frame walks the real flow — browse the
+online list, ask a teacher, the sixty-second wait, connected — while a step track beside it
+advances and the URL in the chrome changes to match. The page *performs* "three steps, about a
+minute" rather than claiming it. A parent who scrolls past has watched the product work without
+clicking anything, and the thing being shown is the one thing a competitor cannot fake.
+
+**The rule that makes it bearable: scroll POSITION drives the scenes, scroll SPEED is never
+touched.** Hijacking scroll speed — the page refusing to move at the rate you scroll — is what
+makes these things infuriating. Pacing is 70vh of scroll per scene, derived from the scene count
+rather than a magic number.
+
+**It must degrade three ways**, because most traffic arrives from a WhatsApp tap on a phone:
+- **Mobile** (≤880px): collapses to stacked screenshots. No sticky, no scroll-driving on a small
+  screen where it would be miserable.
+- **`prefers-reduced-motion`**: the same collapse, in **CSS**, so it holds before any JS runs.
+- **No JS**: a `no-js` class on the root, removed by the script, so the fallback is the default
+  state rather than a blank frame.
+
+**Micro-interaction, and nothing more:** the online counter drifts up and down like real
+availability rather than ticking up like a marketing widget, and the accept countdown genuinely
+counts. Both are real data in production.
+
+### 5.5 Layout
 
 Left-aligned, ruled, dense but not cramped. Hairline rules and 1px grid gaps rather than cards
 with shadows. Structure carries meaning: numbered steps only where there is a real sequence.
@@ -192,7 +226,7 @@ not a preference:
    break every screen at once, so it ships and gets verified alone.
 2. **The marketing surface.** `/`, `/signup`, `/tutor-signup`, `/signin`, `/privacy`, `/terms`,
    plus the new About page. Unsplash images out, emoji out, product screenshots in, one spelling
-   throughout. This is where the identity becomes visible.
+   throughout, and the scroll-driven hero (§5.4). This is where the identity becomes visible.
 3. **The app surface and the share card.** Re-theming the product screens, `opengraph-image`,
    `apple-touch-icon` and real app icons.
 
