@@ -132,18 +132,21 @@ export function FlowDemo() {
       ref={wrap}
       data-flow
       data-ready={String(ready)}
-      // Height is derived from the scene count, so adding a scene never means
-      // retuning a magic number. Collapses to auto in the fallback.
-      style={ready ? { height: `${SCENES * VH_PER_SCENE}vh` } : undefined}
-      className="relative"
+      // Layout is decided in CSS, never by a state flip after hydration.
+      // The server cannot know the viewport or the motion preference, so any
+      // JS-driven layout choice reflows the page a beat after first paint —
+      // which read as a glitch in the first second of scrolling. lg + motion-safe
+      // resolve identically on the server and the client, so nothing moves.
+      //
+      // The tall track exists only where the scroll behaviour does. Height is
+      // derived from the scene count so adding a scene needs no new number.
+      // The height is computed, so it goes through a custom property: Tailwind's
+      // JIT only emits CSS for class strings it can find literally in source,
+      // and an interpolated arbitrary value is invisible to it.
+      style={{ "--track-h": `${SCENES * VH_PER_SCENE}vh` } as React.CSSProperties}
+      className="relative lg:motion-safe:h-[var(--track-h)]"
     >
-      <div
-        className={
-          ready
-            ? "sticky top-[var(--header-h)] flex min-h-[calc(100vh-var(--header-h))] items-center"
-            : "flex items-center py-12"
-        }
-      >
+      <div className="flex items-center py-12 lg:motion-safe:sticky lg:motion-safe:top-[var(--header-h)] lg:motion-safe:min-h-[calc(100vh-var(--header-h))] lg:motion-safe:py-0">
         <div className="grid w-full items-center gap-14 lg:grid-cols-[1.02fr_.98fr]">
           <div>
             <h1 className="mb-5 text-balance text-[clamp(2rem,4.6vw,3.6rem)] font-black leading-[0.94] tracking-[-0.05em]">
@@ -160,7 +163,7 @@ export function FlowDemo() {
                 <div
                   key={s.n}
                   className={`grid grid-cols-[44px_1fr] items-baseline gap-3.5 border-b border-hair py-3 transition-opacity duration-500 ${
-                    !ready || litStep === i ? "opacity-100" : "opacity-35"
+                    litStep === i ? "" : "lg:motion-safe:opacity-35"
                   }`}
                 >
                   <span className="font-mono text-[11px] text-primary">{s.n}</span>
@@ -179,28 +182,25 @@ export function FlowDemo() {
               <i className="block size-2 rounded-full bg-border" />
               <i className="block size-2 rounded-full bg-border" />
               <span className="ml-2 font-mono text-[10px] text-muted-foreground">
-                {ready ? URL_FOR_SCENE[scene] : URL_FOR_SCENE[0]}
+                {URL_FOR_SCENE[scene]}
               </span>
             </div>
 
             {/* Fallback stacks every scene; the scroll build absolutely
                 positions them and cross-fades. Both render all four, so the
                 frame is never empty. */}
-            <div
-              className={
-                ready ? "relative min-h-[292px]" : "grid gap-0.5"
-              }
-            >
+            <div className="grid gap-0.5 lg:motion-safe:relative lg:motion-safe:block lg:motion-safe:min-h-[292px]">
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className={
-                    ready
-                      ? `absolute inset-0 transition-all duration-500 ${
-                          scene === i ? "opacity-100 translate-y-0" : "pointer-events-none translate-y-2.5 opacity-0"
-                        }`
-                      : "border-t border-hair"
-                  }
+                  // Without JS the scene index stays 0, so scene 0 shows and
+                  // the rest sit hidden behind it — a valid hero screenshot
+                  // rather than four scenes piled on top of each other.
+                  className={`border-t border-hair lg:motion-safe:absolute lg:motion-safe:inset-0 lg:motion-safe:border-t-0 lg:motion-safe:transition-all lg:motion-safe:duration-500 ${
+                    scene === i
+                      ? ""
+                      : "lg:motion-safe:pointer-events-none lg:motion-safe:translate-y-2.5 lg:motion-safe:opacity-0"
+                  }`}
                 >
                   {(i === 0 || i === 1) && (
                     <>
