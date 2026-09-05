@@ -26,15 +26,6 @@ const VH_PER_STOP = 60;
 //   3 and 4 are genuinely different screens (waiting, then connected).
 const PANEL_FOR_STOP = [0, 1, 1, 2, 3];
 
-// The inverse: the first stop that shows each panel. On a phone the panels are
-// what you scroll past, so the panel is the input and the stop is derived —
-// the opposite of the desktop build, where scroll position gives the stop and
-// the panel follows.
-const STOP_FOR_PANEL = PANEL_FOR_STOP.reduce<number[]>((acc, panel, stop) => {
-  if (acc[panel] === undefined) acc[panel] = stop;
-  return acc;
-}, []);
-
 // stop -> which step in the track is lit. Every step now has a screen of its
 // own: step 1 is the subject picker, which the card was previously missing
 // entirely, so steps 1 and 2 both showed the teacher list.
@@ -110,53 +101,21 @@ function TeacherRow({ t, hot }: { t: (typeof TEACHERS)[number]; hot?: boolean })
 // cascading render and this repo's lint rejects it outright
 // (react-hooks/set-state-in-effect). The server snapshot is false, so the
 // stacked fallback is what renders before any JS runs.
-// The stylesheet and this script are two independent declarations of the same
-// number: Tailwind's `lg:` prefix below, and this media query. Keep them in
-// step — when they drifted the frame was driven by a script that disagreed
-// with the layout it was driving, which is how this component broke twice.
-// The class strings cannot be built from a constant (Tailwind's JIT only emits
-// CSS for literals it can find in source), so the constant lives here and a
-// test asserts the two agree.
-const DRIVE_FROM_PX = 1024; // Tailwind `lg`
-const NARROW = `(max-width: ${DRIVE_FROM_PX - 1}px)`;
+// One gate, and only one: the motion preference. There is no width condition
+// any more, which is the whole point of the phone build — the stylesheet pins
+// at every width, so a script that bailed below 1024px would pin a frame and
+// then refuse to advance it. That mismatch is how this component broke twice,
+// and deleting the second declaration is what stops it happening a third time.
 const REDUCED = "(prefers-reduced-motion: reduce)";
 
 function useScrollDriven() {
   return useSyncExternalStore(
     (onChange) => {
       const motion = window.matchMedia(REDUCED);
-      const narrow = window.matchMedia(NARROW);
       motion.addEventListener("change", onChange);
-      narrow.addEventListener("change", onChange);
-      return () => {
-        motion.removeEventListener("change", onChange);
-        narrow.removeEventListener("change", onChange);
-      };
+      return () => motion.removeEventListener("change", onChange);
     },
-    () =>
-      !window.matchMedia(REDUCED).matches && !window.matchMedia(NARROW).matches,
-    () => false
-  );
-}
-
-// A phone gets neither the sticky build nor the dead stack. Scroll POSITION
-// still drives the scenes — the spec's rule holds on every device — but there
-// is no sticky and no height track, so the page moves at exactly the speed the
-// reader moves it. Reduced motion still collapses to the plain stack.
-function useScrollLinked() {
-  return useSyncExternalStore(
-    (onChange) => {
-      const motion = window.matchMedia(REDUCED);
-      const narrow = window.matchMedia(NARROW);
-      motion.addEventListener("change", onChange);
-      narrow.addEventListener("change", onChange);
-      return () => {
-        motion.removeEventListener("change", onChange);
-        narrow.removeEventListener("change", onChange);
-      };
-    },
-    () =>
-      !window.matchMedia(REDUCED).matches && window.matchMedia(NARROW).matches,
+    () => !window.matchMedia(REDUCED).matches,
     () => false
   );
 }
@@ -165,30 +124,7 @@ export function FlowDemo() {
   const wrap = useRef<HTMLDivElement>(null);
   const [stop, setStop] = useState(0);
   const ready = useScrollDriven();
-  const linked = useScrollLinked();
-  const panelRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // The phone path. IntersectionObserver rather than a scroll handler: the
-  // browser decides when a panel is in view, off the main thread, so nothing
-  // competes with the scroll the reader is performing.
-  useEffect(() => {
-    if (!linked) return; // desktop drives itself; reduced motion stays static
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (!e.isIntersecting) continue;
-          const i = panelRefs.current.indexOf(e.target as HTMLDivElement);
-          if (i >= 0) setStop(STOP_FOR_PANEL[i]);
-        }
-      },
-      // Only the panel crossing the middle band counts, so the step track
-      // never flickers between two panels that are both partly visible.
-      { rootMargin: "-45% 0px -45% 0px" }
-    );
-    for (const el of panelRefs.current) if (el) io.observe(el);
-    return () => io.disconnect();
-  }, [linked]);
 
   useEffect(() => {
     if (!ready) return; // stacked fallback stays; nothing to listen to
@@ -237,10 +173,17 @@ export function FlowDemo() {
       // The height is computed, so it goes through a custom property: Tailwind's
       // JIT only emits CSS for class strings it can find literally in source,
       // and an interpolated arbitrary value is invisible to it.
-      style={{ "--track-h": `${STOPS * VH_PER_STOP}vh` } as React.CSSProperties}
-      className="relative lg:motion-safe:h-[var(--track-h)]"
+      // Shorter per stop on a phone: the same five stops over a 300vh track
+      // would be an endless hero on a handset. Both derive from one number.
+      style={
+        {
+          "--track-h": `${STOPS * VH_PER_STOP}vh`,
+          "--track-h-sm": `${STOPS * Math.round(VH_PER_STOP * 0.7)}vh`,
+        } as React.CSSProperties
+      }
+      className="relative motion-safe:h-[var(--track-h-sm)] lg:motion-safe:h-[var(--track-h)]"
     >
-      <div className="flex items-center py-12 lg:motion-safe:sticky lg:motion-safe:top-[var(--header-h)] lg:motion-safe:min-h-[calc(100vh-var(--header-h))] lg:motion-safe:py-0">
+      <div className="flex items-center py-12 motion-safe:sticky motion-safe:top-[var(--header-h)] motion-safe:min-h-[calc(100dvh-var(--header-h))] motion-safe:py-0">
         <div className="grid w-full items-center gap-10 xl:gap-14 lg:grid-cols-[1.02fr_.98fr]">
           <div>
             <h1 className="mb-5 text-balance text-[clamp(2rem,4.6vw,3.6rem)] lg:text-[clamp(2rem,3.4vw,2.6rem)] xl:text-[clamp(2rem,4.6vw,3.6rem)] font-black leading-[0.94] tracking-[-0.05em]">
@@ -252,12 +195,34 @@ export function FlowDemo() {
               Grades 6–12 across CBSE, ICSE and State Boards.
             </p>
 
-            <div className="mt-8 border-t border-hair">
+            {/* Compact on a phone: three full rows plus the headline, the
+                copy and the frame do not fit one handset screen, and the
+                pinned pane must. The same information, one line. */}
+            <div
+              aria-hidden
+              className="mt-6 flex items-center gap-3 border-t border-hair pt-4 lg:hidden"
+            >
+              <div className="flex gap-1.5">
+                {STEPS.map((s, i) => (
+                  <i
+                    key={s.n}
+                    className={`block h-1 w-6 rounded-sm transition-colors duration-500 ${
+                      litStep === i ? "bg-primary" : "bg-hair"
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                {STEPS[litStep].title}
+              </span>
+            </div>
+
+            <div className="mt-8 hidden border-t border-hair lg:block">
               {STEPS.map((s, i) => (
                 <div
                   key={s.n}
                   className={`grid grid-cols-[44px_1fr] items-baseline gap-3.5 border-b border-hair py-3 transition-opacity duration-500 ${
-                    litStep === i ? "" : linked ? "opacity-35" : "lg:motion-safe:opacity-35"
+                    litStep === i ? "" : "motion-safe:opacity-35"
                   }`}
                 >
                   <span className="font-mono text-[11px] text-primary">{s.n}</span>
@@ -284,17 +249,14 @@ export function FlowDemo() {
                 absolutely positions them and cross-fades between them. Without
                 JS the stop stays 0, so panel 0 shows and the rest sit hidden —
                 a valid hero screenshot, not a pile. */}
-            <div className="grid gap-0.5 lg:motion-safe:relative lg:motion-safe:block lg:motion-safe:min-h-[292px]">
+            <div className="grid gap-0.5 motion-safe:relative motion-safe:block motion-safe:min-h-[292px]">
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  ref={(el) => {
-                    panelRefs.current[i] = el;
-                  }}
-                  className={`border-t border-hair lg:motion-safe:absolute lg:motion-safe:inset-0 lg:motion-safe:border-t-0 lg:motion-safe:transition-all lg:motion-safe:duration-500 ${
+                  className={`border-t border-hair motion-safe:absolute motion-safe:inset-0 motion-safe:border-t-0 motion-safe:transition-all motion-safe:duration-500 ${
                     panel === i
                       ? ""
-                      : "lg:motion-safe:pointer-events-none lg:motion-safe:translate-y-2.5 lg:motion-safe:opacity-0"
+                      : "motion-safe:pointer-events-none motion-safe:translate-y-2.5 motion-safe:opacity-0"
                   }`}
                 >
                   {i === 0 && (

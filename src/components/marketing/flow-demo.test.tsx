@@ -113,93 +113,67 @@ describe("FlowDemo", () => {
 
   it("names the three steps it walks through", () => {
     render(<FlowDemo />);
-    expect(screen.getByText(/pick the subject/i)).toBeInTheDocument();
+    // The phone's compact progress row repeats the CURRENT step's title, so
+    // that one title is legitimately in the DOM twice. It carries aria-hidden,
+    // so assistive tech still reads the list once — asserted below.
+    expect(screen.getAllByText(/pick the subject/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/ask a teacher who is online/i)).toBeInTheDocument();
     expect(screen.getByText(/they accept, the lesson starts/i)).toBeInTheDocument();
   });
 
-  // Reported by the owner 2026-09-06: on a desktop the hero rendered as static
-  // cards stacked one below another instead of the scroll-driven frame.
+  it("does not read the step name twice to a screen reader", () => {
+    const { container } = render(<FlowDemo />);
+    const compact = container.querySelector("[aria-hidden]");
+    expect(compact, "the compact progress row must be aria-hidden").toBeTruthy();
+  });
+
+  // Owner's call, 2026-09-06, revised: pin and cross-fade on the phone too,
+  // the same as the desktop. The spec's "miserable on a small screen" was
+  // overcautious — what makes mobile sticky miserable is 100vh, not pinning.
   //
-  // Root cause, and it is NOT really the breakpoint. The headline is sized off
-  // the VIEWPORT (`clamp(2rem,4.6vw,3.6rem)`), which knows nothing about the
-  // column it sits in. At 1024px that is ~47px inside a ~450px column, so it
-  // wrapped to five lines beside a squeezed frame. e6c4474 treated the symptom
-  // by pushing columns AND scroll-driving up to xl (1280px) — which handed
-  // every browser window under 1280px the phone fallback, when spec §5.4 says
-  // that fallback is for <=880px. A 400px band of desktop widths got a
-  // treatment designed for phones.
-  //
-  // The fix sizes the headline per band, so scroll-driving can engage at lg
-  // (1024px) as §5.6's "middle breakpoint" always intended. Asserted against
-  // the source because a CSS media query cannot be exercised in jsdom.
-  it("engages the scroll-driven hero on laptops, not only above 1280px", () => {
+  // The scroll-linked IntersectionObserver build that briefly lived here is
+  // superseded: there is one behaviour on every width now, gated only on the
+  // motion preference.
+  it("pins and drives the hero on a phone, not only on a laptop", () => {
     const src = readFileSync("src/components/marketing/flow-demo.tsx", "utf8");
-    expect(src).toMatch(/lg:motion-safe:sticky/);
-    expect(src).not.toMatch(/xl:motion-safe:sticky/);
+    // motion-safe, with no width prefix in front of it.
+    expect(src).toMatch(/(?<!lg:)(?<!xl:)motion-safe:sticky/);
+    expect(src).not.toMatch(/lg:motion-safe:sticky/);
   });
 
-  // The two must never disagree. When columns and scroll-driving engaged at
-  // different widths, the frame was squeezed by a layout the script thought
-  // was still stacked — the original defect, in a different guise.
-  it("turns columns on at the same width it starts driving the scroll", () => {
+  // THE mobile sticky bug. 100vh on a phone is the viewport with the address
+  // bar hidden; the bar hides and shows as you scroll, so a pinned pane
+  // measured in vh changes height mid-scroll and visibly jumps. dvh tracks the
+  // viewport as it actually is.
+  it("measures the pinned pane in dvh, so the address bar cannot make it jump", () => {
     const src = readFileSync("src/components/marketing/flow-demo.tsx", "utf8");
-    const driveAt = src.match(/(lg|xl):motion-safe:sticky/)?.[1];
-    const columnsAt = src.match(/(lg|xl):grid-cols-\[/)?.[1];
-    expect(columnsAt).toBe(driveAt);
+    expect(src).toMatch(/dvh/);
+    expect(src, "100vh in a pinned pane is the mobile address-bar bug").not.toMatch(
+      /min-h-\[calc\(100vh/
+    );
   });
 
-  // The one that actually bites, and the one the CSS-only check above cannot
-  // see. The layout is decided in CSS (a Tailwind breakpoint) and the scene
-  // stepping is decided in JS (a matchMedia string). They are two independent
-  // declarations of the SAME number, so nothing stops them drifting apart —
-  // and when they do, the frame is driven by a script that disagrees with the
-  // layout it is driving. That is the defect this component has now shipped
-  // twice, in two different guises.
-  it("gates the script at the same width the stylesheet does", () => {
+  // The accessibility contract is unchanged and is now the ONLY gate.
+  it("keeps the plain stack when the viewer asked to reduce motion", () => {
+    vi.stubGlobal("matchMedia", mqlFor({ "reduced-motion": true }));
+    const { container } = render(<FlowDemo />);
+    expect(container.querySelector("[data-flow]")?.getAttribute("data-ready")).toBe(
+      "false"
+    );
+  });
+
+  // The bug this replaced: the stylesheet was changed to pin at every width
+  // while the script still bailed out below 1024px, so a phone would pin a
+  // frame and then refuse to advance it. There is now exactly ONE gate, and a
+  // width query in this file would mean a second one has come back.
+  it("gates the hero on the motion preference alone, never on width", () => {
     const src = readFileSync("src/components/marketing/flow-demo.tsx", "utf8");
-    const TAILWIND = { lg: 1024, xl: 1280 } as const;
-    const cssAt = src.match(/(lg|xl):motion-safe:sticky/)?.[1] as keyof typeof TAILWIND;
-    expect(cssAt, "no motion-safe sticky class found").toBeTruthy();
-
-    const drive = Number(src.match(/const DRIVE_FROM_PX = (\d+)/)?.[1]);
-    expect(drive, "the script's breakpoint constant").toBe(TAILWIND[cssAt]);
-
-    // And no stray hardcoded width may survive beside the constant — that is
-    // exactly how the two drifted apart the first time.
-    const strays = [...src.matchAll(/max-width:\s*(\d+)px/g)].map((m) => m[1]);
-    expect(strays, "hardcoded max-width beside the constant").toEqual([]);
-  });
-
-  // Chosen by the owner 2026-09-06 after reporting that the phone hero was
-  // four static screenshots in a pile. Most traffic arrives from a WhatsApp
-  // tap on a phone, so this is the surface that matters most and it had the
-  // least considered treatment.
-  //
-  // The rule the spec sets for the desktop hero applies here too: scroll
-  // POSITION drives the scenes, scroll SPEED is never touched. So no sticky,
-  // no height track, no hijack — the panels stay stacked and the step track
-  // and the URL follow whichever panel you have scrolled to.
-  it("lights the matching step as each panel scrolls into view on a phone", () => {
-    vi.stubGlobal("matchMedia", mqlFor({ "max-width": true, "reduced-motion": false }));
-    const io = stubIntersectionObserver();
-    render(<FlowDemo />);
-
-    // One observer entry per panel — the panels are what a phone scrolls past.
-    expect(io.observed.length).toBe(4);
-
-    // Scrolling the third panel into view must move the chrome URL onto the
-    // route that panel actually depicts.
-    act(() => io.enter(io.observed[2]));
-    expect(screen.getByText("smbtutorials.com/waiting")).toBeInTheDocument();
-  });
-
-  // The accessibility contract is unchanged: someone who asked for less motion
-  // gets the plain stack, and nothing observes anything.
-  it("observes nothing when the viewer asked to reduce motion", () => {
-    vi.stubGlobal("matchMedia", mqlFor({ "max-width": true, "reduced-motion": true }));
-    const io = stubIntersectionObserver();
-    render(<FlowDemo />);
-    expect(io.observed.length).toBe(0);
+    expect(src).toMatch(/prefers-reduced-motion/);
+    expect(src, "a width media query means a second gate is back").not.toMatch(
+      /matchMedia\([^)]*(max-width|min-width)/
+    );
+    expect(src, "no hardcoded breakpoint constant should survive").not.toMatch(
+      /max-width:\s*\d+px/
+    );
   });
 });
