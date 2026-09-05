@@ -292,7 +292,7 @@ export function OnlineList({
       )}
       {error && <FormError className="mb-4">{error}</FormError>}
       {!canStart && (
-        <div className="mb-6 rounded-xl border border-border bg-muted px-4 py-3 text-muted-foreground">
+        <div className="mb-6 rounded-xl border border-border bg-muted px-4 py-3 text-foreground">
           Pick a subject on{" "}
           <a href="/find" className="text-primary font-semibold hover:underline">
             Find a teacher
