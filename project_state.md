@@ -32,6 +32,32 @@ learner's grade and links to `/privacy`.
 
 ---
 
+## 🛑 NO PASSWORD RESET EXISTS (found by the user, 2026-09-05)
+
+**A parent who forgets their password cannot get back in. At all.** Verified: no
+`/forgot-password` or `/reset-password` route, no `resetPasswordForEmail` call anywhere in
+`src/`, and `src/app/auth/` contains only `actions.ts` and `callback/`. The sign-in page offers
+no "forgot password" link because there is nothing to link to.
+
+**Why this is pilot-blocking, not cosmetic.** The account holder is now the guardian (migration
+`0018`), who signs up once and may not return for weeks. Email-and-password is the primary path;
+Google sign-in is the only escape hatch, and only for those who used it. Everyone else who
+forgets is locked out of a paid service, with their only recourse an email to `support@` — an
+address that currently points at a domain that may not resolve.
+
+**What it needs:**
+1. A `/forgot-password` page calling `supabase.auth.resetPasswordForEmail(email, { redirectTo })`.
+2. A `/reset-password` page handling the recovery link, which arrives as a Supabase auth callback.
+3. **A working email sender.** This is the real dependency: Supabase's built-in SMTP is rate-limited
+   and not for production. It needs the domain settled first, then SMTP configured — the same
+   dependency as the transactional email that `CLAUDE.md` lists as Resend but which is not wired up.
+4. A link on `/signin`.
+
+**Sequencing:** blocked behind the domain, like the share card. Worth doing in the same pass as
+the email setup rather than as its own cycle.
+
+---
+
 ## ▶ NEXT PRODUCT TIER — micro-doubt sessions, ₹50 / 10 minutes (recorded 2026-09-05)
 
 **User's call, to be built after the current cycle. Not yet specced or decided in detail.**
