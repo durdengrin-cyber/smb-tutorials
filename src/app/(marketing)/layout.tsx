@@ -1,5 +1,6 @@
 import { getIdentity } from "@/lib/auth";
 import { MarketingHeader } from "@/components/marketing-header";
+import { MarketingFooter } from "@/components/marketing-footer";
 
 export default async function MarketingLayout({
   children,
@@ -23,9 +24,10 @@ export default async function MarketingLayout({
   }
 
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       <MarketingHeader signedIn={signedIn} />
-      {children}
-    </>
+      <div className="flex-1">{children}</div>
+      <MarketingFooter />
+    </div>
   );
 }
