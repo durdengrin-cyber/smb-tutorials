@@ -103,7 +103,14 @@ body {
   /* Video stages are conventionally dark in both themes — a pale call
      backdrop in light theme is the wrong call, not a themed one. Same value
      as .dark's --background: this is our aubergine-black, not a generic
-     gray-900, so the one place that stays fixed still reads as this brand. */
+     gray-900, so the one place that stays fixed still reads as this brand.
+     CONSTRAINT: because --stage does not flip with the theme, every other
+     foreground/background token still does — so nothing may sit directly on
+     bg-stage using a theme-flipping token (text-foreground, text-destructive,
+     etc.): it resolves against light theme's *other* values and can land at
+     ~1-2:1 contrast on this permanently dark ground. Content on the stage
+     must sit on an opaque surface (bg-card or similar) first; see
+     call-frame.tsx's error banner for the pattern. */
   --stage: #231a28;
   --radius: 0.625rem;
   --sidebar: #ffffff;

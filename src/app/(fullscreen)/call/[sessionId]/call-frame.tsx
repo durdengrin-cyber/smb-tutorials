@@ -121,7 +121,9 @@ export function CallFrame({
         </div>
       </div>
       {error && (
-        <p className="bg-destructive/12 text-destructive px-6 py-2 text-sm">{error}</p>
+        <p className="bg-card text-destructive border-b border-border px-6 py-2 text-sm">
+          {error}
+        </p>
       )}
       <div ref={wrapRef} className="flex-1" />
     </main>
