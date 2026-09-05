@@ -50,6 +50,25 @@ describe("the app surface", () => {
     }
   });
 
+  // find/page.tsx's background grid carried stroke="#14B8A6" — Tailwind's
+  // teal-500, the demo palette this whole cycle exists to remove — through
+  // six repaint tasks. It survived because it was a raw SVG attribute, not
+  // a Tailwind class: the literal-class check above only matches
+  // `bg|text|border|...-<shade>` tokens, and theme.test.ts only guards
+  // globals.css. Neither could see a hex sitting in a stroke="" attribute.
+  // This asserts no raw hex colour literal reaches the app surface at all,
+  // regardless of what attribute or property carries it.
+  it("carries no raw hex colour literals", () => {
+    // Exactly 3, 6 or 8 hex digits at a trailing word boundary, so this
+    // matches real colours (#fff, #14B8A6, #00000080) but not SVG fragment
+    // references like fill="url(#grid)" (g is not a hex digit) or ids that
+    // merely start with hex-looking text.
+    const rawHex = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/;
+    for (const f of checked()) {
+      expect(readFileSync(f, "utf8"), f).not.toMatch(rawHex);
+    }
+  });
+
   // The repaint is finished when nothing is exempt. Leaving an entry here
   // would let a whole file drift while the suite stayed green.
   it("has no files left unrepainted", () => {
