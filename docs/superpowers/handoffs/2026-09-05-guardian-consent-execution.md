@@ -139,10 +139,12 @@ from client-supplied metadata. The anon key is public and Supabase's signup endp
 callable, so a crafted timestamp landed in the supposedly-unforgeable evidence log. Fixed in
 `ad0b2bd` by letting the column default stamp it.
 
-## 5. Owed before merge — the user's call, not code
+## 5. Owed — the user's call, not code
 
-1. **Confirm the refund policy wording.** Implemented verbatim from a draft the user saw but never
-   formally approved (ruling R4). Six rules, in `/terms`. Nothing depends on the text.
+1. ~~**Confirm the refund policy wording.**~~ **Read and acknowledged by the user 2026-09-05.**
+   Live at `/terms`, implemented verbatim from the draft (ruling R4). The user is refining the
+   commercial terms separately and will say if the page needs changing. **Not a blocker** — it is
+   a text edit and a redeploy, and no code depends on it.
 2. **Two lateness thresholds now coexist** and this is a product decision, not a defect: Tutor
    Conduct says >5 min late means the tutor extends the session; the new Refund Policy says
    >10 min late means a full refund if the student cancels. Complementary remedies for different
