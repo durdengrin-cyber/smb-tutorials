@@ -78,19 +78,21 @@ export default async function CallPage({
   } catch (e) {
     console.error(`[call] token mint failed for ${sessionId}:`, e);
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 max-w-md w-full text-center">
-          <div className="text-5xl mb-4">🎥</div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
+      <main className="min-h-screen bg-background flex items-center justify-center p-8">
+        <div className="bg-card rounded-2xl shadow-sm border border-hair p-12 max-w-md w-full text-center">
+          <h2 className="text-xl font-bold text-foreground mb-1">
             Couldn&apos;t open the call
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-primary mb-4">
+            {session.subject}
+          </p>
+          <p className="text-muted-foreground mb-6">
             The video service didn&apos;t respond. Your session is still
             running — reload to try joining again.
           </p>
           <Link
             href={returnTo}
-            className="inline-block bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-6 py-3 rounded-lg"
+            className="inline-block bg-card border-2 border-border hover:border-primary text-muted-foreground font-semibold px-6 py-3 rounded-lg"
           >
             Back
           </Link>

@@ -28,6 +28,9 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-hair: var(--hair);
+  /* The call stage: the backdrop a video tile sits on. Deliberately the same
+     value in both themes — see the comment beside --stage below. */
+  --color-stage: var(--stage);
   /* The marketing header's full height, including its border. The sticky
      hero offsets against this; hardcoding it in two places lets them drift. */
   --header-h: 73px;
@@ -97,6 +100,11 @@ body {
   --chart-3: #2e1f33;
   --chart-4: #b4884f;
   --chart-5: #a8909f;
+  /* Video stages are conventionally dark in both themes — a pale call
+     backdrop in light theme is the wrong call, not a themed one. Same value
+     as .dark's --background: this is our aubergine-black, not a generic
+     gray-900, so the one place that stays fixed still reads as this brand. */
+  --stage: #231a28;
   --radius: 0.625rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #2e1f33;
@@ -139,6 +147,8 @@ body {
   --chart-3: #f1ebe8;
   --chart-4: #b4884f;
   --chart-5: #7d6f84;
+  /* Same value as :root's --stage — the call stage does not theme. */
+  --stage: #231a28;
   --radius: 0.625rem;
   --sidebar: #2b2031;
   --sidebar-foreground: #f1ebe8;

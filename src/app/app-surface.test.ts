@@ -7,7 +7,7 @@ const files: string[] = [
   "src/components/status-pill.tsx",
   "src/components/notification-setup.tsx",
 ];
-for (const dir of ["src/app/(app)", "src/app/(gate)"]) {
+for (const dir of ["src/app/(app)", "src/app/(gate)", "src/app/(fullscreen)"]) {
   (function walk(d: string) {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       const p = join(d, e.name);

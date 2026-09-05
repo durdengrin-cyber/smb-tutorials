@@ -99,24 +99,30 @@ export function CallFrame({
   }, [endsAt]);
 
   return (
-    <main className="flex h-screen flex-col bg-gray-900">
-      <div className="flex items-center justify-between gap-4 px-6 py-3 bg-white border-b border-gray-200">
+    // bg-stage, not bg-background: the call stage is the backdrop a video
+    // tile sits on, and video stages are conventionally dark in BOTH themes.
+    // --stage carries the same fixed value in :root and .dark (globals.css)
+    // rather than flipping pale in light theme.
+    <main className="flex h-screen flex-col bg-stage">
+      <div className="flex items-center justify-between gap-4 px-6 py-3 bg-card border-b border-border">
         <div>
-          <p className="font-bold text-gray-900">{otherName}</p>
-          <p className="text-sm text-teal-600 font-medium">{subject}</p>
+          <p className="font-bold text-foreground">{otherName}</p>
+          <p className="text-sm text-primary font-medium">{subject}</p>
         </div>
         <div className="text-right">
           <p
             className={`text-2xl font-bold tabular-nums ${
-              left < 300 ? "text-amber-600" : "text-gray-900"
+              left < 300 ? "text-primary" : "text-foreground"
             }`}
           >
             {mmss(left)}
           </p>
-          <p className="text-xs text-gray-500">remaining</p>
+          <p className="text-xs text-muted-foreground">remaining</p>
         </div>
       </div>
-      {error && <p className="bg-red-50 text-red-700 px-6 py-2 text-sm">{error}</p>}
+      {error && (
+        <p className="bg-destructive/12 text-destructive px-6 py-2 text-sm">{error}</p>
+      )}
       <div ref={wrapRef} className="flex-1" />
     </main>
   );
