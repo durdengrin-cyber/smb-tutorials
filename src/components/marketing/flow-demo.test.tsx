@@ -110,4 +110,26 @@ describe("FlowDemo", () => {
     const columnsAt = src.match(/(lg|xl):grid-cols-\[/)?.[1];
     expect(columnsAt).toBe(driveAt);
   });
+
+  // The one that actually bites, and the one the CSS-only check above cannot
+  // see. The layout is decided in CSS (a Tailwind breakpoint) and the scene
+  // stepping is decided in JS (a matchMedia string). They are two independent
+  // declarations of the SAME number, so nothing stops them drifting apart —
+  // and when they do, the frame is driven by a script that disagrees with the
+  // layout it is driving. That is the defect this component has now shipped
+  // twice, in two different guises.
+  it("gates the script at the same width the stylesheet does", () => {
+    const src = readFileSync("src/components/marketing/flow-demo.tsx", "utf8");
+    const TAILWIND = { lg: 1024, xl: 1280 } as const;
+    const cssAt = src.match(/(lg|xl):motion-safe:sticky/)?.[1] as keyof typeof TAILWIND;
+    expect(cssAt, "no motion-safe sticky class found").toBeTruthy();
+
+    const drive = Number(src.match(/const DRIVE_FROM_PX = (\d+)/)?.[1]);
+    expect(drive, "the script's breakpoint constant").toBe(TAILWIND[cssAt]);
+
+    // And no stray hardcoded width may survive beside the constant — that is
+    // exactly how the two drifted apart the first time.
+    const strays = [...src.matchAll(/max-width:\s*(\d+)px/g)].map((m) => m[1]);
+    expect(strays, "hardcoded max-width beside the constant").toEqual([]);
+  });
 });

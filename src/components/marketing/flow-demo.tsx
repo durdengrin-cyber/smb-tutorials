@@ -101,11 +101,22 @@ function TeacherRow({ t, hot }: { t: (typeof TEACHERS)[number]; hot?: boolean })
 // cascading render and this repo's lint rejects it outright
 // (react-hooks/set-state-in-effect). The server snapshot is false, so the
 // stacked fallback is what renders before any JS runs.
+// The stylesheet and this script are two independent declarations of the same
+// number: Tailwind's `lg:` prefix below, and this media query. Keep them in
+// step — when they drifted the frame was driven by a script that disagreed
+// with the layout it was driving, which is how this component broke twice.
+// The class strings cannot be built from a constant (Tailwind's JIT only emits
+// CSS for literals it can find in source), so the constant lives here and a
+// test asserts the two agree.
+const DRIVE_FROM_PX = 1024; // Tailwind `lg`
+const NARROW = `(max-width: ${DRIVE_FROM_PX - 1}px)`;
+const REDUCED = "(prefers-reduced-motion: reduce)";
+
 function useScrollDriven() {
   return useSyncExternalStore(
     (onChange) => {
-      const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-      const narrow = window.matchMedia("(max-width: 1279px)");
+      const motion = window.matchMedia(REDUCED);
+      const narrow = window.matchMedia(NARROW);
       motion.addEventListener("change", onChange);
       narrow.addEventListener("change", onChange);
       return () => {
@@ -114,8 +125,7 @@ function useScrollDriven() {
       };
     },
     () =>
-      !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
-      !window.matchMedia("(max-width: 1279px)").matches,
+      !window.matchMedia(REDUCED).matches && !window.matchMedia(NARROW).matches,
     () => false
   );
 }
