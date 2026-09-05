@@ -26,7 +26,7 @@ export default function FindPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
+    <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -60,7 +60,7 @@ export default function FindPage() {
             <CardContent className="p-5 sm:p-8">
             {/* Curriculum */}
             <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+              <label className="block text-sm font-semibold text-muted-foreground mb-3">
                 Curriculum
               </label>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -81,13 +81,13 @@ export default function FindPage() {
             {/* Grade */}
             {curriculum && (
               <div className="mb-6 animate-fadeIn">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-semibold text-muted-foreground mb-3">
                   Class / Grade
                 </label>
                 <select
                   value={grade}
                   onChange={(e) => setGrade(e.target.value)}
-                  className="w-full py-3 px-4 rounded-lg border-2 border-gray-200 focus:border-teal-600 focus:outline-none text-gray-900 font-medium text-base bg-white"
+                  className="w-full py-3 px-4 rounded-lg border-2 border-border focus:border-primary focus:outline-none text-foreground font-medium text-base bg-card"
                 >
                   <option value="">Select your grade</option>
                   {GRADES.map((g) => (
@@ -102,7 +102,7 @@ export default function FindPage() {
             {/* Core Field (stream) */}
             {grade && (
               <div className="mb-6 animate-fadeIn">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-semibold text-muted-foreground mb-3">
                   Core Field
                 </label>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -127,13 +127,13 @@ export default function FindPage() {
             {/* Subject */}
             {stream && (
               <div className="mb-6 animate-fadeIn">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-semibold text-muted-foreground mb-3">
                   Subject
                 </label>
                 <select
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full py-3 px-4 rounded-lg border-2 border-gray-200 focus:border-teal-600 focus:outline-none text-gray-900 font-medium text-base bg-white"
+                  className="w-full py-3 px-4 rounded-lg border-2 border-border focus:border-primary focus:outline-none text-foreground font-medium text-base bg-card"
                 >
                   <option value="">Select subject</option>
                   {SUBJECTS_BY_STREAM[stream].map((sub) => (
@@ -164,10 +164,10 @@ export default function FindPage() {
             <div className="mt-12 animate-fadeIn">
               <Card>
                 <CardContent className="p-8 text-center">
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  <h3 className="text-xl font-bold text-foreground mb-3">
                     Looking for a different {stream ? "subject" : "field"}?
                   </h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-muted-foreground mb-6">
                     Can&apos;t find your {stream ? "subject" : "field"} in our
                     list? Let us know what you&apos;re looking for and we&apos;ll
                     help you find the right teacher.
