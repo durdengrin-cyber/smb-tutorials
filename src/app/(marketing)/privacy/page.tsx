@@ -22,7 +22,7 @@ export default function PrivacyPage() {
                 write to{" "}
                 <a
                   href="mailto:support@smbtutorial.com"
-                  className="text-primary hover:text-primary font-medium"
+                  className="text-primary font-medium underline-offset-4 hover:underline"
                 >
                   support@smbtutorial.com
                 </a>
@@ -206,7 +206,7 @@ export default function PrivacyPage() {
                 Write to{" "}
                 <a
                   href="mailto:support@smbtutorial.com"
-                  className="text-primary hover:text-primary font-medium"
+                  className="text-primary font-medium underline-offset-4 hover:underline"
                 >
                   support@smbtutorial.com
                 </a>{" "}
@@ -261,7 +261,7 @@ export default function PrivacyPage() {
                 time by contacting{" "}
                 <a
                   href="mailto:support@smbtutorial.com"
-                  className="text-primary hover:text-primary font-medium"
+                  className="text-primary font-medium underline-offset-4 hover:underline"
                 >
                   support@smbtutorial.com
                 </a>
@@ -276,7 +276,7 @@ export default function PrivacyPage() {
               <p className="text-foreground">
                 <a
                   href="mailto:support@smbtutorial.com"
-                  className="text-primary hover:text-primary font-semibold"
+                  className="text-primary font-semibold underline-offset-4 hover:underline"
                 >
                   support@smbtutorial.com
                 </a>

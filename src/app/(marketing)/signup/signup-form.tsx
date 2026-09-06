@@ -127,11 +127,11 @@ export function SignUpForm() {
           />
           <span className="text-sm text-muted-foreground">
             I am this student&apos;s parent or legal guardian, and I agree to the{" "}
-            <Link href="/terms" className="text-primary hover:text-primary underline">
+            <Link href="/terms" className="text-primary underline underline-offset-4">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="text-primary hover:text-primary underline">
+            <Link href="/privacy" className="text-primary underline underline-offset-4">
               Privacy Policy
             </Link>
           </span>
@@ -149,7 +149,7 @@ export function SignUpForm() {
           Already have an account?{" "}
           <Link
             href="/signin"
-            className="text-primary hover:text-primary font-semibold"
+            className="text-primary font-semibold underline-offset-4 hover:underline"
           >
             Sign In
           </Link>

@@ -23,7 +23,7 @@ function Chip({
   return (
     <label className="cursor-pointer">
       <input type="checkbox" name={name} value={value} className="peer sr-only" />
-      <div className="py-3 px-4 rounded-lg border-2 font-medium text-center transition-all border-border text-muted-foreground hover:border-border peer-checked:border-primary peer-checked:bg-muted peer-checked:text-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+      <div className="py-3 px-4 rounded-lg border-2 font-medium text-center transition-all border-border text-muted-foreground hover:border-primary/40 peer-checked:border-primary peer-checked:bg-muted peer-checked:text-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
         {label}
       </div>
     </label>

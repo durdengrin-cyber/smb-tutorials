@@ -247,21 +247,21 @@ export function TutorForm() {
           I agree to SMB Tutorials&apos;{" "}
           <Link
             href="/terms"
-            className="text-primary hover:text-primary underline"
+            className="text-primary underline underline-offset-4"
           >
             Terms of Service
           </Link>{" "}
           and{" "}
           <Link
             href="/terms#tutor-agreement"
-            className="text-primary hover:text-primary underline"
+            className="text-primary underline underline-offset-4"
           >
             Tutor Agreement
           </Link>
           , and{" "}
           <Link
             href="/privacy"
-            className="text-primary hover:text-primary underline"
+            className="text-primary underline underline-offset-4"
           >
             Privacy Policy
           </Link>

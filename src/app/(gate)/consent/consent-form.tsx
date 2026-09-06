@@ -67,11 +67,11 @@ export function ConsentForm({ role }: { role: Role }) {
             {role === "student"
               ? "I am this student's parent or legal guardian, and I agree to the "
               : "I agree to the "}
-            <Link href="/terms" className="text-primary hover:text-primary underline">
+            <Link href="/terms" className="text-primary underline underline-offset-4">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="text-primary hover:text-primary underline">
+            <Link href="/privacy" className="text-primary underline underline-offset-4">
               Privacy Policy
             </Link>
           </span>

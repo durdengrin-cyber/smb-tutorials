@@ -38,7 +38,7 @@ export default async function SignInPage({
           <div className="mb-6">
             <Link
               href="/"
-              className="text-primary hover:text-primary font-medium inline-flex items-center gap-2"
+              className="text-primary font-medium underline-offset-4 hover:underline inline-flex items-center gap-2"
             >
               ← Back to Home
             </Link>
