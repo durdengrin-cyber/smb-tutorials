@@ -20,7 +20,7 @@ const RENEW_INTERVAL_MS = 10 * 60 * 1000;
 
 export function AvailabilityToggle({
   teacherId, fullName, hourlyRate, inSession = false,
-  declaredUntil, hasDevice, channelFailed = false,
+  declaredUntil, hasDevice, channelFailed = false, suspended = false,
 }: {
   teacherId: string;
   fullName: string;
@@ -45,6 +45,12 @@ export function AvailabilityToggle({
   // handshake below; this just lets a test force the unreachable branch
   // deterministically instead of simulating a websocket failure.
   channelFailed?: boolean;
+  // Server-read from my_suspension() in page.tsx (Task 4 Step 2). Outranks
+  // every other state below and disables the control — the server has
+  // already stopped showing this teacher to students, so the pill must not
+  // claim otherwise, and the toggle must not let them undo an exclusion
+  // that isn't theirs to lift.
+  suspended?: boolean;
 }) {
   // Local override of the server-read prop. Needed because page.tsx is a
   // Server Component — nothing re-fetches it after declareAvailable() or
@@ -241,17 +247,22 @@ export function AvailabilityToggle({
   // live connection.
   const channelOk = channelHealthy && !channelFailed;
 
-  // Four readings (spec §6.1). "In a session" and "Can't reach you" are both
+  // Five readings (spec §6.1). "In a session" and "Can't reach you" are both
   // distinct from "Offline": the teacher still intends to be available in
   // both, and calling either "Offline" would invite them to toggle back on
   // and undo a state that isn't theirs to fix that way.
-  const status: TeacherStatus = !leaseLive
-    ? "offline"
-    : inSession
-      ? "in_session"
-      : channelOk || hasDevice
-        ? "available"
-        : "unreachable";
+  //
+  // Suspension outranks every other state: the server has already stopped
+  // showing them to students, so the pill must not claim otherwise.
+  const status: TeacherStatus = suspended
+    ? "suspended"
+    : !leaseLive
+      ? "offline"
+      : inSession
+        ? "in_session"
+        : channelOk || hasDevice
+          ? "available"
+          : "unreachable";
 
   // A lapsed lease still reads "Offline" in the pill — that vocabulary is
   // unchanged — but the description underneath says what actually happened,
@@ -277,7 +288,11 @@ export function AvailabilityToggle({
         <Button
           type="button"
           onClick={leaseLive ? goOffline : goOnline}
-          disabled={busy}
+          // Suspended, this stays disabled either way: a teacher already
+          // declared live must not be able to renew that declaration, and one
+          // who is not must not be able to toggle themselves back into a list
+          // they are excluded from.
+          disabled={busy || suspended}
           variant={leaseLive ? "outline" : "default"}
           size="lg"
         >

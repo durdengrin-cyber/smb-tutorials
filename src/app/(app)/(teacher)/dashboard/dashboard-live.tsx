@@ -25,6 +25,7 @@ export function DashboardLive({
   hourlyRate,
   declaredUntil,
   hasDevice,
+  suspended = false,
 }: {
   teacherId: string;
   fullName: string;
@@ -34,6 +35,9 @@ export function DashboardLive({
   // siblings share, not the availability facts, which only the toggle needs.
   declaredUntil: string | null;
   hasDevice: boolean;
+  // Server-read from my_suspension() in page.tsx. Threaded straight through
+  // to the toggle, which is the only sibling that needs it.
+  suspended?: boolean;
 }) {
   const [inSession, setInSession] = useState(false);
 
@@ -47,6 +51,7 @@ export function DashboardLive({
         inSession={inSession}
         declaredUntil={declaredUntil}
         hasDevice={hasDevice}
+        suspended={suspended}
       />
     </>
   );

@@ -77,6 +77,7 @@ export default async function DashboardPage() {
             hourlyRate={profile?.hourly_rate ?? 0}
             declaredUntil={availability?.declared_until ?? null}
             hasDevice={(deviceCount ?? 0) > 0}
+            suspended={suspendedAt !== null}
           />
 
           <Card>

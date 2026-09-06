@@ -168,4 +168,22 @@ describe("AvailabilityToggle", () => {
       expect(screen.getByText(/Available until/i)).toBeInTheDocument()
     );
   });
+
+  // Suspension outranks a live lease: the server has already stopped showing
+  // this teacher to students, so the pill must not go on claiming "Available".
+  it("shows Account under review when suspended, even with a live lease", async () => {
+    render(<AvailabilityToggle {...props} declaredUntil={futureIso} hasDevice suspended />);
+    await waitFor(() =>
+      expect(screen.getByText("Account under review")).toBeInTheDocument()
+    );
+    expect(screen.queryByText(/Available until/i)).not.toBeInTheDocument();
+  });
+
+  // A suspended teacher must not be able to toggle themselves back into a
+  // list they are excluded from.
+  it("disables the toggle button while suspended", async () => {
+    render(<AvailabilityToggle {...props} declaredUntil={futureIso} hasDevice suspended />);
+    await waitFor(() => expect(screen.getByText("Account under review")).toBeInTheDocument());
+    expect(screen.getByRole("button")).toBeDisabled();
+  });
 });

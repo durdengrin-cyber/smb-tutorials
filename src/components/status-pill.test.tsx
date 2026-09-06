@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { StatusPill, STATUS_COPY, type TeacherStatus } from "./status-pill";
 
-const ALL: TeacherStatus[] = ["offline", "available", "in_session", "unreachable"];
+const ALL: TeacherStatus[] = ["offline", "available", "in_session", "unreachable", "suspended"];
 
 describe("StatusPill", () => {
   it("renders a label for every status", () => {
@@ -29,5 +29,13 @@ describe("StatusPill", () => {
   it("gives every status a distinct tone", () => {
     const tones = ALL.map((s) => STATUS_COPY[s].tone);
     expect(new Set(tones).size).toBe(tones.length);
+  });
+
+  it("has copy for the suspended state that does not name a reporter", () => {
+    const copy = STATUS_COPY.suspended;
+    expect(copy.label).toBe("Account under review");
+    expect(copy.description).toMatch(/cannot receive new requests/i);
+    // A teacher learning which session was reported learns who reported them.
+    expect(copy.description).not.toMatch(/report|student|session with/i);
   });
 });
