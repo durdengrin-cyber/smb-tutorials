@@ -6,7 +6,7 @@ State at the pause of the 2026-09-06 session. Read this before touching anything
 
 ## 1. Where the work is
 
-**Branch `feat/visual-identity-tokens` — 23 commits added today, tree clean, NOT pushed, NOT merged.**
+**Branch `feat/visual-identity-tokens` — 25 commits added today, tree clean, PUSHED, NOT merged.**
 It now carries two unrelated bodies of work: the visual identity cycle from 2026-09-05/06 (see
 `2026-09-06-visual-identity-complete.md`) and everything below. They are stacked deliberately —
 `main` is strictly behind, and branching off it would have conflicted in five of the nine files
@@ -98,8 +98,8 @@ and its delivery, not a scoping choice.
 ## 6. Next, and it is already designed
 
 **Teacher profile editing** — the owner's original ask, designed and briefed, **not started**.
-Brief at `.superpowers/sdd/teacher-profile-brief.md` (git-ignored; recreate from §6 of this doc if
-lost). A teacher cannot change their own rate, subjects, qualification or bio after signup, and
+Full brief: `docs/superpowers/plans/2026-09-06-teacher-profile-editing.md` — in the repo, not in
+git-ignored scratch, so it survives this session. A teacher cannot change their own rate, subjects, qualification or bio after signup, and
 that rate is what students are charged. Migration `0001` already grants everything needed, so it
 is UI plus server actions with **no migration**.
 
