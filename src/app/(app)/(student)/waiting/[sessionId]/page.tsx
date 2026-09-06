@@ -54,7 +54,9 @@ export default async function WaitingPage({
       ...criteria,
       outcome,
       teacher: teacherName,
-      ...(outcome === "refunded" ? { amount: String(amountPaise) } : {}),
+      ...(outcome === "refunded" || outcome === "teacher_unavailable"
+        ? { amount: String(amountPaise) }
+        : {}),
     })}`;
 
   const status = effectiveStatus(
@@ -79,6 +81,12 @@ export default async function WaitingPage({
 
   if (status === "active") redirect(`/call/${sessionId}`);
   if (status !== "pending" && status !== "accepted" && status !== "paid") {
+    // A suspension-cancelled session outranks both. The old branch sent a
+    // `cancelled` row to outcome=cancelled — which shows no banner, because
+    // the student is assumed to have cancelled it themselves. They did not.
+    if (session.cancellation_reason === "teacher_suspended") {
+      redirect(exitTo("teacher_unavailable"));
+    }
     // A refund outranks the status for what the STUDENT needs told. Money
     // arriving late on a session they cancelled is refunded automatically and
     // leaves the row `cancelled` — for which we deliberately show no banner,

@@ -42,7 +42,7 @@ export default async function SessionsPage() {
   const { data, error } = await supabase
     .from("sessions")
     .select(
-      "id, subject, curriculum, grade, created_at, started_at, amount_paid_paise, refund_ref, teacher:profiles!sessions_teacher_id_fkey (full_name)"
+      "id, subject, curriculum, grade, created_at, started_at, amount_paid_paise, refund_ref, cancellation_reason, teacher:profiles!sessions_teacher_id_fkey (full_name)"
     )
     .eq("student_id", identity.userId)
     .or("amount_paid_paise.not.is.null,refund_ref.not.is.null")
@@ -113,6 +113,11 @@ export default async function SessionsPage() {
                             {s.refund_ref && (
                               <span className="ml-2 rounded-full bg-success/12 px-2 py-0.5 text-xs font-medium text-success">
                                 Refunded
+                              </span>
+                            )}
+                            {s.cancellation_reason === "teacher_suspended" && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                Teacher unavailable
                               </span>
                             )}
                           </p>

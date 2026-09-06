@@ -21,7 +21,7 @@ import { Money } from "@/components/money";
 // was told their teacher had ignored them. Anything unrecognised shows no
 // banner at all rather than a wrong one — and `cancelled` is deliberately
 // silent, because the student did it on purpose and does not need telling.
-function outcomeMessage(
+export function outcomeMessage(
   outcome: string | undefined,
   teacher: string | undefined,
   refundAmountPaise: number | undefined
@@ -52,6 +52,20 @@ function outcomeMessage(
       );
     case "completed":
       return "That session has ended.";
+    case "teacher_unavailable":
+      // Never "the teacher was reported": the student learning that a report
+      // exists is a disclosure about a third party's complaint. What they
+      // need is that the session is off and where their money went.
+      return refundAmountPaise ? (
+        <>
+          {who} is no longer available, so that session can&apos;t go ahead.
+          Your <Money paise={refundAmountPaise} /> has been refunded — it can
+          take a few days to show on your statement. These teachers are free
+          now.
+        </>
+      ) : (
+        `${who} is no longer available, so that session can't go ahead. You have not been charged — these teachers are free now.`
+      );
     default:
       return null;
   }
