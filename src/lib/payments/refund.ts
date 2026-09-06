@@ -57,15 +57,35 @@ export async function refundSession(
   } catch (e) {
     if (e instanceof DuplicateRefundError) {
       // The provider rejected this call because our idempotency key was
-      // already used — a concurrent or retried call already issued this
-      // exact refund. The money is already back with the student; this is
-      // not the REFUND FAILED case below and must not read as one, or a
-      // human goes chasing a refund that already happened.
-      console.info(
-        `${args.logPrefix} refund for ${args.sessionId} was already issued under a ` +
-          `different call (idempotency key reused) — no action needed:`,
-        e
-      );
+      // already used — some other call already issued this exact refund.
+      // That other call may or may not have RECORDED it: if its stamp write
+      // failed on both attempts (the REFUNDED BUT NOT RECORDED path below),
+      // the row is still `paid` with refund_ref null, and every later pass
+      // hits this same rejection again. Re-read the row before deciding the
+      // log level — only the recorded case is truly "no action needed";
+      // the unrecorded case is the same stranded-money situation as
+      // REFUNDED BUT NOT RECORDED and must alarm exactly as loudly, or it
+      // goes on being reported as fine forever.
+      const { data: check } = await db
+        .from("sessions")
+        .select("refund_ref")
+        .eq("id", args.sessionId)
+        .maybeSingle();
+      if (check?.refund_ref) {
+        console.info(
+          `${args.logPrefix} refund for ${args.sessionId} was already issued and recorded ` +
+            `under a different call (idempotency key reused) — no action needed:`,
+          e
+        );
+      } else {
+        console.error(
+          `${args.logPrefix} REFUND ISSUED BUT NOT RECORDED for ${args.sessionId} — the ` +
+            `provider rejected this call's receipt as a duplicate, meaning an earlier call ` +
+            `already issued the money back, but refund_ref is still null on this row; ` +
+            `reconciliation will show it as unresolved:`,
+          e
+        );
+      }
       return false;
     }
     // The one failure with no automatic recovery (design spec §9). Loud, with

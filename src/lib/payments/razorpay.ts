@@ -197,14 +197,20 @@ export function razorpayPort(
         } catch {
           description = undefined;
         }
-        // Razorpay's documented duplicate-receipt rejection (verified against
-        // their own docs, not re-derived here): "Duplicate receipt found for
-        // this refund request" means the receipt we sent (this session id)
-        // was already used on a refund for this payment — the money already
-        // went back, under a call that beat this one to the provider. Matched
-        // narrowly on that exact, documented wording and nothing looser: any
-        // other rejection (including a differently-worded one we don't
-        // recognise) falls straight through to fail()'s generic failure.
+        // This exact wording — "Duplicate receipt found for this refund
+        // request" — is taken from Razorpay's published error table for
+        // refund creation, not re-derived or guessed at here. It has NOT
+        // been observed against a live response: producing a genuine
+        // duplicate-receipt rejection needs a real captured payment refunded
+        // twice, which razorpay.live.test.ts's probe cannot do without
+        // spending real money. That probe DID confirm live that Razorpay
+        // accepts a `receipt` field at all (a real 400, "The id provided
+        // does not exist", at input_validation_failed) — it did not, and
+        // could not, confirm this specific wording. Matched narrowly, by
+        // exact string equality: if the live wording ever differs from what
+        // is quoted here, this branch simply never matches, and the
+        // rejection falls straight through to fail()'s generic, loud
+        // failure — the safe direction to be wrong in.
         if (description === "Duplicate receipt found for this refund request") {
           throw new DuplicateRefundError(
             `razorpay refund of ${captured.payment_id}: receipt ${idempotencyKey} was already used — the refund already happened`

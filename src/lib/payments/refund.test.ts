@@ -21,7 +21,7 @@ interface StampResult {
 }
 
 interface CheckResult {
-  data: { refund_ref: string } | null;
+  data: { refund_ref: string | null } | null;
   error: unknown;
 }
 
@@ -109,15 +109,22 @@ describe("refundSession", () => {
     expect(result).toBe(false);
   });
 
-  it("does not stamp the row and logs at info, not as a failure, when the provider reports a duplicate receipt", async () => {
+  it("re-reads the row on a duplicate-receipt rejection, and logs at info when it was recorded", async () => {
     // A concurrent or retried call already used this session's idempotency
-    // key — the money already moved under that call. This must never read
-    // as "REFUND FAILED ... needs manual action": that would send a human
-    // chasing a refund that already happened.
+    // key AND its stamp write landed — refund_ref is set. This must never
+    // read as "REFUND FAILED ... needs manual action": that would send a
+    // human chasing a refund that already happened and is already recorded.
     port.refund.mockRejectedValue(
       new DuplicateRefundError("razorpay refund: receipt s1 was already used")
     );
     const db = stubDb({ data: [{ id: "s1" }], error: null });
+    // The re-read is a fresh .select().eq().maybeSingle() chain, not the
+    // terminal stamp-write .select() — must be chainable here.
+    db.chain.select.mockImplementationOnce(() => db.chain);
+    db.chain.maybeSingle.mockResolvedValueOnce({
+      data: { refund_ref: "rfnd_other_caller" },
+      error: null,
+    });
 
     const result = await refundSession(db as never, {
       sessionId: "s1", paymentRef: "pay_1", amountPaise: 50000,
@@ -127,13 +134,50 @@ describe("refundSession", () => {
     expect(db.chain.update).not.toHaveBeenCalled();
     expect(result).toBe(false);
     const info = consoleInfoSpy.mock.calls.find(
-      ([msg]) => typeof msg === "string" && msg.includes("already issued")
+      ([msg]) => typeof msg === "string" && msg.includes("already issued and recorded")
     );
     expect(info).toBeDefined();
-    const failureAlarm = consoleErrorSpy.mock.calls.find(
-      ([msg]) => typeof msg === "string" && msg.includes("REFUND FAILED")
+    const anyAlarm = consoleErrorSpy.mock.calls.find(
+      ([msg]) =>
+        typeof msg === "string" &&
+        (msg.includes("REFUND FAILED") || msg.includes("NOT RECORDED"))
     );
-    expect(failureAlarm).toBeUndefined();
+    expect(anyAlarm).toBeUndefined();
+  });
+
+  it("re-reads the row on a duplicate-receipt rejection, and alarms loudly when it was never recorded", async () => {
+    // The other call's refund landed at the provider (Razorpay rejects this
+    // call's receipt as a duplicate, proving that) but its own stamp write
+    // never confirmed — refund_ref is still null. The row is stranded at
+    // `paid` and every later pass would hit this same rejection again, so
+    // this must alarm exactly as loudly as REFUNDED BUT NOT RECORDED, not
+    // read as "no action needed".
+    port.refund.mockRejectedValue(
+      new DuplicateRefundError("razorpay refund: receipt s1 was already used")
+    );
+    const db = stubDb({ data: [{ id: "s1" }], error: null });
+    db.chain.select.mockImplementationOnce(() => db.chain);
+    db.chain.maybeSingle.mockResolvedValueOnce({
+      data: { refund_ref: null },
+      error: null,
+    });
+
+    const result = await refundSession(db as never, {
+      sessionId: "s1", paymentRef: "pay_1", amountPaise: 50000,
+      nextStatus: "refunded", why: "test", logPrefix: "[suspension]",
+    });
+
+    expect(db.chain.update).not.toHaveBeenCalled();
+    expect(result).toBe(false);
+    const alarm = consoleErrorSpy.mock.calls.find(
+      ([msg]) => typeof msg === "string" && msg.includes("REFUND ISSUED BUT NOT RECORDED")
+    );
+    expect(alarm).toBeDefined();
+    expect(String(alarm?.[0])).toContain("s1");
+    const info = consoleInfoSpy.mock.calls.find(
+      ([msg]) => typeof msg === "string" && msg.includes("no action needed")
+    );
+    expect(info).toBeUndefined();
   });
 
   it("omits status from the write when nextStatus is null", async () => {
