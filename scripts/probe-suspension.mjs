@@ -2,8 +2,9 @@
 // Migration 0020. /terms has promised since cycle 3 that a conduct report
 // suspends a teacher pending review; until 0020 nothing in the schema did it.
 // This probe attacks and exercises the REAL database — the trigger, the two
-// RPCs, the widened session guard and the availability filter — because a
-// mock cannot prove a database rule.
+// RPCs, both session guards (insert and update), the unique open-suspension
+// index and the availability filter — because a mock cannot prove a database
+// rule.
 //
 // Two hazards, both inherited and both worth reading before editing:
 //
@@ -63,6 +64,11 @@ try {
   created.push(teacher.id);
   const teacher2 = await createThrowawayUser(env, { role: "teacher", fullName: "Probe Teacher T2", hourlyRate: 500 });
   created.push(teacher2.id);
+  // Stands in for the human reviewing the report. There is no admin role yet
+  // (0006 is deliberately unapplied), and reinstate_teacher.lifted_by is an FK
+  // to profiles and nothing more, so any profile is a faithful stand-in.
+  const operator = await createThrowawayUser(env, { role: "student", fullName: "Probe Operator" });
+  created.push(operator.id);
 
   const AH = userHeaders(env, studentA.token);
   const BH = userHeaders(env, studentB.token);
@@ -126,7 +132,7 @@ try {
     });
 
   const suspensions = (teacherId) =>
-    rows(`teacher_suspensions?select=id,lifted_at,outcome,note&teacher_id=eq.${teacherId}`);
+    rows(`teacher_suspensions?select=id,lifted_at,lifted_by,outcome,note&teacher_id=eq.${teacherId}`);
   const openSuspensions = async (teacherId) =>
     (await suspensions(teacherId)).filter((r) => r.lifted_at === null);
 
@@ -235,15 +241,38 @@ try {
   ok(!authedLift.ok && stillOpenAfterSelf.length === 1,
      `a suspended teacher cannot lift their own suspension (HTTP ${authedLift.status}, ${stillOpenAfterSelf.length} still open)`);
 
-  // The real lift, by the operator.
+  // 'removed' RECORDS the decision and deliberately does NOT lift: the
+  // suspension stays open, available_teachers keeps excluding them, and
+  // performing the removal is not this function's job. Called with the service
+  // role and WITHOUT p_lifted_by — the pilot-era CLI path — so coalesce falls
+  // through to auth.uid(), which is null there. That null is the entire reason
+  // the parameter exists, and this is the assertion that shows it.
+  const removed = await fetch(`${URL}/rest/v1/rpc/reinstate_teacher`, {
+    method: "POST", headers: jsonHeaders(SERVICE),
+    body: JSON.stringify({ p_teacher_id: teacher.id, p_outcome: "removed", p_note: "probe removal" }),
+  });
+  const afterRemoved = (await suspensions(teacher.id))[0];
+  ok(removed.ok && afterRemoved?.outcome === "removed" && afterRemoved?.note === "probe removal"
+     && afterRemoved?.lifted_at === null && afterRemoved?.lifted_by === null,
+     `'removed' records the decision and leaves the suspension OPEN (HTTP ${removed.status}, lifted_at ${JSON.stringify(afterRemoved?.lifted_at)}, lifted_by ${JSON.stringify(afterRemoved?.lifted_by)})`);
+
+  const rosterRemoved = await roster();
+  ok(!rosterRemoved.some((r) => r.teacher_id === teacher.id),
+     `…and the teacher is STILL hidden from available_teachers after 'removed'`);
+
+  // The real lift, by the operator, naming themselves. p_lifted_by is what
+  // makes the record answer "who" — proved by the null directly above.
   const lift = await fetch(`${URL}/rest/v1/rpc/reinstate_teacher`, {
     method: "POST", headers: jsonHeaders(SERVICE),
-    body: JSON.stringify({ p_teacher_id: teacher.id, p_outcome: "reinstated", p_note: "probe" }),
+    body: JSON.stringify({
+      p_teacher_id: teacher.id, p_outcome: "reinstated", p_note: "probe",
+      p_lifted_by: operator.id,
+    }),
   });
   const lifted = await suspensions(teacher.id);
   ok(lift.ok && lifted.length === 1 && lifted[0].lifted_at !== null && lifted[0].outcome === "reinstated"
-     && lifted[0].note === "probe",
-     `the operator lifts it, and the row RECORDS the outcome and the note (HTTP ${lift.status})`);
+     && lifted[0].note === "probe" && lifted[0].lifted_by === operator.id,
+     `the operator lifts it, and the row RECORDS who, what and why (HTTP ${lift.status}, lifted_by ${lifted[0]?.lifted_by === operator.id ? "the operator" : JSON.stringify(lifted[0]?.lifted_by)})`);
 
   // 9b. The teacher's own view clears with it.
   const mineLifted = await fetch(`${URL}/rest/v1/rpc/my_suspension`, {
@@ -277,6 +306,24 @@ try {
   const openAfterR5 = afterR5.filter((r) => r.lifted_at === null);
   ok(r5.ok && afterR5.length === 2 && openAfterR5.length === 1,
      `a different reporter opens a second suspension (HTTP ${r5.status}, ${afterR5.length} row(s), ${openAfterR5.length} open)`);
+
+  // teacher_suspensions_open_idx, tested as the control it is rather than as
+  // an index. The trigger's "already under review" check and its insert are
+  // two statements, so two concurrent conduct reports can both read no open
+  // row and both insert one — and reinstate_teacher() takes
+  // `order by suspended_at desc limit 1`, so it would lift only the newest and
+  // leave the teacher suspended forever. Racing that is not reproducible; a
+  // direct second insert as the service role, which bypasses the trigger's
+  // check entirely, tests the same guarantee deterministically.
+  const someReport = (await rows(`session_reports?select=id&session_id=eq.${sAT.id}`))[0];
+  const dupe = await fetch(`${URL}/rest/v1/teacher_suspensions`, {
+    method: "POST", headers: minimal(jsonHeaders(SERVICE)),
+    body: JSON.stringify({ teacher_id: teacher.id, session_report_id: someReport?.id }),
+  });
+  const dupeBody = dupe.ok ? null : await dupe.json().catch(() => null);
+  const afterDupe = await openSuspensions(teacher.id);
+  ok(!dupe.ok && dupeBody?.code === "23505" && afterDupe.length === 1,
+     `a second OPEN suspension for the same teacher is refused by the unique index (HTTP ${dupe.status}, code ${dupeBody?.code ?? "?"}, ${afterDupe.length} open)`);
 
   console.log("\nenforce_session_update — the widening, and its limits");
 
@@ -334,6 +381,43 @@ try {
   const badBody = badReason.ok ? null : await badReason.json().catch(() => null);
   ok(!badReason.ok && badBody?.code === "23514",
      `an unknown cancellation_reason is refused by the check constraint (HTTP ${badReason.status}, code ${badBody?.code ?? "?"})`);
+
+  // The INSERT half of the same rule. The UPDATE guard cannot see this case:
+  // `is distinct from old` is false for a value that was present in the row's
+  // very first version, so without enforce_session_insert's ban a student
+  // could POST a session already blaming a suspension, cancel it themselves,
+  // and be shown "your teacher was suspended" about a teacher who never was.
+  //
+  // Left on return=representation deliberately: if this ever STOPS failing,
+  // the row id is captured for cleanup BEFORE the verdict prints — the lesson
+  // probe-happy-path.mjs records about malformed inserts leaking live rows.
+  const studentInsert = {
+    student_id: studentA.id, teacher_id: teacher.id,
+    curriculum: "CBSE", grade: "10th", stream: "Science", subject: "Mathematics",
+    type: "instant", hourly_rate: 500, duration_minutes: 60, status: "pending",
+    accept_deadline: new Date(Date.now() + 60_000).toISOString(),
+  };
+
+  const forgedInsert = await fetch(`${URL}/rest/v1/sessions`, {
+    method: "POST", headers: jsonHeaders(AH),
+    body: JSON.stringify({ ...studentInsert, cancellation_reason: "teacher_suspended" }),
+  });
+  const forgedBody = await forgedInsert.json().catch(() => null);
+  if (Array.isArray(forgedBody) && forgedBody[0]?.id) sessionIds.push(forgedBody[0].id);
+  ok(!forgedInsert.ok && /cannot already carry a cancellation reason/i.test(forgedBody?.message ?? ""),
+     `a student cannot INSERT a session already carrying cancellation_reason (HTTP ${forgedInsert.status}, "${forgedBody?.message ?? "?"}")`);
+
+  // The control. Without it the assertion above would stay green if the
+  // student insert path broke outright for some unrelated reason, which is
+  // the failure mode a ban is most likely to be confused with.
+  const cleanInsert = await fetch(`${URL}/rest/v1/sessions`, {
+    method: "POST", headers: jsonHeaders(AH),
+    body: JSON.stringify(studentInsert),
+  });
+  const cleanBody = await cleanInsert.json().catch(() => null);
+  if (Array.isArray(cleanBody) && cleanBody[0]?.id) sessionIds.push(cleanBody[0].id);
+  ok(cleanInsert.ok && cleanBody?.[0]?.cancellation_reason === null,
+     `…the same insert WITHOUT it is permitted, landing with a null reason (HTTP ${cleanInsert.status})`);
 } finally {
   console.log("\ncleanup");
 

@@ -21,7 +21,21 @@ create table public.teacher_suspensions (
 
 -- The open-suspension lookup runs on every availability query. Partial,
 -- because open suspensions are the rare case and the only case it asks about.
-create index teacher_suspensions_open_idx
+--
+-- UNIQUE, and that is a correctness control rather than a speed one. The
+-- trigger's "already under review" check and its insert are two statements:
+-- two conduct reports from different students arriving concurrently both read
+-- no open row and both insert one, and reinstate_teacher() lifts only the
+-- newest (it takes `order by suspended_at desc limit 1`), silently leaving the
+-- teacher suspended forever. At most one open suspension per teacher, enforced
+-- by the database.
+--
+-- It ships together with `on conflict do nothing` on the trigger's insert, and
+-- MUST NOT be applied without it: a unique index alone inverts the bug — the
+-- losing insert would raise, the trigger would raise, and the student would be
+-- told their safety report failed to file. A report must ALWAYS file; only the
+-- duplicate suspension row is suppressed.
+create unique index teacher_suspensions_open_idx
   on public.teacher_suspensions (teacher_id) where lifted_at is null;
 
 -- RLS ON, and NO policy, exactly as 0016 does for session_reports. Without
@@ -29,6 +43,16 @@ create index teacher_suspensions_open_idx
 -- which is every visitor. The teacher reads their own state through
 -- my_suspension() below, which returns a timestamp and nothing else.
 alter table public.teacher_suspensions enable row level security;
+
+-- A SECOND read control, so RLS is not the only one — 0017 added exactly this
+-- to session_reports, on this identical RLS-on-no-policy shape, and the
+-- reasoning transfers whole: `authenticated` still holds the SELECT PRIVILEGE
+-- from Supabase's default grants, so one `disable row level security`, or one
+-- future policy written slightly too wide, opens the table in a single step.
+-- This row carries session_report_id, which names the reported session and
+-- therefore the student who reported it. Named roles, not `public`: revoking
+-- from public does not remove a grant a named role holds (the 0012 lesson).
+revoke select on public.teacher_suspensions from anon, authenticated;
 
 
 -- ---------------------------------------------------------------------------
@@ -281,6 +305,99 @@ $$;
 
 
 -- ---------------------------------------------------------------------------
+-- enforce_session_insert(), replaced in full for the same reason and by the
+-- same method — extracted with
+-- `sed -n '32,92p' supabase/migrations/0018_guardian_account.sql`, which is the
+-- authoritative definition (0003, 0004, 0005, 0011 and 0018 have each redefined
+-- this function; 0018 is the latest). ONE rule is added, marked in place.
+--
+-- Why the UPDATE guard alone was not enough: the sessions INSERT path is
+-- student-driven, and `is distinct from old` is false for a value that was
+-- present from the very first row version. A student could therefore POST a
+-- session already carrying cancellation_reason = 'teacher_suspended', cancel it
+-- themselves, and be shown "your teacher was suspended" about a teacher who
+-- never was. 0011 and 0018 ban the payment columns on both paths for precisely
+-- this reason; this column now joins them.
+--
+-- 0018 grants and revokes nothing on this function (checked: it contains no
+-- grant or revoke statement), so there are no privileges to re-state. The
+-- BEFORE INSERT trigger from 0003 is untouched and keeps pointing at this name.
+create or replace function public.enforce_session_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  t record;
+  s record;
+begin
+  if new.status <> 'pending' then
+    raise exception 'a session must start pending, not %', new.status;
+  end if;
+
+  if new.started_at is not null or new.daily_room_url is not null then
+    raise exception 'a new request cannot already be in a call';
+  end if;
+
+  -- Payment columns are the webhook's alone (0011, C2/C3/I1).
+  if new.payment_ref is not null
+  or new.payment_provider is not null
+  or new.payment_checkout_url is not null
+  or new.amount_paid_paise is not null
+  or new.refund_ref is not null then
+    raise exception 'a new request cannot already carry payment data';
+  end if;
+
+  -- Server-set on BOTH paths, added in 0020 alongside the UPDATE guard in
+  -- enforce_session_update. The INSERT path is student-driven, so without this
+  -- a student could POST a session already carrying
+  -- cancellation_reason = 'teacher_suspended' and then cancel it themselves:
+  -- the UPDATE guard never fires, because `is distinct from old` is false when
+  -- the value was there from the start. The product would then tell that
+  -- student their session ended because their teacher had been suspended.
+  -- Exactly why 0011/0018 ban the payment columns on both paths rather than
+  -- only on update.
+  if new.cancellation_reason is not null then
+    raise exception 'a new request cannot already carry a cancellation reason';
+  end if;
+
+  -- The rate is the teacher's, read here rather than trusted from the caller.
+  select role, hourly_rate into t
+  from public.profiles
+  where id = new.teacher_id;
+
+  if t is null or t.role <> 'teacher' or t.hourly_rate is null then
+    raise exception 'that teacher is unavailable';
+  end if;
+
+  if new.hourly_rate <> t.hourly_rate then
+    raise exception 'hourly_rate must match the teacher profile';
+  end if;
+
+  -- 120 seconds, not 60: raised in 0011 when ACCEPT_WINDOW_SECONDS went to 60.
+  if new.accept_deadline > now() + interval '120 seconds' then
+    raise exception 'accept_deadline is out of range';
+  end if;
+
+  -- THE ONLY CHANGE IN THIS MIGRATION. 0004 snapshotted the account holder's
+  -- full_name here so a teacher would see something other than "A student" --
+  -- the profiles SELECT policy from 0001 returns zero rows when a teacher
+  -- reads a student's profile. The reasoning and the mechanism are unchanged
+  -- (written by the trigger, never the caller, so it cannot be forged); it
+  -- just snapshots the right name now. coalesce keeps every pre-existing
+  -- account, which has no learner_first_name, working exactly as before.
+  select coalesce(nullif(learner_first_name, ''), full_name) as name into s
+  from public.profiles
+  where id = new.student_id;
+
+  new.student_name := coalesce(s.name, 'A student');
+
+  return new;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- Reinstatement is manual and RECORDED. A raw UPDATE would leave no record of
 -- who lifted it or why, and spec §12 requires the record: "a teacher
 -- reinstated twice is a pattern nobody will see if reinstatement leaves no
@@ -343,6 +460,12 @@ $$;
 revoke all on function public.reinstate_teacher(uuid, text, text, uuid) from public;
 revoke all on function public.reinstate_teacher(uuid, text, text, uuid) from anon;
 revoke all on function public.reinstate_teacher(uuid, text, text, uuid) from authenticated;
+
+-- Granted to service_role BY NAME rather than left to Supabase's default
+-- privileges to supply. 0012 states the explicit grant as the pattern, and
+-- relying on a default that happens to name service_role today is the exact
+-- shape of assumption 0012 exists to warn against.
+grant execute on function public.reinstate_teacher(uuid, text, text, uuid) to service_role;
 
 -- The teacher's own state, and NOTHING else. Returns a timestamp, never the
 -- report id — a teacher who learns which session was reported learns who
@@ -419,8 +542,13 @@ begin
     return new;
   end if;
 
+  -- The check above is advisory; teacher_suspensions_open_idx is the actual
+  -- control, and this is what keeps it from turning a race into a failed
+  -- report. Untargeted on purpose: it covers the partial unique index without
+  -- restating its predicate in a second place that could drift from it.
   insert into public.teacher_suspensions (teacher_id, session_report_id)
-  values (v_teacher_id, new.id);
+  values (v_teacher_id, new.id)
+  on conflict do nothing;
 
   return new;
 end;
