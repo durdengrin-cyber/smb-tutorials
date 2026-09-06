@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { getPaymentPort, paymentProviderName, type WebhookEvent } from "./index";
+import { paymentProviderName, type WebhookEvent } from "./index";
+import { refundSession } from "./refund";
 import { createSessionRoom } from "@/lib/daily";
 import {
   amountPaiseFor, effectiveStatus, roomTtlSeconds, ROOM_GRACE_MINUTES,
@@ -101,92 +102,6 @@ export async function settleVerifiedEvent(event: WebhookEvent): Promise<Response
     return ok();
   }
 
-  const refundAndRecord = async (why: string, nextStatus: SessionStatus | null) => {
-    console.error(`[webhook] refunding ${event.sessionId} (${event.paymentRef}): ${why}`);
-    let refundRef: string;
-    try {
-      ({ refundRef } = await getPaymentPort().refund(event.paymentRef, event.amountPaise));
-    } catch (e) {
-      // The one failure with no automatic recovery (design spec §9). Loud, with
-      // the reference, because a human has to finish this by hand.
-      console.error(
-        `[webhook] REFUND FAILED for ${event.sessionId}, ref ${event.paymentRef}, ` +
-          `amount ${event.amountPaise} — needs manual action:`,
-        e
-      );
-      return;
-    }
-    const stamp = () =>
-      db
-        .from("sessions")
-        .update({
-          ...(nextStatus ? { status: nextStatus } : {}),
-          amount_paid_paise: event.amountPaise,
-          refund_ref: refundRef,
-          payment_provider: paymentProviderName(),
-        })
-        .eq("id", event.sessionId)
-        // Guarded so a redelivery racing this one cannot overwrite a
-        // resolution that already happened.
-        .is("refund_ref", null)
-        // Without .select, a guard-blocked write and a successful one are
-        // indistinguishable — PostgREST returns 204 with error: null for a
-        // zero-row match, same as the claim update earlier in this file and
-        // the stamp write in payment-actions.ts.
-        .select("id");
-
-    let { data: recorded, error } = await stamp();
-    // The money has already left the provider by this point — a write error
-    // here (a real failure, not a blocked guard) would leave a refunded
-    // charge with nothing to show for it. One retry closes the narrow
-    // transient-error window cheaply; a durable fix needs an outbox, so this
-    // is the proportionate answer, not the complete one (known gap).
-    let retried = false;
-    if (error) {
-      retried = true;
-      ({ data: recorded, error } = await stamp());
-    }
-    if (error) {
-      console.error(
-        `[webhook] REFUNDED BUT NOT RECORDED for ${event.sessionId}, refund ${refundRef} — ` +
-          `the money is back with the student but the row does not say so; ` +
-          `reconciliation will show it as unresolved:`,
-        error
-      );
-      return;
-    }
-    if (!recorded || recorded.length === 0) {
-      // A guard-blocked write and attempt 1's own commit landing anyway look
-      // identical from here: a transport error after a successful commit is
-      // indistinguishable from one before it (same reasoning as the claim
-      // error path above). If this is the retry, attempt 1 may well have
-      // written refund_ref before the error surfaced — check before alarming,
-      // so reconciliation's backstop (design spec §9) isn't trained to
-      // distrust a line that cried wolf about money that was recorded fine.
-      if (retried) {
-        const { data: check } = await db
-          .from("sessions")
-          .select("refund_ref")
-          .eq("id", event.sessionId)
-          .maybeSingle();
-        if (check?.refund_ref === refundRef) {
-          console.info(
-            `[webhook] refund ${refundRef} for ${event.sessionId} was recorded by attempt 1; ` +
-              `its error was a transport failure after the commit, not a lost write.`
-          );
-          return;
-        }
-      }
-      // Genuinely absent or different: something else set refund_ref first.
-      // The money is back with the student; this reference just has nowhere
-      // to live, so it is named here or nowhere.
-      console.error(
-        `[webhook] REFUND ISSUED BUT NOT RECORDED for ${event.sessionId}, refund ${refundRef} — ` +
-          `the guard matched no row (already resolved by something else); this reference is not stored anywhere.`
-      );
-    }
-  };
-
   // `paid` means we claimed this charge and did not finish. A redelivery is the
   // repair, not a duplicate: createSessionRoom is idempotent by design, and the
   // activate write is guarded on `paid`. Short-circuiting here would make any
@@ -210,7 +125,14 @@ export async function settleVerifiedEvent(event: WebhookEvent): Promise<Response
   const repairDeadline =
     new Date(session.payment_deadline ?? 0).getTime() + repairSlackMs;
   if (alreadyClaimed && Date.now() > repairDeadline) {
-    await refundAndRecord("repair arrived too late for the minted room", "refunded");
+    await refundSession(db, {
+      sessionId: event.sessionId,
+      paymentRef: event.paymentRef,
+      amountPaise: event.amountPaise,
+      nextStatus: "refunded",
+      why: "repair arrived too late for the minted room",
+      logPrefix: "[webhook]",
+    });
     return ok();
   }
 
@@ -220,7 +142,14 @@ export async function settleVerifiedEvent(event: WebhookEvent): Promise<Response
     // two independent implementations of a money calculation will eventually
     // disagree by a rounding step.
     if (event.amountPaise !== amountPaiseFor(session.hourly_rate, session.duration_minutes)) {
-      await refundAndRecord("amount mismatch", null);
+      await refundSession(db, {
+        sessionId: event.sessionId,
+        paymentRef: event.paymentRef,
+        amountPaise: event.amountPaise,
+        nextStatus: null,
+        why: "amount mismatch",
+        logPrefix: "[webhook]",
+      });
       return ok();
     }
 
@@ -234,7 +163,14 @@ export async function settleVerifiedEvent(event: WebhookEvent): Promise<Response
     // takes its true status so the stored column stops disagreeing with the
     // read-time rule.
     if (actual !== "accepted") {
-      await refundAndRecord(`payment arrived while status was ${actual}`, actual);
+      await refundSession(db, {
+        sessionId: event.sessionId,
+        paymentRef: event.paymentRef,
+        amountPaise: event.amountPaise,
+        nextStatus: actual,
+        why: `payment arrived while status was ${actual}`,
+        logPrefix: "[webhook]",
+      });
       return ok();
     }
 
@@ -287,7 +223,14 @@ export async function settleVerifiedEvent(event: WebhookEvent): Promise<Response
         now.refund_ref !== null ||
         ["paid", "active", "completed"].includes(now.status);
       if (resolved) return ok();
-      await refundAndRecord(`lost the claim race; row is now ${now.status}`, null);
+      await refundSession(db, {
+        sessionId: event.sessionId,
+        paymentRef: event.paymentRef,
+        amountPaise: event.amountPaise,
+        nextStatus: null,
+        why: `lost the claim race; row is now ${now.status}`,
+        logPrefix: "[webhook]",
+      });
       return ok();
     }
   }
@@ -325,7 +268,14 @@ export async function settleVerifiedEvent(event: WebhookEvent): Promise<Response
     console.error(`[webhook] room mint failed for ${event.sessionId}:`, e);
     // We hold their money and cannot deliver. `paid` is never a terminal
     // state (design spec §6 invariant 3) — refund is the only honest exit.
-    await refundAndRecord("room could not be created", "refunded");
+    await refundSession(db, {
+      sessionId: event.sessionId,
+      paymentRef: event.paymentRef,
+      amountPaise: event.amountPaise,
+      nextStatus: "refunded",
+      why: "room could not be created",
+      logPrefix: "[webhook]",
+    });
     return ok();
   }
 
