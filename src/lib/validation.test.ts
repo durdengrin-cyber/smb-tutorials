@@ -217,6 +217,37 @@ describe("parseTutorSignUp", () => {
     expect(!r.ok && r.error).toMatch(/terms/i);
   });
 
+  // Pins the order this function checks things in: fullName, then consent,
+  // email and password, all before any profile field (phone onward) gets a
+  // chance to fail — the order it used before parseTeacherProfileFields
+  // existed. Each case below is invalid on an account field AND on `phone`;
+  // the account-field error must win every time.
+  describe("checks account fields before profile fields", () => {
+    it("reports missing consent over a bad phone number", () => {
+      const withoutConsent: Record<string, string | string[]> = {
+        ...base,
+        phone: "12345",
+      };
+      delete withoutConsent.consent;
+      const r = parseTutorSignUp(fd(withoutConsent));
+      expect(!r.ok && r.error).toMatch(/terms/i);
+    });
+
+    it("reports a bad email over a bad phone number", () => {
+      const r = parseTutorSignUp(
+        fd({ ...base, email: "not-an-email", phone: "12345" })
+      );
+      expect(!r.ok && r.error).toMatch(/email/i);
+    });
+
+    it("reports a short password over a bad phone number", () => {
+      const r = parseTutorSignUp(
+        fd({ ...base, password: "short", phone: "12345" })
+      );
+      expect(!r.ok && r.error).toMatch(/password/i);
+    });
+  });
+
   it("dedupes repeated subject selections", () => {
     const r = parseTutorSignUp(
       fd({
@@ -352,5 +383,71 @@ describe("parseTeacherProfile", () => {
     const r = parseTeacherProfile(fd({ ...base, bio: "  hello there  " }));
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.bio).toBe("hello there");
+  });
+});
+
+// parseTeacherProfileFields exists so a rate, qualification or hours-per-week
+// rule can't drift between signup and editing by being re-typed in two
+// places. Nothing above fails if someone re-duplicates those rules instead of
+// reusing the shared helper — both suites stay green either way. These tests
+// are what would: they pin that the two public parsers reject the SAME
+// invalid input with the SAME message, so a divergent copy (a different
+// threshold, a different message) breaks one side without the other.
+describe("parseTutorSignUp and parseTeacherProfile validate profile fields identically", () => {
+  const tutorBase = {
+    fullName: "Dr. Rao",
+    email: "rao@x.com",
+    password: "secret123",
+    phone: "9876543210",
+    experience: "8",
+    qualification: "PhD Physics",
+    specialization: "Mechanics",
+    teachingLevel: "school",
+    hourlyRate: "500",
+    hoursPerWeek: "10-20",
+    demoVideoUrl: "https://youtu.be/abc",
+    curricula: ["CBSE"],
+    grades: ["11th", "12th"],
+    subjects: ["Science|Physics"],
+    consent: "yes",
+  };
+  const profileBase = {
+    fullName: "Dr. Rao",
+    phone: "9876543210",
+    experience: "8",
+    qualification: "PhD Physics",
+    specialization: "Mechanics",
+    teachingLevel: "school",
+    hourlyRate: "500",
+    hoursPerWeek: "10-20",
+    demoVideoUrl: "https://youtu.be/abc",
+    bio: "",
+    curricula: ["CBSE"],
+    grades: ["11th", "12th"],
+    subjects: ["Science|Physics"],
+  };
+
+  it("reject the same invalid hourly rate with the same message", () => {
+    const a = parseTutorSignUp(fd({ ...tutorBase, hourlyRate: "0" }));
+    const b = parseTeacherProfile(fd({ ...profileBase, hourlyRate: "0" }));
+    expect(a.ok).toBe(false);
+    expect(b.ok).toBe(false);
+    expect(!a.ok && a.error).toBe(!b.ok && b.error);
+  });
+
+  it("reject the same missing qualification with the same message", () => {
+    const a = parseTutorSignUp(fd({ ...tutorBase, qualification: "" }));
+    const b = parseTeacherProfile(fd({ ...profileBase, qualification: "" }));
+    expect(a.ok).toBe(false);
+    expect(b.ok).toBe(false);
+    expect(!a.ok && a.error).toBe(!b.ok && b.error);
+  });
+
+  it("reject the same invalid hours-per-week with the same message", () => {
+    const a = parseTutorSignUp(fd({ ...tutorBase, hoursPerWeek: "100+" }));
+    const b = parseTeacherProfile(fd({ ...profileBase, hoursPerWeek: "100+" }));
+    expect(a.ok).toBe(false);
+    expect(b.ok).toBe(false);
+    expect(!a.ok && a.error).toBe(!b.ok && b.error);
   });
 });

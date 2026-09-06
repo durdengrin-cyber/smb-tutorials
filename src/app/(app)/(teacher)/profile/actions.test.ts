@@ -156,6 +156,9 @@ describe("updateTeacherProfile", () => {
     expect(result?.error).toMatch(/nothing was changed/i);
     expect(calls.insert).not.toHaveBeenCalled();
     expect(calls.profileUpdateEq).not.toHaveBeenCalled();
+    // The delete never committed, so the dashboard's cache still matches the
+    // database — nothing here should trigger a revalidation.
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   // Distinct from the delete-failure case above: here the delete already
@@ -166,11 +169,20 @@ describe("updateTeacherProfile", () => {
     const result = await updateTeacherProfile(null, validFormData());
     expect(result?.error).toMatch(/empty/i);
     expect(calls.profileUpdateEq).not.toHaveBeenCalled();
+    // The subjects are genuinely gone from the database at this point, so the
+    // dashboard's "You're live for" card must be told before this returns —
+    // otherwise it goes on serving a cached list that no longer exists.
+    expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
+    expect(revalidatePath).not.toHaveBeenCalledWith("/profile");
   });
 
   it("says which half saved when subjects succeed but the profile update fails", async () => {
     state.profileError = { message: "boom" };
     const result = await updateTeacherProfile(null, validFormData());
     expect(result?.error).toMatch(/subjects saved/i);
+    // Subjects already committed to their new value here, so the dashboard's
+    // cache is stale even though the rate/profile fields didn't change.
+    expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
+    expect(revalidatePath).not.toHaveBeenCalledWith("/profile");
   });
 });

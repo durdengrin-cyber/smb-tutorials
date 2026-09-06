@@ -48,6 +48,11 @@ export function ProfileForm(values: ProfileFormValues) {
   return (
     <form
       action={formAction}
+      // "Saved." never lies about a half-save — every partial failure returns
+      // an error, and this is guarded by !state?.error — but it would sit
+      // beside an edit the teacher has since made and not yet saved. Clear it
+      // on the next change, before that edit is submitted.
+      onChange={() => setJustSaved(false)}
       className="bg-card rounded-2xl shadow-xl p-8 border border-hair space-y-6"
     >
       <div>

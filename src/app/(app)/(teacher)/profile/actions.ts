@@ -13,10 +13,14 @@ export async function updateTeacherProfile(
   // requireConsentedUser(), not requireRole(): a Server Action is resolved by
   // ID and run BEFORE any page renders, so requireRole()'s underlying
   // requireUser() redirect never gets a chance to fire for a direct call —
-  // see the comment on requireConsentedUser in src/lib/auth.ts, and every
-  // other actions.ts in this app follows the same pattern. The role check
-  // below is this action's own: requireConsentedUser() authenticates any
-  // signed-in, consented account, teacher or student.
+  // see the comment on requireConsentedUser in src/lib/auth.ts. The other
+  // three actions.ts files under (app) — (student)/sessions,
+  // (student)/teachers and (teacher)/dashboard — follow the same pattern.
+  // Outside (app), (gate)/consent/actions.ts uses requireUser() and
+  // (marketing)/tutor-signup/actions.ts a bare getUser(), so the claim does
+  // not reach past this route group. The role check below is this action's
+  // own: requireConsentedUser() authenticates any signed-in, consented
+  // account, teacher or student.
   const identity = await requireConsentedUser();
   if (!identity || identity.role !== "teacher") {
     return { error: "Sign in as a teacher to edit your profile." };
@@ -53,6 +57,13 @@ export async function updateTeacherProfile(
     // The delete above already succeeded, so this teacher now has NO
     // subjects, not stale ones — a materially worse state that needs its own
     // message rather than reusing the delete-failure wording above.
+    //
+    // And the dashboard's "You're live for" card (which reads teacher_subjects
+    // directly) is now serving a cache of subjects that no longer exist in the
+    // database — without this, the teacher would be invisible in search while
+    // their own dashboard kept showing them as live. Revalidate before
+    // returning, not after some later success that may never come.
+    revalidatePath("/dashboard");
     return {
       error:
         "Your subjects are now empty because part of the save failed — reselect your subjects and try again.",
@@ -76,6 +87,11 @@ export async function updateTeacherProfile(
     .eq("id", identity.userId);
   if (profileError) {
     console.error("[updateTeacherProfile] profile update failed", profileError);
+    // The delete+insert above already committed the NEW subject list, so the
+    // dashboard's cached "You're live for" card is stale even though the rate
+    // and other profile fields didn't change — same reasoning as the insert
+    // failure above, just with subjects that changed rather than vanished.
+    revalidatePath("/dashboard");
     return {
       error: "Your subjects saved, but your rate and other details didn't — try again.",
     };

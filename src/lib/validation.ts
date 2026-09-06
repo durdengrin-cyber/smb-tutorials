@@ -212,9 +212,19 @@ function parseTeacherProfileFields(fd: FormData): Result<TeacherProfileFields> {
   };
 }
 
+// Order is pinned by a test: fullName, then consent, email and password,
+// before any of the profile fields (phone onward) get a chance to fail. That
+// is the order this function checked them in before parseTeacherProfileFields
+// existed — the extraction below moved consent/email/password to run AFTER
+// every profile field instead, so a signup missing several things silently
+// started reporting a different first error. Restoring it costs one
+// duplicated line (the fullName-empty check also runs inside
+// parseTeacherProfileFields): a trivial, unlikely-to-drift rule, unlike the
+// rate/qualification/hours-per-week rules that extraction exists to keep in
+// one place, which stay defined only there.
 export function parseTutorSignUp(fd: FormData): Result<TutorSignUp> {
-  const fields = parseTeacherProfileFields(fd);
-  if (!fields.ok) return fields;
+  const fullName = str(fd, "fullName");
+  if (!fullName) return fail("Enter your full name.");
 
   // Checked on the SERVER, exactly as parseStudentSignUp does, and for the
   // same reason: 0014 fixed the student box and missed this one, so tutor
@@ -231,6 +241,9 @@ export function parseTutorSignUp(fd: FormData): Result<TutorSignUp> {
   const password = raw(fd, "password");
   if (password.length < 8)
     return fail("Password must be at least 8 characters.");
+
+  const fields = parseTeacherProfileFields(fd);
+  if (!fields.ok) return fields;
 
   return { ok: true, value: { email, password, ...fields.value } };
 }

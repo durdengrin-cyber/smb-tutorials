@@ -89,10 +89,17 @@ export async function requestSession(input: {
     .single();
 
   if (error || !session) {
-    // enforce_session_insert (the trigger snapshotting hourly_rate onto this
-    // row) raises exactly this message when the rate this insert carries no
-    // longer matches the teacher's live profile — the teacher changed their
-    // rate between this student loading the list and clicking Start.
+    // enforce_session_insert raises exactly this message when new.hourly_rate
+    // doesn't match the teacher's live profile — it VALIDATES the rate this
+    // insert carries, it does not snapshot it. The snapshot is this action's
+    // own, above (`hourly_rate: teacher.hourly_rate`); the trigger does
+    // snapshot student_name, which is probably where the idea that it also
+    // snapshots the rate came from.
+    // The rate is re-read from profiles (lines above, right before this
+    // insert), so the window this can fire in is not "between the student
+    // loading the list and clicking Start" — that one is already closed by
+    // the re-read. What's left is the much smaller window between that
+    // SELECT and the trigger's own check running inside this insert.
     // Verified live against the trigger: a mismatched insert returns
     // { code: "P0001", message: "hourly_rate must match the teacher profile" }.
     // That failure is CORRECT — nobody gets mispriced — but a raw Postgres
@@ -100,7 +107,7 @@ export async function requestSession(input: {
     if (error?.message === "hourly_rate must match the teacher profile") {
       return {
         error:
-          "That teacher just changed their rate. Refresh the page to see their new price, then try again.",
+          "That teacher's rate changed while your request was being placed — try again to get their current price.",
       };
     }
     return { error: "Couldn't start the request — try again." };

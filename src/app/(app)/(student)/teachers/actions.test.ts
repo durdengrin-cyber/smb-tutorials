@@ -112,13 +112,16 @@ describe("requestSession consent gate", () => {
 });
 
 describe("requestSession rate race", () => {
-  // enforce_session_insert (the trigger that snapshots hourly_rate onto a new
-  // session row) raises 'hourly_rate must match the teacher profile' when the
-  // rate this insert carries no longer matches the teacher's live profile —
-  // reachable when a teacher changes their rate while a student is mid-
-  // request. Verified live against the trigger: a mismatched insert returns
-  // { code: "P0001", message: "hourly_rate must match the teacher profile" },
-  // which is the exact string this test and the fix both key on.
+  // enforce_session_insert VALIDATES new.hourly_rate against the teacher's
+  // live profile and raises 'hourly_rate must match the teacher profile' on a
+  // mismatch — it does not snapshot the rate onto the row itself (the action
+  // does that, reading it fresh right before this insert). Reachable in the
+  // narrow window between that re-read and the trigger's own check, not the
+  // wider one between the student loading the list and clicking Start, which
+  // the re-read already closes. Verified live against the trigger: a
+  // mismatched insert returns { code: "P0001", message: "hourly_rate must
+  // match the teacher profile" }, which is the exact string this test and the
+  // fix both key on.
   beforeEach(() => {
     // Past the open-request gate, so the insert itself is reached.
     state.openRequestError = null;
@@ -130,7 +133,7 @@ describe("requestSession rate race", () => {
     state.insertError = { message: "hourly_rate must match the teacher profile" };
     expect(await requestSession(validInput)).toEqual({
       error:
-        "That teacher just changed their rate. Refresh the page to see their new price, then try again.",
+        "That teacher's rate changed while your request was being placed — try again to get their current price.",
     });
   });
 
