@@ -189,9 +189,11 @@ export default function TermsPage() {
                 </li>
                 <li>
                   <strong>Reports Pending Review:</strong> A conduct report
-                  filed against your account suspends your account pending
-                  review. You may not accept or continue teaching sessions
-                  while such a review is open.
+                  filed against your account opens a review and suspends your
+                  account. You will not receive or be able to accept new
+                  session requests while the review is open, and any session
+                  that has not yet started is cancelled and refunded to the
+                  student. A session already under way may finish.
                 </li>
               </ul>
             </section>
