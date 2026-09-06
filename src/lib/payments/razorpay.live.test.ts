@@ -127,12 +127,23 @@ describe.skipIf(!enabled)("razorpay — LIVE test-mode calls", () => {
     // port.refund() can't be driven end to end here — it only reaches the
     // network after resolving a captured payment from a real link, which
     // needs a manual browser payment (see the file header). This calls the
-    // same endpoint directly, against a payment id built to be well-formed
-    // but non-existent, so the request still reaches Razorpay's own field
-    // validation for `receipt` without any money at risk.
+    // same endpoint directly, against a payment id that is WELL-FORMED but
+    // non-existent, so Razorpay routes the request, parses the body, and
+    // applies its own field validation — with no money at risk.
+    //
+    // The id shape is load-bearing. A first version used
+    // `pay_doesnotexist00000000` — `pay_` plus 20 characters — and Razorpay
+    // answered `404 {"message":"no Route matched with those values"}`,
+    // never reaching field validation at all. That response carries no
+    // `error.description`, so the old assertion compared an empty string and
+    // passed vacuously: it would have passed against a 404, a transport
+    // failure, or Razorpay being down. A real id is `pay_` + 14 alphanumeric
+    // characters, so that is what this sends.
     const auth = `Basic ${Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64")}`;
+    const nonExistentPaymentId = "pay_00000000000000"; // pay_ + exactly 14
+    expect(nonExistentPaymentId).toMatch(/^pay_[A-Za-z0-9]{14}$/);
     const res = await fetch(
-      `https://api.razorpay.com/v1/payments/pay_doesnotexist00000000/refund`,
+      `https://api.razorpay.com/v1/payments/${nonExistentPaymentId}/refund`,
       {
         method: "POST",
         headers: { Authorization: auth, "Content-Type": "application/json" },
@@ -143,11 +154,20 @@ describe.skipIf(!enabled)("razorpay — LIVE test-mode calls", () => {
     console.info(
       `[live] refund with receipt against a non-existent payment: ${res.status} ${JSON.stringify(body)}`
     );
-    // This payment id cannot exist, so the call must fail — but on the
-    // payment, not on the shape of the request. If Razorpay considered
-    // `receipt` unrecognised or malformed, its description would say so;
-    // this only asserts that it doesn't, not what the real error text is.
+
     expect(res.ok).toBe(false);
-    expect(String(body?.error?.description ?? "").toLowerCase()).not.toContain("receipt");
+
+    // FIRST: prove we actually reached Razorpay's API-level validation, not
+    // its router. Without this the rest of the test can pass on any response
+    // that simply lacks the field — which is how the previous version came
+    // back green while proving nothing.
+    const description = String(body?.error?.description ?? "");
+    expect(description, `expected a Razorpay error object, got: ${JSON.stringify(body)}`)
+      .not.toBe("");
+
+    // THEN: the actual question. The call must fail on the PAYMENT, not on
+    // the shape of the request. If Razorpay considered `receipt` unknown or
+    // malformed, its description would name it.
+    expect(description.toLowerCase()).not.toContain("receipt");
   });
 });
