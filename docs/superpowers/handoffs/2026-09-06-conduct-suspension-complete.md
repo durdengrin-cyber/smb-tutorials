@@ -6,7 +6,7 @@ State at the pause of the 2026-09-06 session. Read this before touching anything
 
 ## 1. Where the work is
 
-**Branch `feat/visual-identity-tokens` — 25 commits added today, tree clean, PUSHED, NOT merged.**
+**Branch `feat/visual-identity-tokens` — 31 commits added today, tree clean, PUSHED, NOT merged.**
 It now carries two unrelated bodies of work: the visual identity cycle from 2026-09-05/06 (see
 `2026-09-06-visual-identity-complete.md`) and everything below. They are stacked deliberately —
 `main` is strictly behind, and branching off it would have conflicted in five of the nine files
@@ -16,7 +16,7 @@ this work touches.
 
 | Check | Result |
 |---|---|
-| `npx vitest run` | **395 passed / 3 skipped** |
+| `npx vitest run` | **428 passed / 3 skipped** |
 | `npx tsc --noEmit` | 0 |
 | `npx eslint .` | 0 errors (2 pre-existing warnings in `flow-demo.test.tsx`) |
 | `npm run build` | 0 |
@@ -95,21 +95,40 @@ and its delivery, not a scoping choice.
 | **The domain** | The share card, password reset, the support address, the email sender |
 | **`refundSession` calls the payment provider BEFORE its `refund_ref is null` guard, with no idempotency key.** Recorded in the spec as a known gap. **Its exposure grew today** — it is now reachable from a page render, not only webhook redelivery | Nothing yet. Should be next after the profile work |
 
+## 5b. Teacher profile editing — BUILT, 2026-09-06 evening
+
+The owner's original ask, and it is done. `/profile` lets a teacher change their hourly rate,
+subjects, qualification, experience, specialisation, teaching level, hours per week, demo video,
+name, phone — and **`bio`**, which `/privacy` has promised and nothing collected until now.
+
+No migration: `0001` already granted `update own profile` and insert/delete on
+`teacher_subjects`, so RLS is the authorisation and the service role appears nowhere in the
+feature. Reviewed and confirmed: every write keys on the caller's own id, and subjects are built
+from validated taxonomy values so no input can inject a `teacher_id`.
+
+Worth knowing:
+
+- **Subjects are replaced before the profile is updated**, deliberately. A partial failure then
+  leaves correct-subjects-and-old-rate, which a teacher can see and fix, rather than
+  new-rate-and-stale-subjects, which is silently wrong in search. Each half returns a different
+  message saying which saved.
+- **The rate race is handled.** `enforce_session_insert` raises
+  `hourly_rate must match the teacher profile` if a teacher's rate changes between a student's
+  request being priced and the insert landing. The implementer confirmed that error's live shape
+  with a throwaway probe before matching on it, rather than reading the migration and assuming.
+  The window is milliseconds — the app re-reads the rate immediately before inserting.
+- **Two more unsupported claims were made and caught here** (a comment saying the trigger
+  snapshots the rate — it validates and raises; and one overstating the race window). That makes
+  **seven on this branch today, across two different authors, all caught by review and none by
+  their author.** The written rule has now failed to prevent this seven times. The gate is what
+  works.
+
 ## 6. Next, and it is already designed
 
-**Teacher profile editing** — the owner's original ask, designed and briefed, **not started**.
-Full brief: `docs/superpowers/plans/2026-09-06-teacher-profile-editing.md` — in the repo, not in
-git-ignored scratch, so it survives this session. A teacher cannot change their own rate, subjects, qualification or bio after signup, and
-that rate is what students are charged. Migration `0001` already grants everything needed, so it
-is UI plus server actions with **no migration**.
+Teacher profile editing is **done** — see §5b. Plan:
+`docs/superpowers/plans/2026-09-06-teacher-profile-editing.md`.
 
-Key decisions already made: `/profile`, not `/setup` (which is the post-signup notification step);
-extract the shared validation rather than copy it, so signup and editing cannot drift; replace
-subjects *before* updating the profile, because correct-subjects-and-old-rate is the recoverable
-half; and catch `hourly_rate must match the teacher profile` at the session insert, which is what
-a student hits if a teacher edits their rate mid-request.
-
-**Then, in rough severity order:** no refund path for the refunds `/terms` promises; teachers are
+**Remaining, in rough severity order:** no refund path for the refunds `/terms` promises; teachers are
 never paid (the dashboard says "earned · pending payout" and nothing pays out); no password reset;
 no email is ever sent; `settleVerifiedEvent` has no tests at all.
 
