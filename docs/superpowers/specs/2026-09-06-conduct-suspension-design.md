@@ -379,3 +379,23 @@ push` and confirms `supabase migration list` shows LOCAL == REMOTE.
 Application code and the `/terms` change ship in the same branch. There is no ordering hazard in
 either direction: the migration alone suspends nobody until a report arrives, and the application
 code alone cannot suspend without the table.
+
+## 16. Known gap — production hardening
+
+**`refundSession` (`src/lib/payments/refund.ts`) calls the payment provider before checking its
+own `refund_ref is null` guard, and `razorpay.ts`'s `refund()` sends no idempotency key.** The
+guard is only consulted by the STAMP update that follows — it cannot prevent a second call to
+`getPaymentPort().refund()` from reaching Razorpay again for a session already refunded, and
+nothing on the wire tells Razorpay these two calls are the same request.
+
+This was already true before this design (webhook redelivery could hit it), but **today's work
+grew its exposure**: `settleSuspension` is now called from the student's waiting-page render and
+the teacher's dashboard render, both of which repeat on an ordinary `router.refresh()` — not only
+on the comparatively rare webhook-redelivery path. A `paid` session whose refund lands at the
+provider but whose stamp write fails on both attempts (`refund.ts`'s REFUNDED-BUT-NOT-RECORDED
+path, §6 above) stays `paid` in the database, so the very next page render selects it again and
+issues a second real refund, before either the `refund_ref` guard or anything else is consulted.
+
+Not fixed here. This is money code needing its own change — a real fix wants an idempotency key on
+the provider call and the guard checked *before* calling the provider, not after — and does not
+belong folded into a fix pass for something else.

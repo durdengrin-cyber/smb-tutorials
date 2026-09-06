@@ -87,13 +87,19 @@ export async function settleSuspension(teacherId: string): Promise<boolean> {
   for (const s of sessions ?? []) {
     if (s.status === "paid") {
       // Money moved and the lesson has not started. A second pass over this
-      // teacher does not re-refund this row: by then its status is
-      // `refunded`, which is outside the `.in("status", [...])` filter above,
-      // so the row is never read again in the first place. refundSession's
-      // own `refund_ref is null` guard is a second, independent line against
-      // a duplicate STAMP of the same row — it blocks recording a second
-      // time, not issuing a second refund; issuing is prevented by the query
-      // no longer selecting this row at all.
+      // teacher does NOT re-refund this row, PROVIDED refundSession's stamp
+      // write landed: its status is then `refunded`, which is outside the
+      // `.in("status", [...])` filter above, so the row is never read again.
+      //
+      // That guarantee does not hold on the REFUNDED-BUT-NOT-RECORDED path:
+      // when refund.ts's stamp write errors on both the original attempt and
+      // its retry, the provider call already succeeded but the status write
+      // never landed, so the row stays `paid` — selected again by this same
+      // query on the next pass. refundSession's own `refund_ref is null`
+      // guard cannot stop a second refund there either: it only guards the
+      // STAMP update, and refundSession calls the payment provider
+      // unconditionally, before that guard is ever consulted (known gap —
+      // see the spec).
       if (!s.payment_ref || !s.amount_paid_paise) {
         console.error(
           `[suspension] session ${s.id} is paid but carries no payment reference — ` +

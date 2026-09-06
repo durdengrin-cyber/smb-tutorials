@@ -22,6 +22,11 @@ describe("outcomeMessage", () => {
     expect(text).not.toMatch(/report|suspend|review/i);
   });
 
+  // The reachable case in production: settleSuspension's pending/accepted
+  // cancel branch (src/lib/suspension/settle.ts) stamps cancellation_reason
+  // without ever touching refund_ref, because no money moved. See
+  // waiting/[sessionId]/page.tsx, which now only attaches an amount when the
+  // session actually carries a refund_ref.
   it("says the student was not charged when no refund travelled", () => {
     render(<div data-testid="m">{outcomeMessage("teacher_unavailable", "Ms Rao", undefined)}</div>);
     expect(screen.getByTestId("m").textContent).toMatch(/not been charged/i);

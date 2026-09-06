@@ -67,7 +67,7 @@ describe("refundSession", () => {
     port.refund.mockResolvedValue({ refundRef: "rfnd_1" });
     const db = stubDb({ data: [{ id: "s1" }], error: null });
 
-    await refundSession(db as never, {
+    const result = await refundSession(db as never, {
       sessionId: "s1", paymentRef: "pay_1", amountPaise: 50000,
       nextStatus: "refunded", why: "test", logPrefix: "[suspension]",
     });
@@ -76,18 +76,21 @@ describe("refundSession", () => {
     expect(db.chain.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: "refunded", refund_ref: "rfnd_1" })
     );
+    // A caller like settleSuspension gates "did I act" on this value directly.
+    expect(result).toBe(true);
   });
 
   it("does not stamp the row when the provider throws", async () => {
     port.refund.mockRejectedValue(new Error("provider down"));
     const db = stubDb({ data: [{ id: "s1" }], error: null });
 
-    await refundSession(db as never, {
+    const result = await refundSession(db as never, {
       sessionId: "s1", paymentRef: "pay_1", amountPaise: 50000,
       nextStatus: "refunded", why: "test", logPrefix: "[suspension]",
     });
 
     expect(db.chain.update).not.toHaveBeenCalled();
+    expect(result).toBe(false);
   });
 
   it("omits status from the write when nextStatus is null", async () => {
@@ -115,7 +118,7 @@ describe("refundSession", () => {
         Promise.resolve({ data: [{ id: "s1" }], error: null })
       );
 
-    await refundSession(db as never, {
+    const result = await refundSession(db as never, {
       sessionId: "s1", paymentRef: "pay_1", amountPaise: 50000,
       nextStatus: "refunded", why: "test", logPrefix: "[suspension]",
     });
@@ -126,6 +129,34 @@ describe("refundSession", () => {
     expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
     expect(consoleErrorSpy.mock.calls[0][0]).toEqual(expect.stringContaining("refunding"));
     expect(consoleInfoSpy).not.toHaveBeenCalled();
+    expect(result).toBe(true);
+  });
+
+  it("returns false and logs REFUNDED BUT NOT RECORDED when the retry also errors", async () => {
+    port.refund.mockResolvedValue({ refundRef: "rfnd_both_fail" });
+    const db = stubDb({ data: [{ id: "s1" }], error: null });
+    db.chain.select
+      .mockImplementationOnce(() =>
+        Promise.resolve({ data: null, error: new Error("transient write error 1") })
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({ data: null, error: new Error("transient write error 2") })
+      );
+
+    const result = await refundSession(db as never, {
+      sessionId: "s1", paymentRef: "pay_1", amountPaise: 50000,
+      nextStatus: "refunded", why: "test", logPrefix: "[suspension]",
+    });
+
+    expect(db.chain.update).toHaveBeenCalledTimes(2);
+    expect(port.refund).toHaveBeenCalledTimes(1);
+    // Money already left the provider and neither write landed — this is the
+    // one path that gets a human, not a retry: nothing recovers it further.
+    const alarm = consoleErrorSpy.mock.calls.find(
+      ([msg]) => typeof msg === "string" && msg.includes("REFUNDED BUT NOT RECORDED")
+    );
+    expect(alarm).toBeDefined();
+    expect(result).toBe(false);
   });
 
   it("logs REFUND ISSUED BUT NOT RECORDED when the first attempt's guard blocks the write, and does not re-refund", async () => {
@@ -134,7 +165,7 @@ describe("refundSession", () => {
     // a redelivery already resolved this row before this call got here.
     const db = stubDb({ data: [], error: null });
 
-    await refundSession(db as never, {
+    const result = await refundSession(db as never, {
       sessionId: "s1", paymentRef: "pay_1", amountPaise: 50000,
       nextStatus: "refunded", why: "test", logPrefix: "[suspension]",
     });
@@ -146,6 +177,7 @@ describe("refundSession", () => {
       ([msg]) => typeof msg === "string" && msg.includes("REFUND ISSUED BUT NOT RECORDED")
     );
     expect(alarm).toBeDefined();
+    expect(result).toBe(false);
   });
 
   it("logs at info, not error, when the retry's guard-block turns out to be attempt 1's own commit", async () => {
@@ -166,7 +198,7 @@ describe("refundSession", () => {
       error: null,
     });
 
-    await refundSession(db as never, {
+    const result = await refundSession(db as never, {
       sessionId: "s1", paymentRef: "pay_1", amountPaise: 50000,
       nextStatus: "refunded", why: "test", logPrefix: "[suspension]",
     });
@@ -181,5 +213,6 @@ describe("refundSession", () => {
       ([msg]) => typeof msg === "string" && msg.includes("NOT RECORDED")
     );
     expect(errorAlarm).toBeUndefined();
+    expect(result).toBe(true);
   });
 });

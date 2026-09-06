@@ -57,7 +57,17 @@ export default async function DashboardPage() {
 
   // Idempotent, and this is one of the two guaranteed paths: if the reporter's
   // request died before the cleanup ran, it runs here instead.
-  const { data: suspendedAt } = await supabase.rpc("my_suspension");
+  //
+  // This read's error must not be discarded either, for the same reason as
+  // the device count above: a failed read is indistinguishable from "not
+  // suspended", which would render a suspended teacher "Available", re-enable
+  // their toggle, and skip settleSuspension entirely — the opposite of what a
+  // transient RPC failure should do here.
+  const { data: suspendedAt, error: suspensionError } =
+    await supabase.rpc("my_suspension");
+  if (suspensionError) {
+    console.error("[dashboard] my_suspension read failed", suspensionError);
+  }
   if (suspendedAt) await settleSuspension(identity.userId);
 
   return (

@@ -47,16 +47,19 @@ export default async function WaitingPage({
   // payment window, a decline and a refund all accused the teacher of
   // ignoring the student, which for the expiry case is both false and the
   // student's own doing. The outcome travels; the wording lives on /teachers.
-  // The refund amount travels too — the session row that knows it is this
-  // one, and /teachers has no other way to reach it.
+  // The refund amount travels too, but only when a refund actually happened —
+  // `refund_ref` is the one field that tells the two `teacher_unavailable`
+  // cases apart: settleSuspension's refund branch reaches this status with a
+  // `refund_ref` set, its cancel branch (pending/accepted, no money moved)
+  // reaches it with none. amountPaise is the session's PRICE, not what was
+  // paid, so attaching it unconditionally would tell an uncharged student
+  // they'd been refunded.
   const exitTo = (outcome: string) =>
     `/teachers?${new URLSearchParams({
       ...criteria,
       outcome,
       teacher: teacherName,
-      ...(outcome === "refunded" || outcome === "teacher_unavailable"
-        ? { amount: String(amountPaise) }
-        : {}),
+      ...(session.refund_ref ? { amount: String(amountPaise) } : {}),
     })}`;
 
   const status = effectiveStatus(

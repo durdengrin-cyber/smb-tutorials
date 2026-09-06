@@ -176,6 +176,22 @@ describe("settleSuspension", () => {
     expect(updateSpy).toHaveBeenCalled();
   });
 
+  // The guard at settle.ts:97. A paid row with no payment_ref (or no
+  // amount_paid_paise) cannot be refunded — there is nothing to hand the
+  // payment provider — so this must skip it loudly rather than either
+  // refunding blind or silently cancelling money that was actually taken.
+  it("does not refund or cancel a paid session with no payment reference", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    rows.push({ id: "c", status: "paid", payment_ref: null, amount_paid_paise: null });
+    await expect(settleSuspension("t1")).resolves.toBe(false);
+    expect(refundSession).not.toHaveBeenCalled();
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("carries no payment reference")
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
   it("refunds a paid session rather than cancelling it", async () => {
     rows.push({
       id: "c", status: "paid", payment_ref: "pay_1", amount_paid_paise: 50000,
