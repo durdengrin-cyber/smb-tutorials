@@ -18,6 +18,7 @@
 - **No no-op hovers.** `src/hover-affordance.test.ts` fails on `text-X hover:text-X` for the same utility and value.
 - **The project spells itself `SMB Tutorials`.**
 - **Never add `.select()` to a `session_reports` insert.** That table has no SELECT policy, so `RETURNING` is refused with `42501` even when the insert is permitted (see `scripts/probe-session-reports.mjs`).
+- **Any module reading a non-`NEXT_PUBLIC_` env var ending `_KEY`/`_SECRET`/`_TOKEN`/`_PASSWORD` MUST start with `import "server-only";`** — `src/lib/server-secrets.test.ts` enforces it, and `src/lib/suspension/settle.ts` is such a module.
 - **Verification before any completion claim:** `npx vitest run`, `npx tsc --noEmit`, `npx eslint .`, `npm run build` — run them, quote the output.
 
 ---
@@ -729,6 +730,11 @@ Expected: FAIL — `Failed to resolve import "./settle"`.
 Create `src/lib/suspension/settle.ts`:
 
 ```ts
+// REQUIRED, and enforced: src/lib/server-secrets.test.ts fails the build for
+// any module reading a non-NEXT_PUBLIC_ *_KEY/_SECRET without this line. This
+// file reads SUPABASE_SERVICE_ROLE_KEY.
+import "server-only";
+
 import { createClient } from "@supabase/supabase-js";
 import { refundSession } from "@/lib/payments/refund";
 
