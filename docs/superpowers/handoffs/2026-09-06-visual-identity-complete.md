@@ -119,8 +119,17 @@ icons — and it starts the moment the domain or the wordmark lands.
 
 ## 7. Carried forward, not blocking
 
-- `text-primary hover:text-primary` is a **no-op hover** at 16 sites, 14 of them pre-existing in
-  `(marketing)`. Every one carries `underline`, so no affordance is lost. Sweep separately.
+- ~~`text-primary hover:text-primary` is a **no-op hover** at 16 sites, 14 of them pre-existing in
+  `(marketing)`. Every one carries `underline`, so no affordance is lost. Sweep separately.~~
+  **CLOSED 2026-09-06** (`fix(design): seventeen hovers…`). Two things in that entry were wrong,
+  and both are the reason it was filed as harmless rather than fixed. It was **17** sites, not 16
+  — the extra is `subject-picker.tsx`'s `border-border hover:border-border`, which no
+  `text-primary` search could reach. And "every one carries `underline`" was true of **7 of 16**;
+  the other nine carried a font-weight and nothing else, so they had **no affordance in any
+  state**, including the support address in `/privacy`'s body copy. The lesson is the same one
+  §3.1 records about the missed route group: the entry described a set that was assumed from the
+  first few examples rather than enumerated. Guarded now, generally, by
+  `src/hover-affordance.test.ts`.
 - The guard's loop throws on the **first** offending file, so a run names one at a time. Costs a
   re-run, never a miss.
 - **`rgb()`, `oklch()` and named colours still escape the raw-hex guard.** Nothing uses those forms

@@ -1,17 +1,25 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-06)
+## ▶ START HERE (updated 2026-09-06, later)
 
 **🛑 Read `docs/superpowers/handoffs/2026-09-06-visual-identity-complete.md` first.** It is the
 state at the close of the 2026-09-05/06 session. Everything below it is history.
 
-**The visual identity cycle is COMPLETE on `feat/visual-identity-tokens` — 48 commits, pushed,
-tree clean, and NOT merged.** Production still shows the demo's teal. All three plans executed;
-plan 3 ran subagent-driven, 7 tasks planned and 8 executed.
+**The visual identity cycle is COMPLETE on `feat/visual-identity-tokens` — 51 commits, tree
+clean, and NOT merged.** The last two are local and not yet pushed. Production still shows the
+demo's teal. All three plans executed; plan 3 ran subagent-driven, 7 tasks planned and 8 executed.
 
-**344 passed / 3 skipped · `tsc` 0 · `eslint` 0 · `build` 0**, all measured by running them.
+**346 passed / 3 skipped · `tsc` 0 · `eslint` 0 · `build` 0**, all measured by running them.
 Every "Done when" target at zero: literal colours on the product surface, emoji outside
 `(marketing)`, guard `PENDING`, raw hex in the guarded set.
+
+**The no-op hover sweep is done** (handoff §7's first carried-forward item, now closed). It was
+17 sites, not the 16 logged, and the handoff's reason for calling them harmless — "every one
+carries `underline`" — was true of only 7. Nine had no affordance in any state. The 17th,
+`subject-picker.tsx`'s `border-border hover:border-border`, was invisible to a `text-primary`
+search and was found only because the new guard is written as a general rule. That guard,
+`src/hover-affordance.test.ts`, walks all of `src` — the bug spanned `(gate)` and `(marketing)`,
+and the two existing guards are surface-split.
 
 **🛑 The one thing blocking the merge decision is a handset pass** — nobody has opened any of this
 on a real phone, and spec §5.6 makes that the owner's. The list is handoff §5. Preview alias:
