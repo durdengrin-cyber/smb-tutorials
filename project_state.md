@@ -1,6 +1,32 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-06, later)
+## ▶ START HERE (updated 2026-09-06, afternoon)
+
+**🛑 Read `docs/superpowers/handoffs/2026-09-06-conduct-suspension-complete.md` first.**
+
+**Migration `0020` IS APPLIED TO PRODUCTION** — the owner ran `supabase db push` and
+`scripts/probe-suspension.mjs` came back ALL CLEAR against the live database. It is the only part
+of today's work that is live; the branch carrying the UI is not merged, so the schema is ahead of
+the product. That is safe, and §2 of the handoff says why.
+
+**`/terms` promised since cycle 3 that a conduct report suspends a teacher, and nothing did it.**
+That is now built: a report suspends immediately, cancels and refunds what was not yet started,
+and only the operator can lift it — recorded. An `active` lesson finishes, by owner decision.
+
+**395 passed / 3 skipped · `tsc` 0 · `eslint` 0 · `build` 0**, all measured with no subagent
+editing the tree. 23 commits today, tree clean, **not pushed**.
+
+**🛑 Two things need the owner:** the rewritten `/terms` wording, which is a published legal
+document and has not been read; and the handset pass carried from the previous handoff, still the
+gate on merging the visual identity work.
+
+**Next is designed and not started: teacher profile editing** — a teacher cannot change their own
+rate, subjects or bio after signup, and that rate is what students are charged. No migration
+needed. Handoff §6.
+
+---
+
+## ▶ START HERE (updated 2026-09-06, later) — SUPERSEDED by the block above
 
 **🛑 Read `docs/superpowers/handoffs/2026-09-06-visual-identity-complete.md` first.** It is the
 state at the close of the 2026-09-05/06 session. Everything below it is history.
