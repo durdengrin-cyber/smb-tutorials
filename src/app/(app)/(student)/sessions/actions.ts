@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireConsentedUser } from "@/lib/auth";
 import { reportError } from "@/lib/observability/report";
 import { REPORT_REASONS } from "./reasons";
+import { settleSuspension } from "@/lib/suspension/settle";
 
 export async function reportSession(input: {
   sessionId: string;
@@ -70,6 +71,32 @@ export async function reportSession(input: {
     reason: input.reason,
     reporterId: identity.userId,
   });
+
+  // The trigger has already opened the suspension if this was a conduct
+  // report — that part is atomic with the insert and cannot be lost. This is
+  // the cleanup: cancelling and refunding what the suspended teacher had in
+  // flight. It is best-effort HERE and guaranteed elsewhere, because the same
+  // idempotent pass runs on the affected student's waiting page and on the
+  // teacher's dashboard. A reporter's browser dying must not leave another
+  // student holding a paid session.
+  if (input.reason === "conduct") {
+    const { data: reported } = await supabase
+      .from("sessions")
+      .select("teacher_id")
+      .eq("id", input.sessionId)
+      .maybeSingle();
+    if (reported?.teacher_id) {
+      try {
+        await settleSuspension(reported.teacher_id);
+      } catch {
+        // Optional catch binding: this repo's eslint reports an unused `e`.
+        reportError(new Error("settleSuspension failed after a conduct report"), {
+          where: "reportSession.settle",
+          sessionId: input.sessionId,
+        });
+      }
+    }
+  }
 
   return { ok: true };
 }

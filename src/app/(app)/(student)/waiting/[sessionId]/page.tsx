@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { amountPaiseFor, effectiveStatus, type SessionStatus } from "@/lib/session";
+import { settleSuspension } from "@/lib/suspension/settle";
 import { WaitingClient } from "./waiting-client";
 
 export default async function WaitingPage({
@@ -14,7 +15,7 @@ export default async function WaitingPage({
   const { data: session } = await supabase
     .from("sessions")
     .select(
-      "id, student_id, teacher_id, curriculum, grade, stream, subject, status, accept_deadline, payment_deadline, started_at, duration_minutes, hourly_rate, refund_ref"
+      "id, student_id, teacher_id, curriculum, grade, stream, subject, status, accept_deadline, payment_deadline, started_at, duration_minutes, hourly_rate, refund_ref, cancellation_reason"
     )
     .eq("id", sessionId)
     .single();
@@ -60,6 +61,22 @@ export default async function WaitingPage({
     { ...session, status: session.status as SessionStatus },
     new Date()
   );
+
+  // The other guaranteed path. A student sitting on this page whose teacher
+  // was just suspended gets their refund here, without depending on the
+  // reporter's request having finished.
+  //
+  // Called unconditionally for in-flight statuses: settleSuspension gatekeeps
+  // itself on an open suspension. This page must NOT perform that check —
+  // teacher_suspensions has no SELECT policy, so the student's own client
+  // reads nothing, and handing a page component the service role to work
+  // around that is exactly the wrong fix.
+  if (session.status === "pending" || session.status === "accepted" || session.status === "paid") {
+    const settled = await settleSuspension(session.teacher_id);
+    // Re-read: the pass may have changed the row underneath this render.
+    if (settled) redirect(`/waiting/${sessionId}`);
+  }
+
   if (status === "active") redirect(`/call/${sessionId}`);
   if (status !== "pending" && status !== "accepted" && status !== "paid") {
     // A refund outranks the status for what the STUDENT needs told. Money

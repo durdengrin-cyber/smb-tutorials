@@ -241,4 +241,16 @@ describe("settleSuspension", () => {
     expect(updateSpy).not.toHaveBeenCalled();
     expect(refundSession).not.toHaveBeenCalled();
   });
+
+  // Task 4's three callers all branch on this return value directly — the
+  // waiting page in particular guards its redirect on it, so an unguarded
+  // caller would loop forever the moment this ever drifted back to "true
+  // whenever a suspension is open" instead of "true only when I just wrote".
+  it("reports whether it acted, so a caller can re-read the row", async () => {
+    openSuspension = null;
+    expect(await settleSuspension("t1")).toBe(false);
+    openSuspension = { id: "sus_1" };
+    rows.push({ id: "a", status: "pending", payment_ref: null, amount_paid_paise: null });
+    expect(await settleSuspension("t1")).toBe(true);
+  });
 });

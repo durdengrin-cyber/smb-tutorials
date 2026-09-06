@@ -9,6 +9,10 @@ const state = vi.hoisted(() => ({
   consentVersion: "" as string | null,
   insertError: null as null | { message: string; code?: string; details?: string },
   inserted: [] as unknown[],
+  // What the post-insert `sessions` lookup finds for the reported session —
+  // null means "no teacher on this row" (or the row wasn't found), which the
+  // conduct-report cleanup treats as nothing to settle.
+  reportedTeacherId: null as string | null,
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -34,6 +38,20 @@ vi.mock("@/lib/supabase/server", () => ({
           }),
         };
       }
+      if (table === "sessions") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: state.reportedTeacherId
+                  ? { teacher_id: state.reportedTeacherId }
+                  : null,
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
       return {
         insert: async (row: unknown) => {
           state.inserted.push(row);
@@ -49,6 +67,11 @@ vi.mock("@/lib/observability/report", () => ({
   reportError: (...a: unknown[]) => reportErrorMock(...a),
 }));
 
+const settleSuspensionMock = vi.fn();
+vi.mock("@/lib/suspension/settle", () => ({
+  settleSuspension: (...a: unknown[]) => settleSuspensionMock(...a),
+}));
+
 import { reportSession } from "./actions";
 import { REPORT_REASONS } from "./reasons";
 import { CONSENT_VERSION } from "@/lib/consent";
@@ -58,7 +81,10 @@ beforeEach(() => {
   state.consentVersion = CONSENT_VERSION;
   state.insertError = null;
   state.inserted = [];
+  state.reportedTeacherId = null;
   reportErrorMock.mockReset();
+  settleSuspensionMock.mockReset();
+  settleSuspensionMock.mockResolvedValue(false);
 });
 
 describe("reportSession", () => {
@@ -171,5 +197,41 @@ describe("reportSession", () => {
     expect([...REPORT_REASONS]).toEqual([
       "no_show", "left_early", "technical", "teaching_quality", "conduct", "other",
     ]);
+  });
+
+  // The fast path (Task 4): best-effort cleanup so a suspended teacher's
+  // other in-flight sessions don't wait on the guaranteed passes if the
+  // reporter's own browser dies right after filing.
+  it("settles the reported teacher's suspension after a conduct report", async () => {
+    state.reportedTeacherId = "teacher-9";
+    const r = await reportSession({ sessionId: "s1", reason: "conduct", detail: "" });
+    expect(r).toEqual({ ok: true });
+    expect(settleSuspensionMock).toHaveBeenCalledWith("teacher-9");
+  });
+
+  it("does not settle anything for a non-conduct report", async () => {
+    state.reportedTeacherId = "teacher-9";
+    await reportSession({ sessionId: "s1", reason: "technical", detail: "" });
+    expect(settleSuspensionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not settle when the reported session carries no teacher", async () => {
+    state.reportedTeacherId = null;
+    await reportSession({ sessionId: "s1", reason: "conduct", detail: "" });
+    expect(settleSuspensionMock).not.toHaveBeenCalled();
+  });
+
+  // A reporter's browser only needs the report itself to succeed — the
+  // cleanup is guaranteed elsewhere (the dashboard, the waiting page), so a
+  // failure here must not turn a filed report into an error response.
+  it("still returns ok when settleSuspension throws", async () => {
+    state.reportedTeacherId = "teacher-9";
+    settleSuspensionMock.mockRejectedValue(new Error("service role unavailable"));
+    const r = await reportSession({ sessionId: "s1", reason: "conduct", detail: "" });
+    expect(r).toEqual({ ok: true });
+    expect(reportErrorMock).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ where: "reportSession.settle", sessionId: "s1" })
+    );
   });
 });

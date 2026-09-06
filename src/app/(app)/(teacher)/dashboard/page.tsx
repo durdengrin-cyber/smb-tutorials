@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { settleSuspension } from "@/lib/suspension/settle";
 import { DashboardLive } from "./dashboard-live";
 import { SessionHistory } from "./session-history";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +54,11 @@ export default async function DashboardPage() {
   if (deviceError) {
     console.error("[dashboard] device count read failed", deviceError);
   }
+
+  // Idempotent, and this is one of the two guaranteed paths: if the reporter's
+  // request died before the cleanup ran, it runs here instead.
+  const { data: suspendedAt } = await supabase.rpc("my_suspension");
+  if (suspendedAt) await settleSuspension(identity.userId);
 
   return (
     <div className="min-h-screen bg-background">
