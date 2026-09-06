@@ -123,16 +123,25 @@ export async function settleSuspension(teacherId: string): Promise<boolean> {
     // so `accepted` means the teacher said yes and the student has not paid.
     // Guarded on the status we read, so a session that moved on underneath us
     // (a student paying in the same second) is not clobbered.
-    const { error: cancelError } = await db
+    const { data: cancelled, error: cancelError } = await db
       .from("sessions")
       .update({ status: "cancelled", cancellation_reason: "teacher_suspended" })
       .eq("id", s.id)
-      .eq("status", s.status);
+      .eq("status", s.status)
+      // .select() is what makes the status guard observable. Without it,
+      // PostgREST answers a zero-row match with `error: null` — identical to a
+      // successful write — so a cancel LOST to a concurrent status change
+      // would report `acted = true` having changed nothing, and the caller
+      // would redirect for a mutation that never happened. refund.ts:65-67
+      // documents this same behaviour and defends against it the same way.
+      .select("id");
     if (cancelError) {
       console.error(`[suspension] could not cancel ${s.id}:`, cancelError);
       continue;
     }
-    acted = true;
+    // Zero rows is not an error: the session moved on underneath us, which the
+    // status guard exists to allow. It is simply not something we did.
+    if (cancelled && cancelled.length > 0) acted = true;
   }
 
   return acted;

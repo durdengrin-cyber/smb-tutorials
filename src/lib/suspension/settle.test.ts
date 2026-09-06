@@ -20,6 +20,10 @@ let bypassInFilter = false;
 let sessionsReadError: unknown = null;
 let openSuspensionError: unknown = null;
 let cancelUpdateError: unknown = null;
+// What the cancel UPDATE ... .select() returns. One row = a real write; an
+// empty array = the status guard matched nothing because the session moved on
+// under us, which PostgREST reports with error: null exactly like a success.
+let cancelRowsReturned: Array<{ id: string }> = [{ id: "cancelled" }];
 // settleSuspension gatekeeps itself: it reads teacher_suspensions first and
 // returns early when nothing is open. Default to "one is open" so the
 // session-handling tests exercise the path they are about.
@@ -63,7 +67,17 @@ vi.mock("@supabase/supabase-js", () => ({
             eq: (idCol: string, idVal: unknown) => ({
               eq: (statusCol: string, statusVal: unknown) => {
                 updateEqSpy(idCol, idVal, statusCol, statusVal);
-                return Promise.resolve({ error: cancelUpdateError });
+                // .select() is required: settle uses the returned rows to tell
+                // a real write from a status-guard-blocked no-op, which
+                // PostgREST reports identically (`error: null`, zero rows).
+                // `cancelRowsReturned` lets a test model the lost race.
+                return {
+                  select: () =>
+                    Promise.resolve({
+                      data: cancelUpdateError ? null : cancelRowsReturned,
+                      error: cancelUpdateError,
+                    }),
+                };
               },
             }),
           };
@@ -82,6 +96,7 @@ beforeEach(() => {
   openSuspensionError = null;
   sessionsReadError = null;
   cancelUpdateError = null;
+  cancelRowsReturned = [{ id: "cancelled" }];
   bypassInFilter = false;
   refundSession.mockReset();
   // Default to "the refund actually landed" so tests about which sessions
@@ -145,6 +160,20 @@ describe("settleSuspension", () => {
     // underneath this pass — coverage for it having been silently droppable.
     expect(updateEqSpy).toHaveBeenCalledWith("id", "a", "status", "pending");
     expect(updateEqSpy).toHaveBeenCalledWith("id", "b", "status", "accepted");
+  });
+
+  // A cancel that LOST the status race mutated nothing, and PostgREST reports
+  // that identically to a success — `error: null`, zero rows. Without
+  // `.select()` this returned true, and the waiting page would redirect for a
+  // write that never happened. refund.ts defends the same way, for the same
+  // reason.
+  it("returns false when the cancel matched no row", async () => {
+    rows.push({ id: "a", status: "pending", payment_ref: null, amount_paid_paise: null });
+    cancelRowsReturned = [];
+    await expect(settleSuspension("t1")).resolves.toBe(false);
+    // It still ATTEMPTED the write — this is about what it reports, not about
+    // skipping work.
+    expect(updateSpy).toHaveBeenCalled();
   });
 
   it("refunds a paid session rather than cancelling it", async () => {
