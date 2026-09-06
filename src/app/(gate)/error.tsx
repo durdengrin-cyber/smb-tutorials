@@ -1,0 +1,33 @@
+"use client";
+
+import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
+
+// (gate) is the consent wall, and it was the one route group with no
+// boundaries of its own — a throw here fell all the way through to
+// global-error.tsx, which renders its own <html> and drops the sign-out
+// button the layout deliberately keeps beside this screen.
+//
+// The copy is NOT (app)/error.tsx's. That one reassures the reader their
+// "session and any payment are unaffected", which is the right thing to say
+// on a screen reached after paying and a false thing to say here: nobody on
+// this screen has a session or has paid. What a guardian needs to know is
+// that nothing was agreed to.
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
+  return (
+    <div className="mx-auto max-w-lg px-4 py-24 text-center">
+      <h1 className="text-2xl font-bold">Something went wrong</h1>
+      <p className="mt-2 text-muted-foreground">
+        We couldn&apos;t load the agreement. Nothing has been agreed to, and no
+        account details have changed.
+      </p>
+      <Button className="mt-6" onClick={reset}>
+        Try again
+      </Button>
+    </div>
+  );
+}
