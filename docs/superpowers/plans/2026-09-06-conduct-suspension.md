@@ -210,7 +210,7 @@ await refundSession(db, {
 });
 ```
 
-The five `why` strings and `nextStatus` values, unchanged:
+**Identify the sites by their `why` string, not by line number** — Step 4 deleted ~85 lines above them, so the numbers in this task's Files block are already stale. The five `why` strings and `nextStatus` values, unchanged:
 
 | settle.ts line | `why` | `nextStatus` |
 |---|---|---|
@@ -346,7 +346,7 @@ end if;
 Extract the current function and append it to `0020` with two edits:
 
 ```bash
-sed -n '140,260p' supabase/migrations/0005_payments.sql
+sed -n '140,273p' supabase/migrations/0005_payments.sql
 ```
 
 Edit 1 — permit the service role:
@@ -874,7 +874,8 @@ In `src/app/(app)/(student)/sessions/actions.ts`, after the existing `reportErro
     if (reported?.teacher_id) {
       try {
         await settleSuspension(reported.teacher_id);
-      } catch (e) {
+      } catch {
+        // Optional catch binding: this repo's eslint reports an unused `e`.
         reportError(new Error("settleSuspension failed after a conduct report"), {
           where: "reportSession.settle",
           sessionId: input.sessionId,
@@ -901,7 +902,7 @@ In `src/app/(app)/(teacher)/dashboard/page.tsx`, after `requireRole("teacher")` 
 
 - [ ] **Step 3: The waiting student**
 
-In `src/app/(app)/(student)/waiting/[sessionId]/page.tsx`, add `cancellation_reason` to the select at line 17, then immediately before the `if (status === "active")` line:
+In `src/app/(app)/(student)/waiting/[sessionId]/page.tsx`, add `cancellation_reason` to the select at line 17 — **Task 6 relies on this edit and must not repeat it** — then immediately before the `if (status === "active")` line:
 
 ```ts
   // The other guaranteed path. A student sitting on this page whose teacher
@@ -975,7 +976,7 @@ Without this the teacher vanishes from search while their toggle still says "you
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `src/components/status-pill.test.tsx`:
+Append to `src/components/status-pill.test.tsx`, **and add `"suspended"` to the existing `ALL` array at the top of that file** — otherwise the new state is the only one no test exercises:
 
 ```tsx
 it("has copy for the suspended state that does not name a reporter", () => {
@@ -1065,21 +1066,37 @@ A student whose session was cancelled by someone else's report is owed an explan
 - Modify: `src/app/(app)/(student)/waiting/[sessionId]/page.tsx:64-71`
 - Modify: `src/app/(app)/(student)/teachers/online-list.tsx:24-57`
 - Modify: `src/app/(app)/(student)/sessions/page.tsx:44-46, 104-118`
-- Modify: `src/app/(app)/(student)/teachers/online-list.test.tsx` (or create)
+- Create: `src/app/(app)/(student)/teachers/online-list.test.tsx` (does not exist yet)
 
 **Interfaces:**
 - Consumes: `sessions.cancellation_reason` (Task 2)
 
 - [ ] **Step 1: Write the failing test**
 
-The waiting page's own comment says a `cancelled` session shows no banner *"because they cancelled on purpose"* — which is false here. Add to the online-list tests:
+The waiting page's own comment says a `cancelled` session shows no banner *"because they cancelled on purpose"* — which is false here.
+
+Create `src/app/(app)/(student)/teachers/online-list.test.tsx` following `src/components/status-pill.test.tsx` verbatim in shape — first line `// @vitest-environment jsdom`, then `render` and `screen` from `@testing-library/react`. The vitest environment is `node` by default in this repo and component tests opt in per file.
 
 ```tsx
-it("explains a teacher-unavailable cancellation without mentioning a report", () => {
-  const msg = outcomeMessage("teacher_unavailable", "Ms Rao", 50000);
-  const text = renderToString(<>{msg}</>);
-  expect(text).toMatch(/unavailable/i);
-  expect(text).not.toMatch(/report|suspend|review/i);
+// @vitest-environment jsdom
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { outcomeMessage } from "./online-list";
+
+describe("outcomeMessage", () => {
+  it("explains a teacher-unavailable cancellation without mentioning a report", () => {
+    render(<div data-testid="m">{outcomeMessage("teacher_unavailable", "Ms Rao", 50000)}</div>);
+    const text = screen.getByTestId("m").textContent ?? "";
+    expect(text).toMatch(/no longer available/i);
+    // The student must not learn that a report exists — that is a disclosure
+    // about a third party's complaint.
+    expect(text).not.toMatch(/report|suspend|review/i);
+  });
+
+  it("says the student was not charged when no refund travelled", () => {
+    render(<div data-testid="m">{outcomeMessage("teacher_unavailable", "Ms Rao", undefined)}</div>);
+    expect(screen.getByTestId("m").textContent).toMatch(/not been charged/i);
+  });
 });
 ```
 
@@ -1113,7 +1130,7 @@ In `online-list.tsx`'s `outcomeMessage` switch, before `default`:
 
 - [ ] **Step 4: Route to it from the waiting page**
 
-Replace the exit branch:
+`cancellation_reason` is already in this page's select — Task 4 Step 3 added it. Do not add it again. Replace the exit branch:
 
 ```ts
   if (status !== "pending" && status !== "accepted" && status !== "paid") {
