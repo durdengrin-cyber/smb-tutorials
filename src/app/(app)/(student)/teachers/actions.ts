@@ -88,7 +88,23 @@ export async function requestSession(input: {
     .select("id, student_name")
     .single();
 
-  if (error || !session) return { error: "Couldn't start the request — try again." };
+  if (error || !session) {
+    // enforce_session_insert (the trigger snapshotting hourly_rate onto this
+    // row) raises exactly this message when the rate this insert carries no
+    // longer matches the teacher's live profile — the teacher changed their
+    // rate between this student loading the list and clicking Start.
+    // Verified live against the trigger: a mismatched insert returns
+    // { code: "P0001", message: "hourly_rate must match the teacher profile" }.
+    // That failure is CORRECT — nobody gets mispriced — but a raw Postgres
+    // exception is not something a student should ever see.
+    if (error?.message === "hourly_rate must match the teacher profile") {
+      return {
+        error:
+          "That teacher just changed their rate. Refresh the page to see their new price, then try again.",
+      };
+    }
+    return { error: "Couldn't start the request — try again." };
+  }
 
   // The student must not wait on a push service to see their waiting screen.
   after(async () => {

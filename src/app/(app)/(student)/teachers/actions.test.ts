@@ -14,6 +14,13 @@ const state = vi.hoisted(() => ({
   user: null as null | { id: string },
   consentVersion: null as string | null,
   sessionsCalls: 0,
+  // Defaults reproduce the original mock's shape: the open-request read
+  // errors, so every pre-existing test still fails at that exact point and
+  // never reaches the teacher lookup or the insert below.
+  openRequestRows: [] as unknown[],
+  openRequestError: { message: "boom" } as { message: string } | null,
+  teacherProfile: null as { id: string; hourly_rate: number; role: string } | null,
+  insertError: null as { message: string } | null,
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -23,18 +30,28 @@ vi.mock("@/lib/supabase/server", () => ({
       if (table === "profiles") {
         return {
           select: () => ({
-            eq: () => ({
-              single: async () => ({
-                data: state.user
-                  ? {
-                      id: state.user.id,
-                      role: "student",
-                      full_name: "Test Student",
-                      consent_version: state.consentVersion,
-                    }
-                  : null,
-                error: null,
-              }),
+            // Two different profiles rows are read through this same table:
+            // getIdentity() reads the CALLER's own row (eq("id", student
+            // id)), and requestSession separately reads the TEACHER's row
+            // (eq("id", input.teacherId)) to snapshot hourly_rate. Branching
+            // on the id argument is what lets one mock serve both.
+            eq: (_col: string, id: string) => ({
+              single: async () => {
+                if (state.teacherProfile && id === state.teacherProfile.id) {
+                  return { data: state.teacherProfile, error: null };
+                }
+                return {
+                  data: state.user
+                    ? {
+                        id: state.user.id,
+                        role: "student",
+                        full_name: "Test Student",
+                        consent_version: state.consentVersion,
+                      }
+                    : null,
+                  error: null,
+                };
+              },
             }),
           }),
         };
@@ -43,7 +60,15 @@ vi.mock("@/lib/supabase/server", () => ({
       return {
         select: () => ({
           eq: () => ({
-            in: async () => ({ data: null, error: { message: "boom" } }),
+            in: async () => ({ data: state.openRequestRows, error: state.openRequestError }),
+          }),
+        }),
+        insert: () => ({
+          select: () => ({
+            single: async () => ({
+              data: state.insertError ? null : { id: "session-1", student_name: "Test Student" },
+              error: state.insertError,
+            }),
           }),
         }),
       };
@@ -65,6 +90,10 @@ beforeEach(() => {
   state.user = { id: "student-1" };
   state.consentVersion = CONSENT_VERSION;
   state.sessionsCalls = 0;
+  state.openRequestRows = [];
+  state.openRequestError = { message: "boom" };
+  state.teacherProfile = null;
+  state.insertError = null;
 });
 
 describe("requestSession consent gate", () => {
@@ -79,5 +108,36 @@ describe("requestSession consent gate", () => {
       error: "Couldn't start the request — try again.",
     });
     expect(state.sessionsCalls).toBeGreaterThan(0);
+  });
+});
+
+describe("requestSession rate race", () => {
+  // enforce_session_insert (the trigger that snapshots hourly_rate onto a new
+  // session row) raises 'hourly_rate must match the teacher profile' when the
+  // rate this insert carries no longer matches the teacher's live profile —
+  // reachable when a teacher changes their rate while a student is mid-
+  // request. Verified live against the trigger: a mismatched insert returns
+  // { code: "P0001", message: "hourly_rate must match the teacher profile" },
+  // which is the exact string this test and the fix both key on.
+  beforeEach(() => {
+    // Past the open-request gate, so the insert itself is reached.
+    state.openRequestError = null;
+    state.openRequestRows = [];
+    state.teacherProfile = { id: "teacher-1", hourly_rate: 500, role: "teacher" };
+  });
+
+  it("turns the raw trigger error into an explanation a student can act on", async () => {
+    state.insertError = { message: "hourly_rate must match the teacher profile" };
+    expect(await requestSession(validInput)).toEqual({
+      error:
+        "That teacher just changed their rate. Refresh the page to see their new price, then try again.",
+    });
+  });
+
+  it("leaves every other insert failure with the generic message", async () => {
+    state.insertError = { message: "some unrelated database error" };
+    expect(await requestSession(validInput)).toEqual({
+      error: "Couldn't start the request — try again.",
+    });
   });
 });
