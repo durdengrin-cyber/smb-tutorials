@@ -1,5 +1,10 @@
 "use server";
 
+// Enforces what this module's placement only implies: importing it from a
+// client component is now a BUILD failure, not a secret inlined into a
+// browser bundle. See src/lib/server-secrets.test.ts.
+import "server-only";
+
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { requireConsentedUser } from "@/lib/auth";
