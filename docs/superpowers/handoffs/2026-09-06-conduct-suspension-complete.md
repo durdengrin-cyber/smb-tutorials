@@ -128,9 +128,26 @@ Worth knowing:
 Teacher profile editing is **done** — see §5b. Plan:
 `docs/superpowers/plans/2026-09-06-teacher-profile-editing.md`.
 
-**Remaining, in rough severity order:** no refund path for the refunds `/terms` promises; teachers are
-never paid (the dashboard says "earned · pending payout" and nothing pays out); no password reset;
-no email is ever sent; `settleVerifiedEvent` has no tests at all.
+**Closed later on 2026-09-06**, after this list was first written: `settleVerifiedEvent` now has 18
+tests where it had none, each proven able to fail by mutation; `refundSession`'s
+REFUNDED-BUT-NOT-RECORDED branch is covered; and the double-refund gap is closed with an
+idempotency key (`receipt`), whose acceptance by Razorpay the owner confirmed with a live probe —
+`400 "The id provided does not exist"` at `input_validation_failed`, not a router 404.
+
+**Remaining, and every one needs an owner decision before it can be built:**
+
+| Item | The decision it waits on |
+|---|---|
+| No refund path for the refunds `/terms` promises ("Technical failure preventing the session: Full refund") | Who declares a session a technical failure — the student, self-serve, or the operator? |
+| **Teachers are never paid.** The dashboard says "earned · pending payout" and nothing pays out | The payout model. Stripe Connect is listed as deferred in CLAUDE.md |
+| No password reset | The domain, then an email sender |
+| No email is ever sent — Resend is in the stack, unused | The domain |
+| The admin surface (piece 3) | Whether the pilot runs on CLI-only operator actions, which is honest only at pilot size |
+
+**One technical item does not need a decision, and is the natural next build:** nothing observes
+Razorpay's duplicate-receipt wording live, because producing a genuine duplicate needs a real
+captured payment through a browser. That is the same manual gate the webhook signature has always
+needed, and doing both in one sitting would close both.
 
 ## 7. Carried forward, not blocking
 
