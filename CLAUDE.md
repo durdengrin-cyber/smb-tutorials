@@ -94,6 +94,46 @@ reviewer per task. Ad-hoc sweep fixes committed straight to the branch get none 
 same blind spots, no second pair of eyes, and they land in the same history. Batch them and put
 them through the same review bar before the branch merges.
 
+## Agent budget — same output, less burn
+
+Measured 2026-09-06: ~2.3M tokens across 21 agents in one day. The work was real and none of it
+was repeated, but roughly a third went on review-and-rework cycles, and some of that was avoidable.
+The rules below cut the waste without removing the gate that caught seven bad claims that day.
+
+**1. Review by risk, not by habit.** Not every change earns an external reviewer.
+
+| Tier | What | Gate |
+|---|---|---|
+| **A** | Migrations and DDL, auth/RLS, anything touching money, published legal copy (`/terms`, `/privacy`) | External review, most capable model. Always |
+| **B** | A new user-facing surface | External review, mid model |
+| **C** | Tests, comments, docs, pure refactors where pre-existing tests are the proof | **No external review.** Self-check against the constraints, and say what you checked |
+
+Tier A is where every real defect of 2026-09-06 was found. Tier C reviews that day found comment
+wording and cost ~85k each.
+
+**2. One verification budget, not one per agent.** An implementer runs `npx vitest run` and
+`npx tsc --noEmit` — fast, and between them they catch nearly everything. **The controller runs
+`npx eslint .` and `npm run build` once, at the end of a batch.** Running the build inside five
+agents pays for it five times to learn the same thing.
+
+**3. Fix rounds RESUME the implementer; they never start fresh.** A resumed agent still holds the
+files, the reasoning and its own choices. A fresh one re-reads all of it to make a three-line
+change — on 2026-09-06 that turned a 217k build into a 135k fix for four small findings.
+
+**4. Only Critical and Important enter a fix round.** Minors go to a list and are swept in one
+batch at the end, or carried. A minor that costs more to fix than it costs to keep is not worth a
+round trip.
+
+**5. Batch same-shape work into one dispatch.** Four UI tasks in a single dispatch cost 158k on
+2026-09-06; the same four as separate task-review-fix cycles would have been roughly 400k. Split
+only where a reviewer could reject one piece while approving its neighbour.
+
+**6. The implementer self-reviews before reporting.** Against the constraints it was given, in its
+own context, for free — every finding it catches there is a fix round nobody pays for.
+
+**7. Give a reviewer a scope, not a repo.** Name the files and the specific questions. An
+unbounded "review this" spends most of its budget reading.
+
 ## Scope discipline
 - Product = 3 tiers: instant pick (primary) → request offline teacher (fallback) → scheduled (add-on later). Core loop: pick subject → online-now list → pick → teacher accepts → pay → video call.
 - Deferred, do not build without a decision: scheduled tier, Stripe Connect, search/ranking, chat.
