@@ -3,10 +3,18 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
-// (gate) is the consent wall, and it was the one route group with no
-// boundaries of its own — a throw here fell all the way through to
+// (gate) is the consent wall. This boundary wraps consent/page.tsx and
+// consent-form.tsx — a throw from either one (e.g. the server action in
+// consent/actions.ts) is caught here, keeping the sign-out button the layout
+// deliberately keeps beside this screen.
+//
+// It does NOT cover GateLayout's own requireUser() call (layout.tsx line 19,
+// via getIdentity's explicit throw on a failed profile read in
+// src/lib/auth.ts): a segment's error.tsx never wraps the layout.tsx beside
+// it, only that layout's children — see global-error.tsx's comment. A throw
+// from requireUser() here still falls all the way through to
 // global-error.tsx, which renders its own <html> and drops the sign-out
-// button the layout deliberately keeps beside this screen.
+// button. That gap is real; this file just isn't where it gets closed.
 //
 // The copy is NOT (app)/error.tsx's. That one reassures the reader their
 // "session and any payment are unaffected", which is the right thing to say

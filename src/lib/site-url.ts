@@ -1,13 +1,17 @@
 // Where this deployment actually lives.
 //
-// This exists because `process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"`
-// was building the return URL for Razorpay checkout. NEXT_PUBLIC_SITE_URL is
-// not set by anything in this repository — it comes from the Vercel dashboard
-// — so one unset variable in production sent every student who paid to
-// http://localhost:3000/waiting/<id>: a dead page on their phone, with their
-// money already taken and the webhook still crediting the session. Nothing
-// threw, nothing logged, and the only symptom was a student saying the app
-// broke after they paid.
+// NOT a fix for a live fault: NEXT_PUBLIC_SITE_URL IS set, in all three Vercel
+// environments, and checkout returns correctly today — verified with
+// `vercel env ls` and by the owner running sessions end-to-end. Nothing was
+// broken.
+//
+// This replaces `process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"`,
+// which built the return URL for checkout. That default would fail silently
+// if the variable were ever deleted, or a fourth environment were added
+// without it: nothing would throw, nothing would log, and every paying
+// student would be sent to http://localhost:3000/waiting/<id> with their
+// money already taken. This is hardening against that possibility, not an
+// incident report.
 //
 // A default that is wrong in production is worse than no default, because it
 // removes the error that would have told you.

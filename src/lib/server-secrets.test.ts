@@ -24,9 +24,36 @@ import { join } from "node:path";
 // is public where a key secret is not.
 const SECRET_SHAPED = /process\.env\.(?!NEXT_PUBLIC_)([A-Z][A-Z0-9_]*(?:_KEY|_SECRET|_TOKEN|_PASSWORD))\b/;
 
-// Next guarantees these run on the server by virtue of what they are, so
-// `server-only` in one would be belt on top of braces.
+// These names run on the server by convention, NOT by guarantee: any of them
+// can open with a "use client" directive and opt itself into the browser
+// bundle instead, and Next honours that regardless of the filename. A
+// page.tsx marked "use client" that reads a secret is exactly the leak this
+// guard exists to catch, so the exemption below is conditional on the
+// directive being absent — never on the name alone.
 const FRAMEWORK_SERVER_FILES = ["page.tsx", "layout.tsx", "route.ts", "middleware.ts"];
+
+// The file's first non-blank, non-"//"-comment line, or undefined for a file
+// that is all blank lines and comments. Directives must be the first
+// statement in the file for Next (or any bundler) to honour them, so this is
+// the only line worth checking.
+function firstStatementLine(src: string): string | undefined {
+  return src
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l.length > 0 && !l.startsWith("//"));
+}
+
+// True only when `filename` is one of the framework names above AND the file
+// does not open with "use client". Extracted from the walk below so it can
+// be tested directly against a crafted source string — proving the directive
+// defeats the exemption does not require a real "use client" file with a
+// secret sitting in the tree, which would itself be the leak.
+function isExemptFrameworkFile(filename: string, src: string): boolean {
+  if (!FRAMEWORK_SERVER_FILES.includes(filename)) return false;
+  const first = firstStatementLine(src);
+  return first !== '"use client";' && first !== "'use client';" &&
+    first !== '"use client"' && first !== "'use client'";
+}
 
 function walk(dir: string, out: string[]) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -51,8 +78,8 @@ describe("server-side secrets", () => {
   it("never reads a secret from a module a client component could import", () => {
     const offenders: string[] = [];
     for (const f of files) {
-      if (FRAMEWORK_SERVER_FILES.includes(f.split("/").pop()!)) continue;
       const src = readFileSync(f, "utf8");
+      if (isExemptFrameworkFile(f.split("/").pop()!, src)) continue;
       if (!SECRET_SHAPED.test(src)) continue;
       if (!/^import "server-only";/m.test(src)) offenders.push(f);
     }
@@ -68,5 +95,48 @@ describe("server-side secrets", () => {
     // Proves the rule can fire, so a green run means something.
     expect(SECRET_SHAPED.test('process.env.SUPABASE_SERVICE_ROLE_KEY')).toBe(true);
     expect(SECRET_SHAPED.test('process.env.VAPID_PRIVATE_KEY')).toBe(true);
+  });
+
+  describe("the FRAMEWORK_SERVER_FILES exemption", () => {
+    it("exempts a page.tsx with no directive", () => {
+      const src = 'import { x } from "y";\nexport default function Page() { return x; }';
+      expect(isExemptFrameworkFile("page.tsx", src)).toBe(true);
+    });
+
+    it('does NOT exempt a page.tsx that opens with "use client"', () => {
+      // This is the exact hole the guard exists to close: a "use client"
+      // page.tsx is compiled into the browser bundle like any other client
+      // module, so a secret read in one is a real leak regardless of the
+      // filename.
+      const src =
+        '"use client";\n\nexport default function Page() {\n' +
+        "  return process.env.SUPABASE_SERVICE_ROLE_KEY;\n}\n";
+      expect(isExemptFrameworkFile("page.tsx", src)).toBe(false);
+      // Chained with the rest of the guard, this file would be flagged: it is
+      // secret-shaped, unexempted, and carries no `import "server-only"`.
+      expect(SECRET_SHAPED.test(src)).toBe(true);
+      expect(/^import "server-only";/m.test(src)).toBe(false);
+    });
+
+    it('also refuses layout.tsx, route.ts and middleware.ts marked "use client"', () => {
+      const src = "'use client';\nexport const x = 1;";
+      for (const name of ["layout.tsx", "route.ts", "middleware.ts"]) {
+        expect(isExemptFrameworkFile(name, src)).toBe(false);
+      }
+    });
+
+    it("still exempts those names when undirected", () => {
+      const src = "export const x = 1;";
+      for (const name of ["page.tsx", "layout.tsx", "route.ts", "middleware.ts"]) {
+        expect(isExemptFrameworkFile(name, src)).toBe(true);
+      }
+    });
+
+    it("never exempts a name outside the framework list, directive or not", () => {
+      expect(isExemptFrameworkFile("actions.ts", '"use client";\nexport const x = 1;')).toBe(
+        false
+      );
+      expect(isExemptFrameworkFile("actions.ts", "export const x = 1;")).toBe(false);
+    });
   });
 });
