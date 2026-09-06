@@ -13,15 +13,26 @@ export interface RefundArgs {
   logPrefix: string;
 }
 
-// Extracted from settle.ts, unchanged. It took four fix rounds to get the
-// failure paths right: the retry, the guard-blocked-versus-succeeded
+// Extracted from settle.ts. The failure-path logic is unchanged — it took
+// four fix rounds to get right: the retry, the guard-blocked-versus-succeeded
 // distinction, and the attempt-1-may-have-committed check. A second
 // implementation would have to re-earn all of it, in the one part of the
 // product that moves money.
+//
+// The return type is the one addition (suspension fix round 1): `true` only
+// on the path where the row was actually confirmed stamped with this refund's
+// reference, `false` on every other path — including the ones where the
+// refund itself succeeded at the provider but the write did not confirm.
+// A caller cannot tell "money moved" from "money moved AND our row says so"
+// any other way, and a caller that only wants to know "did this settle
+// something" (src/lib/suspension/settle.ts) needs exactly that distinction.
+// The five webhook call sites in payments/settle.ts predate this and do not
+// read it — `await refundSession(...)` with the value discarded still
+// type-checks and behaves exactly as before.
 export async function refundSession(
   db: SupabaseClient,
   args: RefundArgs
-): Promise<void> {
+): Promise<boolean> {
   console.error(`${args.logPrefix} refunding ${args.sessionId} (${args.paymentRef}): ${args.why}`);
   let refundRef: string;
   try {
@@ -34,7 +45,7 @@ export async function refundSession(
         `amount ${args.amountPaise} — needs manual action:`,
       e
     );
-    return;
+    return false;
   }
   const stamp = () =>
     db
@@ -73,7 +84,7 @@ export async function refundSession(
         `reconciliation will show it as unresolved:`,
       error
     );
-    return;
+    return false;
   }
   if (!recorded || recorded.length === 0) {
     // A guard-blocked write and attempt 1's own commit landing anyway look
@@ -94,15 +105,18 @@ export async function refundSession(
           `${args.logPrefix} refund ${refundRef} for ${args.sessionId} was recorded by attempt 1; ` +
             `its error was a transport failure after the commit, not a lost write.`
         );
-        return;
+        return true;
       }
     }
     // Genuinely absent or different: something else set refund_ref first.
     // The money is back with the student; this reference just has nowhere
-    // to live, so it is named here or nowhere.
+    // to live, so it is named here or nowhere. This call's write did not
+    // land, whatever else happened to the row — false.
     console.error(
       `${args.logPrefix} REFUND ISSUED BUT NOT RECORDED for ${args.sessionId}, refund ${refundRef} — ` +
         `the guard matched no row (already resolved by something else); this reference is not stored anywhere.`
     );
+    return false;
   }
+  return true;
 }
