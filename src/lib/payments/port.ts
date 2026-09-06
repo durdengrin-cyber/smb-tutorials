@@ -41,11 +41,31 @@ export interface RefundResult {
   refundRef: string;
 }
 
+// Thrown by refund() — instead of a plain Error — when the provider's own
+// response says this exact refund already happened under an earlier call
+// using the same idempotencyKey. That is not a failure: the money already
+// moved, and the caller must not report it as one needing manual action.
+// A provider adapter that has no such concept, or cannot recognise its own
+// provider's response for this confidently, should simply never throw it —
+// it is optional information a caller may act on, not a required contract,
+// and every adapter's plain-Error path still works without it.
+export class DuplicateRefundError extends Error {}
+
 export interface PaymentPort {
   createCheckout(req: CheckoutRequest): Promise<CheckoutResult>;
   // Throws on a bad or missing signature. Never returns a partial event.
   verifyWebhook(rawBody: string, signature: string): Promise<WebhookEvent>;
-  refund(paymentRef: string, amountPaise: number): Promise<RefundResult>;
+  // idempotencyKey ties two calls together in the provider's eyes so a
+  // retried or concurrent call cannot issue a second, separate refund for
+  // work the first call already did. The caller passes the session id: one
+  // session can be refunded at most once (refund_ref is single-valued and
+  // `refunded` is a terminal status — src/lib/session.ts), so the session id
+  // is stable and unique per refund the product will ever attempt. What the
+  // provider does with it is the adapter's business (Razorpay sends it as
+  // `receipt`, which it documents as the field it treats as an idempotency
+  // key); this port only guarantees the same session always sends the same
+  // key.
+  refund(paymentRef: string, amountPaise: number, idempotencyKey: string): Promise<RefundResult>;
   // Ask the provider directly what happened to a charge — design spec §3.6's
   // SECOND confirmation path, for when a webhook never arrives. Returns the
   // same event shape the webhook produces, so one code path can settle a

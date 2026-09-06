@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { createHmac } from "node:crypto";
 import { razorpayPort } from "./razorpay";
 import { getPaymentPort, paymentProviderName } from "./index";
+import { DuplicateRefundError } from "./port";
 
 const KEY_ID = "rzp_test_key";
 const KEY_SECRET = "key_secret";
@@ -178,10 +179,12 @@ describe("razorpayPort.verifyWebhook", () => {
 });
 
 describe("razorpayPort.refund — the payment id is not the payment link id", () => {
-  it("resolves the payment id from the link, then refunds against it", async () => {
+  it("resolves the payment id from the link, then refunds against it, sending the idempotency key as receipt", async () => {
     const calls: string[] = [];
-    const fetchImpl = vi.fn(async (url: string) => {
+    const bodies: Array<Record<string, unknown>> = [];
+    const fetchImpl = vi.fn(async (url: string, init?: { body?: string }) => {
       calls.push(url);
+      bodies.push(init?.body ? JSON.parse(init.body) : {});
       if (url.endsWith(`/payment_links/${PLINK}`)) {
         return jsonRes({
           id: PLINK, status: "paid", amount: 50000, amount_paid: 50000,
@@ -192,10 +195,14 @@ describe("razorpayPort.refund — the payment id is not the payment link id", ()
       return jsonRes({ id: "rfnd_TEST", entity: "refund", amount: 50000 });
     }) as unknown as typeof fetch;
 
-    const result = await port(fetchImpl).refund(PLINK, 50000);
+    const result = await port(fetchImpl).refund(PLINK, 50000, SESSION);
     expect(result).toEqual({ refundRef: "rfnd_TEST" });
     expect(calls[0]).toBe(`https://api.razorpay.com/v1/payment_links/${PLINK}`);
     expect(calls[1]).toBe(`https://api.razorpay.com/v1/payments/${PAY}/refund`);
+    // receipt is Razorpay's documented idempotency key for refund creation.
+    // It must be exactly the idempotencyKey the caller passed — the session
+    // id — not derived, prefixed or decorated.
+    expect(bodies[1]).toMatchObject({ amount: 50000, receipt: SESSION });
   });
 
   it("throws when the link carries no captured payment", async () => {
@@ -205,7 +212,7 @@ describe("razorpayPort.refund — the payment id is not the payment link id", ()
     const fetchImpl = vi.fn(async () =>
       jsonRes({ id: PLINK, status: "created", payments: [] })
     ) as unknown as typeof fetch;
-    await expect(port(fetchImpl).refund(PLINK, 50000)).rejects.toThrow();
+    await expect(port(fetchImpl).refund(PLINK, 50000, SESSION)).rejects.toThrow();
   });
 
   it("throws when the refund call itself fails", async () => {
@@ -214,7 +221,42 @@ describe("razorpayPort.refund — the payment id is not the payment link id", ()
         ? jsonRes({ id: PLINK, status: "paid", payments: [{ payment_id: PAY, status: "captured" }] })
         : jsonRes({ error: { description: "refund failed" } }, 400)
     ) as unknown as typeof fetch;
-    await expect(port(fetchImpl).refund(PLINK, 50000)).rejects.toThrow();
+    const rejection = port(fetchImpl).refund(PLINK, 50000, SESSION);
+    await expect(rejection).rejects.toThrow();
+    // An ordinary 400 must never be mistaken for the documented
+    // duplicate-receipt case — that would silence a real failure.
+    await expect(rejection).rejects.not.toBeInstanceOf(DuplicateRefundError);
+  });
+
+  it("throws DuplicateRefundError when Razorpay rejects a reused receipt", async () => {
+    const fetchImpl = vi.fn(async (url: string) =>
+      url.includes("/payment_links/")
+        ? jsonRes({ id: PLINK, status: "paid", payments: [{ payment_id: PAY, status: "captured" }] })
+        : jsonRes(
+            { error: { description: "Duplicate receipt found for this refund request" } },
+            400
+          )
+    ) as unknown as typeof fetch;
+    await expect(port(fetchImpl).refund(PLINK, 50000, SESSION)).rejects.toBeInstanceOf(
+      DuplicateRefundError
+    );
+  });
+
+  it("does not match a merely similar description to the documented duplicate-receipt one", async () => {
+    // Matching narrowly means exactly this: a description that differs from
+    // the documented text — even by trailing punctuation — must still fall
+    // through to the generic failure, not be waved off as "already refunded".
+    const fetchImpl = vi.fn(async (url: string) =>
+      url.includes("/payment_links/")
+        ? jsonRes({ id: PLINK, status: "paid", payments: [{ payment_id: PAY, status: "captured" }] })
+        : jsonRes(
+            { error: { description: "Duplicate receipt found for this refund request, try again" } },
+            400
+          )
+    ) as unknown as typeof fetch;
+    const rejection = port(fetchImpl).refund(PLINK, 50000, SESSION);
+    await expect(rejection).rejects.toThrow();
+    await expect(rejection).rejects.not.toBeInstanceOf(DuplicateRefundError);
   });
 });
 

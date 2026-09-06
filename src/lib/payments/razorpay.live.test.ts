@@ -19,6 +19,16 @@ import { razorpayPort } from "./razorpay";
 // manual gate. What this does prove is that our credentials work, that our
 // request shape is one Razorpay accepts, and that the response carries the
 // fields the adapter reads.
+//
+// Also cannot prove: a full round trip through port.refund() with `receipt`
+// set, end to end. That call only reaches the network after resolving a
+// captured payment from a real payment link, which needs the same manual
+// browser payment as the webhook gate above. What the refund test below DOES
+// prove live is narrower but real: that Razorpay's refund-creation endpoint
+// accepts a `receipt` field in the request body at all, rather than
+// rejecting the shape outright — the one thing about the idempotency-key fix
+// a mock cannot show, since a mock agrees with whatever field names we send
+// it.
 
 const env = Object.fromEntries(
   fs.readFileSync(".env.local", "utf8").split("\n")
@@ -111,5 +121,33 @@ describe.skipIf(!enabled)("razorpay — LIVE test-mode calls", () => {
     const good = crypto.createHmac("sha256", WEBHOOK_SECRET).update(raw).digest("hex");
     await expect(port.verifyWebhook(raw, good)).resolves.toMatchObject({ kind: "succeeded" });
     await expect(port.verifyWebhook(raw, good.replace(/.$/, "0"))).rejects.toThrow();
+  });
+
+  it("sends receipt on a refund request without Razorpay rejecting the field itself", async () => {
+    // port.refund() can't be driven end to end here — it only reaches the
+    // network after resolving a captured payment from a real link, which
+    // needs a manual browser payment (see the file header). This calls the
+    // same endpoint directly, against a payment id built to be well-formed
+    // but non-existent, so the request still reaches Razorpay's own field
+    // validation for `receipt` without any money at risk.
+    const auth = `Basic ${Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64")}`;
+    const res = await fetch(
+      `https://api.razorpay.com/v1/payments/pay_doesnotexist00000000/refund`,
+      {
+        method: "POST",
+        headers: { Authorization: auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: 100, receipt: crypto.randomUUID() }),
+      }
+    );
+    const body = await res.json();
+    console.info(
+      `[live] refund with receipt against a non-existent payment: ${res.status} ${JSON.stringify(body)}`
+    );
+    // This payment id cannot exist, so the call must fail — but on the
+    // payment, not on the shape of the request. If Razorpay considered
+    // `receipt` unrecognised or malformed, its description would say so;
+    // this only asserts that it doesn't, not what the real error text is.
+    expect(res.ok).toBe(false);
+    expect(String(body?.error?.description ?? "").toLowerCase()).not.toContain("receipt");
   });
 });

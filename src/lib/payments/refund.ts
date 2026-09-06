@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPaymentPort, paymentProviderName } from "./index";
+import { DuplicateRefundError, getPaymentPort, paymentProviderName } from "./index";
 import type { SessionStatus } from "@/lib/session";
 
 export interface RefundArgs {
@@ -13,11 +13,21 @@ export interface RefundArgs {
   logPrefix: string;
 }
 
-// Extracted from settle.ts. The failure-path logic is unchanged — it took
-// four fix rounds to get right: the retry, the guard-blocked-versus-succeeded
-// distinction, and the attempt-1-may-have-committed check. A second
+// Extracted from settle.ts. The write-side failure logic is unchanged — it
+// took four fix rounds to get right: the retry, the guard-blocked-versus-
+// succeeded distinction, and the attempt-1-may-have-committed check. A second
 // implementation would have to re-earn all of it, in the one part of the
 // product that moves money.
+//
+// The provider call now carries the session id as an idempotency key,
+// closing the known gap recorded in
+// docs/superpowers/specs/2026-09-06-conduct-suspension-design.md §16: the
+// guard below still only stops a second caller from *recording* a refund,
+// but two concurrent callers can no longer make the provider *issue* two
+// real ones, because they send the same key. When a provider recognises its
+// own key was reused it rejects the call — a DuplicateRefundError, not a
+// plain one — meaning the money already moved under the call that won the
+// race, not that this call failed.
 //
 // The return type is the one addition (suspension fix round 1): `true` only
 // on the path where the row was actually confirmed stamped with this refund's
@@ -36,8 +46,28 @@ export async function refundSession(
   console.error(`${args.logPrefix} refunding ${args.sessionId} (${args.paymentRef}): ${args.why}`);
   let refundRef: string;
   try {
-    ({ refundRef } = await getPaymentPort().refund(args.paymentRef, args.amountPaise));
+    // The session id is the idempotency key: refund_ref is single-valued and
+    // `refunded` is terminal (src/lib/session.ts), so one session can be
+    // refunded at most once, and the same session always sends the same key.
+    ({ refundRef } = await getPaymentPort().refund(
+      args.paymentRef,
+      args.amountPaise,
+      args.sessionId
+    ));
   } catch (e) {
+    if (e instanceof DuplicateRefundError) {
+      // The provider rejected this call because our idempotency key was
+      // already used — a concurrent or retried call already issued this
+      // exact refund. The money is already back with the student; this is
+      // not the REFUND FAILED case below and must not read as one, or a
+      // human goes chasing a refund that already happened.
+      console.info(
+        `${args.logPrefix} refund for ${args.sessionId} was already issued under a ` +
+          `different call (idempotency key reused) — no action needed:`,
+        e
+      );
+      return false;
+    }
     // The one failure with no automatic recovery (design spec §9). Loud, with
     // the reference, because a human has to finish this by hand.
     console.error(

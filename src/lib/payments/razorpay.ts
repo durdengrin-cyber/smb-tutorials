@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type {
   CheckoutRequest, CheckoutResult, PaymentPort, RefundResult, WebhookEvent,
 } from "./port";
+import { DuplicateRefundError } from "./port";
 
 const RAZORPAY_API = "https://api.razorpay.com/v1";
 
@@ -154,7 +155,11 @@ export function razorpayPort(
     // until the student actually pays. Rather than add a second write-once
     // column and a migration, resolve one from the other at refund time: the
     // link knows its own payments.
-    async refund(paymentRef: string, amountPaise: number): Promise<RefundResult> {
+    async refund(
+      paymentRef: string,
+      amountPaise: number,
+      idempotencyKey: string
+    ): Promise<RefundResult> {
       const link = await getLink(paymentRef);
       const payments: Array<{ payment_id?: string; status?: string }> = link?.payments ?? [];
       const captured =
@@ -172,9 +177,41 @@ export function razorpayPort(
       const res = await fetchImpl(`${RAZORPAY_API}/payments/${captured.payment_id}/refund`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ amount: amountPaise }),
+        // receipt is Razorpay's idempotency key for refund creation, per
+        // their own docs: a second refund call carrying a receipt already
+        // used on this payment is refused rather than issuing a second,
+        // separate refund. We send the session id (idempotencyKey), which
+        // is stable and unique per session, so two concurrent callers for
+        // the same session collide here instead of each reaching the
+        // provider for real.
+        body: JSON.stringify({ amount: amountPaise, receipt: idempotencyKey }),
       });
-      if (!res.ok) await fail(res, `refund of ${captured.payment_id}`);
+      if (!res.ok) {
+        // Peek at the body on a clone, so fail() below can still read it
+        // fresh for the generic failure message — a Response body can only
+        // be consumed once.
+        let description: string | undefined;
+        try {
+          const body = await res.clone().json();
+          description = body?.error?.description;
+        } catch {
+          description = undefined;
+        }
+        // Razorpay's documented duplicate-receipt rejection (verified against
+        // their own docs, not re-derived here): "Duplicate receipt found for
+        // this refund request" means the receipt we sent (this session id)
+        // was already used on a refund for this payment — the money already
+        // went back, under a call that beat this one to the provider. Matched
+        // narrowly on that exact, documented wording and nothing looser: any
+        // other rejection (including a differently-worded one we don't
+        // recognise) falls straight through to fail()'s generic failure.
+        if (description === "Duplicate receipt found for this refund request") {
+          throw new DuplicateRefundError(
+            `razorpay refund of ${captured.payment_id}: receipt ${idempotencyKey} was already used — the refund already happened`
+          );
+        }
+        await fail(res, `refund of ${captured.payment_id}`);
+      }
 
       const refund = await res.json();
       if (!refund?.id) {

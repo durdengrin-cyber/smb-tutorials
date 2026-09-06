@@ -1,11 +1,19 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { refundSession } from "./refund";
+import { DuplicateRefundError } from "./port";
 
 const port = { refund: vi.fn() };
-vi.mock("./index", () => ({
-  getPaymentPort: () => port,
-  paymentProviderName: () => "stub",
-}));
+// Preserves the real DuplicateRefundError export (refund.ts's `instanceof`
+// check needs the actual class, not a mock) while still overriding the two
+// functions this test suite stubs out.
+vi.mock("./index", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./index")>();
+  return {
+    ...actual,
+    getPaymentPort: () => port,
+    paymentProviderName: () => "stub",
+  };
+});
 
 interface StampResult {
   data: unknown[] | null;
@@ -72,7 +80,11 @@ describe("refundSession", () => {
       nextStatus: "refunded", why: "test", logPrefix: "[suspension]",
     });
 
-    expect(port.refund).toHaveBeenCalledWith("pay_1", 50000);
+    // The session id is the idempotency key sent to the provider — one
+    // session can be refunded at most once (refund_ref is single-valued,
+    // `refunded` is terminal — src/lib/session.ts), so it is stable and
+    // unique per refund.
+    expect(port.refund).toHaveBeenCalledWith("pay_1", 50000, "s1");
     expect(db.chain.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: "refunded", refund_ref: "rfnd_1" })
     );
@@ -90,7 +102,38 @@ describe("refundSession", () => {
     });
 
     expect(db.chain.update).not.toHaveBeenCalled();
+    const alarm = consoleErrorSpy.mock.calls.find(
+      ([msg]) => typeof msg === "string" && msg.includes("REFUND FAILED")
+    );
+    expect(alarm).toBeDefined();
     expect(result).toBe(false);
+  });
+
+  it("does not stamp the row and logs at info, not as a failure, when the provider reports a duplicate receipt", async () => {
+    // A concurrent or retried call already used this session's idempotency
+    // key — the money already moved under that call. This must never read
+    // as "REFUND FAILED ... needs manual action": that would send a human
+    // chasing a refund that already happened.
+    port.refund.mockRejectedValue(
+      new DuplicateRefundError("razorpay refund: receipt s1 was already used")
+    );
+    const db = stubDb({ data: [{ id: "s1" }], error: null });
+
+    const result = await refundSession(db as never, {
+      sessionId: "s1", paymentRef: "pay_1", amountPaise: 50000,
+      nextStatus: "refunded", why: "test", logPrefix: "[suspension]",
+    });
+
+    expect(db.chain.update).not.toHaveBeenCalled();
+    expect(result).toBe(false);
+    const info = consoleInfoSpy.mock.calls.find(
+      ([msg]) => typeof msg === "string" && msg.includes("already issued")
+    );
+    expect(info).toBeDefined();
+    const failureAlarm = consoleErrorSpy.mock.calls.find(
+      ([msg]) => typeof msg === "string" && msg.includes("REFUND FAILED")
+    );
+    expect(failureAlarm).toBeUndefined();
   });
 
   it("omits status from the write when nextStatus is null", async () => {
