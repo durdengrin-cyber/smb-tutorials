@@ -14,6 +14,9 @@ export const NAV: Record<Role, NavItem[]> = {
     { href: "/sessions", label: "My sessions" },
     { href: "/find", label: "Find a teacher" },
   ],
-  teacher: [{ href: "/dashboard", label: "Dashboard" }],
+  teacher: [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/profile", label: "Profile" },
+  ],
   admin: [{ href: "/admin", label: "Admin" }],
 };

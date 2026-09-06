@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { signUpTutor } from "./actions";
-import { SubjectPicker } from "./subject-picker";
+import { SubjectPicker } from "@/components/subject-picker";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
