@@ -62,6 +62,38 @@ consistently. Pick one form and apply it everywhere.
 - Distinguish **spike code** (deliberately throwaway — proves plumbing, gets replaced) from **core infrastructure** (reused in service). Harden core; don't gold-plate throwaways.
 - Any shortcut that would cause a functional, security, or cost problem *in service* is not left silent: it is recorded in the spec's "Spike → production hardening" section and closed properly in its milestone — never band-aided.
 
+## Findings: verify before you build, review before you commit
+
+Added 2026-09-06 after a false flag. A sweep read
+`process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"` in the checkout return path,
+reasoned correctly that an unset variable would strand every paying student on a localhost page,
+called it the most serious finding of the day, and started writing the fix. The variable was set
+in all three environments. `vercel env ls` — which prints names without values — would have
+settled it in thirty seconds, and the owner had already tested payments end-to-end.
+
+**1. Classify every finding before acting on it.**
+
+- **Code-visible** — a wrong branch, a missing guard, a dead link, a rule a comment claims and no
+  test enforces. Reading the code IS the evidence. Fix it.
+- **Conditional** — "if X, then bad thing", where X is runtime state: an env var, a live grant,
+  production data, a provider's behaviour. **Reading the code is not evidence.** The finding is a
+  hypothesis until X is checked.
+
+**2. A conditional finding names its falsifying check, and that check runs first.** Cheap checks
+exist for nearly all of them and are strictly faster than building the wrong fix: `vercel env ls`
+for configuration, `supabase db query --linked` for live schema and grants, `curl` for what a
+deployment actually serves, `supabase migration list` for what is applied. If no cheap check
+exists, ask the owner — they have run the product and often know in one sentence.
+
+**3. Severity is what you verified, never what is possible.** "This would break X if Y" is not
+"this breaks X". Escalating an unverified inference spends the owner's trust on nothing and buries
+the real findings next to it.
+
+**4. Unreviewed work is the exception, not the norm.** Work executed from a plan gets a fresh
+reviewer per task. Ad-hoc sweep fixes committed straight to the branch get none — same author,
+same blind spots, no second pair of eyes, and they land in the same history. Batch them and put
+them through the same review bar before the branch merges.
+
 ## Scope discipline
 - Product = 3 tiers: instant pick (primary) → request offline teacher (fallback) → scheduled (add-on later). Core loop: pick subject → online-now list → pick → teacher accepts → pay → video call.
 - Deferred, do not build without a decision: scheduled tier, Stripe Connect, search/ranking, chat.

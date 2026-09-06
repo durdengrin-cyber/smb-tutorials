@@ -11,6 +11,7 @@ import { requireConsentedUser } from "@/lib/auth";
 import { getPaymentPort, paymentProviderName } from "@/lib/payments";
 import { settleVerifiedEvent } from "@/lib/payments/settle";
 import { amountPaiseFor, effectiveStatus, type SessionStatus } from "@/lib/session";
+import { siteBaseUrl } from "@/lib/site-url";
 
 // Migration 0005 makes every payment column service-role-only on both the
 // insert and update paths, because a user token that can write `payment_ref`
@@ -64,7 +65,20 @@ export async function createCheckout(
   }
 
   const amountPaise = amountPaiseFor(session.hourly_rate, session.duration_minutes);
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  // NOT a fix for a live fault: NEXT_PUBLIC_SITE_URL is set in all three
+  // Vercel environments and checkout returns correctly today. This removes a
+  // footgun, nothing more. The line it replaces ended `?? "http://localhost:3000"`,
+  // so deleting that variable — or adding a fourth environment without it —
+  // would silently send every paying student to a localhost page after their
+  // money had gone. siteBaseUrl() returns null instead of guessing.
+  const base = siteBaseUrl();
+  if (!base) {
+    console.error(
+      "[payment] no site URL resolvable (NEXT_PUBLIC_SITE_URL and VERCEL_URL both unset in " +
+        "production) — refusing to open checkout rather than send a paying student to localhost."
+    );
+    return { error: "Couldn't open the payment page — try again." };
+  }
   const back = `${base}/waiting/${sessionId}`;
 
   try {
