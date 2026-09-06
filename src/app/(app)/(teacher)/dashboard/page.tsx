@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { settleSuspension } from "@/lib/suspension/settle";
@@ -5,6 +6,7 @@ import { DashboardLive } from "./dashboard-live";
 import { SessionHistory } from "./session-history";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { NotificationSetup } from "@/components/notification-setup";
@@ -92,7 +94,14 @@ export default async function DashboardPage() {
 
           <Card>
             <CardContent className="p-6">
-              <h3 className="font-bold text-foreground mb-3">You&apos;re live for</h3>
+              <div className="flex items-center justify-between gap-4 mb-3">
+                <h3 className="font-bold text-foreground">You&apos;re live for</h3>
+                {subjects && subjects.length > 0 && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/profile">Edit subjects</Link>
+                  </Button>
+                )}
+              </div>
               {subjects && subjects.length > 0 ? (
                 <ul className="flex flex-wrap gap-2">
                   {subjects.map((s) => (
@@ -106,7 +115,12 @@ export default async function DashboardPage() {
               ) : (
                 <EmptyState
                   title="No subjects yet"
-                  description="Add subjects from your tutor application to go live for students."
+                  description="Add subjects to your profile to go live for students."
+                  action={
+                    <Button asChild variant="outline">
+                      <Link href="/profile">Add subjects</Link>
+                    </Button>
+                  }
                 />
               )}
             </CardContent>
