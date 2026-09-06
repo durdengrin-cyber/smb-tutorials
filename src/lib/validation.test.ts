@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseSignIn, parseStudentSignUp, parseTutorSignUp } from "./validation";
+import {
+  parseSignIn,
+  parseStudentSignUp,
+  parseTutorSignUp,
+  parseTeacherProfile,
+} from "./validation";
 
 const fd = (o: Record<string, string | string[]>) => {
   const f = new FormData();
@@ -221,5 +226,131 @@ describe("parseTutorSignUp", () => {
       })
     );
     expect(r.ok && r.value.subjects).toHaveLength(1);
+  });
+});
+
+describe("parseTeacherProfile", () => {
+  const base = {
+    fullName: "Dr. Rao",
+    phone: "9876543210",
+    experience: "8",
+    qualification: "PhD Physics",
+    specialization: "Mechanics",
+    teachingLevel: "school",
+    hourlyRate: "500",
+    hoursPerWeek: "10-20",
+    demoVideoUrl: "https://youtu.be/abc",
+    bio: "I teach physics with a focus on problem solving.",
+    curricula: ["CBSE"],
+    grades: ["11th", "12th"],
+    subjects: ["Science|Physics", "Science|Chemistry"],
+  };
+
+  it("accepts a full edit and expands subjects the same way signup does", () => {
+    const r = parseTeacherProfile(fd(base));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.subjects).toHaveLength(4); // 1 curriculum × 2 grades × 2 subjects
+      expect(r.value.hourlyRate).toBe(500);
+      expect(r.value.bio).toBe("I teach physics with a focus on problem solving.");
+    }
+  });
+
+  // parseTeacherProfile must not be able to smuggle account fields through —
+  // email is auth-managed and role is immutable by design (migration 0013).
+  it("carries no email, password, consent or role even when the form sends them", () => {
+    const r = parseTeacherProfile(
+      fd({ ...base, email: "x@y.com", password: "whatever8", consent: "yes", role: "admin" })
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const value = r.value as unknown as Record<string, unknown>;
+      expect(value).not.toHaveProperty("email");
+      expect(value).not.toHaveProperty("password");
+      expect(value).not.toHaveProperty("consent");
+      expect(value).not.toHaveProperty("role");
+    }
+  });
+
+  it("rejects a blank full name", () => {
+    expect(parseTeacherProfile(fd({ ...base, fullName: "" })).ok).toBe(false);
+  });
+
+  it("rejects a phone number that is not 10 digits", () => {
+    expect(parseTeacherProfile(fd({ ...base, phone: "12345" })).ok).toBe(false);
+  });
+
+  it("rejects a blank experience field rather than reading it as zero", () => {
+    expect(parseTeacherProfile(fd({ ...base, experience: "" })).ok).toBe(false);
+  });
+
+  it("rejects a blank qualification", () => {
+    expect(parseTeacherProfile(fd({ ...base, qualification: "" })).ok).toBe(false);
+  });
+
+  it("treats optional specialization and teaching level as null", () => {
+    const r = parseTeacherProfile(
+      fd({ ...base, specialization: "", teachingLevel: "" })
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.specialization).toBeNull();
+      expect(r.value.teachingLevel).toBeNull();
+    }
+  });
+
+  it("rejects a non-positive hourly rate", () => {
+    expect(parseTeacherProfile(fd({ ...base, hourlyRate: "0" })).ok).toBe(false);
+  });
+
+  it("rejects an hours-per-week value outside the allowed set", () => {
+    expect(parseTeacherProfile(fd({ ...base, hoursPerWeek: "100+" })).ok).toBe(false);
+  });
+
+  it("rejects a demo video link that is not http(s)", () => {
+    expect(parseTeacherProfile(fd({ ...base, demoVideoUrl: "ftp://example.com/x" })).ok).toBe(
+      false
+    );
+  });
+
+  it("rejects an invalid curriculum", () => {
+    expect(parseTeacherProfile(fd({ ...base, curricula: ["IB"] })).ok).toBe(false);
+  });
+
+  it("rejects empty grades", () => {
+    expect(parseTeacherProfile(fd({ ...base, grades: [] })).ok).toBe(false);
+  });
+
+  // A teacher with zero subjects is invisible in search and has no other way
+  // to find out why — the rejection has to say so, not just fail silently.
+  it("rejects zero subjects with a message explaining why that matters", () => {
+    const r = parseTeacherProfile(fd({ ...base, subjects: [] }));
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/subject/i);
+    expect(!r.ok && r.error).toMatch(/search/i);
+  });
+
+  it("rejects a bio over the 1000 character cap", () => {
+    const tooLong = "a".repeat(1001);
+    expect(parseTeacherProfile(fd({ ...base, bio: tooLong })).ok).toBe(false);
+  });
+
+  it("accepts a bio at exactly the 1000 character cap", () => {
+    const exact = "a".repeat(1000);
+    const r = parseTeacherProfile(fd({ ...base, bio: exact }));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.bio).toBe(exact);
+  });
+
+  it("treats a blank bio as null", () => {
+    const r = parseTeacherProfile(fd({ ...base, bio: "   " }));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.bio).toBeNull();
+  });
+
+  it("trims bio whitespace", () => {
+    const r = parseTeacherProfile(fd({ ...base, bio: "  hello there  " }));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.bio).toBe("hello there");
   });
 });
