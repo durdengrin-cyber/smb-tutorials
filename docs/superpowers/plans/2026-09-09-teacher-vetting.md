@@ -521,13 +521,23 @@ git commit -m "feat(vetting): the operator is pushed the moment a teacher applie
 
 - [ ] **Step 1: Carry the state on `Identity`**
 
-In `src/lib/auth.ts`, add `vettingState: VettingState` to the `Identity` interface, add `vetting_state` to the profile `select(...)` list, and map it through with a defensive default:
+**Do NOT add `vetting_state` to the profile `select(...)` list.** `0020` revokes column-level SELECT on the vetting columns from `anon` and `authenticated`, because the profiles select policy makes every teacher row world-readable and that would publish who is suspended. The teacher's own state comes from the `my_vetting_state()` RPC instead.
+
+In `src/lib/auth.ts`, add `vettingState: VettingState` to the `Identity` interface, and after the existing profile read:
 
 ```typescript
-    vettingState: isVettingState(row.vetting_state) ? row.vetting_state : "unvetted",
+  const { data: vetting } = await supabase.rpc("my_vetting_state");
+```
+
+then map it through with a defensive default:
+
+```typescript
+    vettingState: isVettingState(vetting ?? "") ? vetting : "unvetted",
 ```
 
 Defaulting to `unvetted` rather than `cleared` matters: an unreadable or unexpected value must fail closed, never open.
+
+**Also update every `Identity` literal in the test suite** — `sessions/actions.test.ts`, `dashboard/actions.test.ts` and `availability-toggle.test.tsx` construct them, and a new required field fails `tsc`.
 
 - [ ] **Step 2: Create the banner**
 

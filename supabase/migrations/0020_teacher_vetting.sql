@@ -9,7 +9,7 @@
 alter table public.profiles
   add column if not exists vetting_state text not null default 'unvetted',
   add column if not exists vetted_at     timestamptz,
-  add column if not exists vetted_by     uuid references public.profiles (id),
+  add column if not exists vetted_by     uuid references public.profiles (id) on delete set null,
   add column if not exists vetting_note  text;
 
 alter table public.profiles drop constraint if exists profiles_vetting_state_check;
@@ -86,7 +86,8 @@ as $$
     );
 $$;
 
-revoke all on function public.available_teachers(text, text, text, text) from public;
+revoke all on function public.available_teachers(text, text, text, text)
+  from public, anon, authenticated;
 grant execute on function public.available_teachers(text, text, text, text) to authenticated;
 
 -- Clearing is a privileged write, so it goes through a function rather than a
@@ -102,7 +103,7 @@ create or replace function public.set_vetting_state(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_actor uuid := auth.uid();
@@ -121,13 +122,24 @@ begin
     raise exception 'invalid vetting state: %', p_state;
   end if;
 
+  -- Transaction-local, reset at commit so it cannot leak into a later statement
+  -- on a pooled connection. PostgREST gives a client no way to call set_config,
+  -- so an ordinary UPDATE can never arrive with this flag on. Mirrors 0013.
+  perform set_config('app.allow_vetting_change', 'on', true);
+
   update public.profiles
      set vetting_state = p_state,
-         -- vetted_at records when the CHECK happened, so it is stamped only on
-         -- the transition that means "a person looked": clearing.
+         -- vetted_at and vetted_by record WHO DID THE CHECK and when, so they
+         -- move together and only on the transition that means "a person
+         -- looked": clearing. Stamping vetted_by on every transition would let
+         -- a later suspension overwrite the only record of who cleared this
+         -- teacher, leaving the row reading "cleared at T by X" where X never
+         -- cleared anyone (spec §10 exists to preserve exactly that record).
          vetted_at    = case when p_state = 'cleared' then now() else vetted_at end,
-         vetted_by    = v_actor,
-         vetting_note = p_note
+         vetted_by    = case when p_state = 'cleared' then v_actor else vetted_by end,
+         -- coalesce, not assignment: a caller that omits a note must not erase
+         -- the note someone else wrote.
+         vetting_note = coalesce(p_note, vetting_note)
    where id = p_teacher_id
      and role = 'teacher';
 
@@ -137,5 +149,83 @@ begin
 end;
 $$;
 
-revoke all on function public.set_vetting_state(uuid, text, text) from public;
+revoke all on function public.set_vetting_state(uuid, text, text)
+  from public, anon, authenticated;
 grant execute on function public.set_vetting_state(uuid, text, text) to authenticated;
+
+-- 4. The gate must not be openable by the person it gates -------------------
+--
+-- THE HOLE THIS CLOSES, and it is 0013's hole on a new column. 0001's policy
+-- is `for update using (id = auth.uid())`. It constrains WHO may update a row
+-- and says nothing about WHICH COLUMNS, and Supabase grants `authenticated`
+-- UPDATE on the table. 0013 closed that for `role` alone. Without the trigger
+-- below, a teacher holding nothing but the anon key that ships in the browser
+-- bundle could
+--
+--     PATCH /rest/v1/profiles?id=eq.<self>  {"vetting_state":"cleared"}
+--
+-- and publish themselves to the student roster unvetted — an adult matched one
+-- to one on video with a child, which is the exact configuration §10 exists to
+-- prevent. vetted_at, vetted_by and vetting_note are forgeable the same way,
+-- so all four move together.
+--
+-- Gated on a transaction-local setting rather than a role-name allowlist, for
+-- 0013's reasons: an allowlist silently grants any role added later, and the
+-- name a definer function runs under is an implementation detail.
+--
+-- SECURITY INVOKER on purpose (the default): it needs no privilege of its own.
+create or replace function public.profiles_vetting_immutable()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if (new.vetting_state is distinct from old.vetting_state
+      or new.vetted_at    is distinct from old.vetted_at
+      or new.vetted_by    is distinct from old.vetted_by
+      or new.vetting_note is distinct from old.vetting_note)
+     and coalesce(current_setting('app.allow_vetting_change', true), '') <> 'on'
+  then
+    raise exception
+      'profiles vetting columns cannot be changed directly (use set_vetting_state)';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_vetting_immutable on public.profiles;
+create trigger profiles_vetting_immutable
+  before update on public.profiles
+  for each row execute function public.profiles_vetting_immutable();
+
+-- 5. Vetting state is not public information --------------------------------
+--
+-- The select policy on profiles is `role = 'teacher' or id = auth.uid()`, so
+-- every teacher row is world-readable — that is deliberate, it is how students
+-- browse. But it would also publish who is `suspended` or `removed` and any
+-- note written about them, to anonymous visitors. Column-level revokes keep
+-- the row public and the judgement private.
+--
+-- Safe against `select *`: every profiles read in this codebase names its
+-- columns (verified 2026-09-09), so no existing query breaks.
+revoke select (vetting_state, vetted_at, vetted_by, vetting_note)
+  on public.profiles from anon, authenticated;
+
+-- The one thing a teacher legitimately needs: their OWN state, for the banner
+-- that tells them why no requests are arriving. Returns nothing about anyone
+-- else, and no note — the note is the operator's working record, not a message
+-- to the teacher.
+create or replace function public.my_vetting_state()
+returns text
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select p.vetting_state
+    from public.profiles p
+   where p.id = auth.uid();
+$$;
+
+revoke all on function public.my_vetting_state() from public, anon, authenticated;
+grant execute on function public.my_vetting_state() to authenticated;
