@@ -262,3 +262,20 @@ export function parseTeacherProfile(fd: FormData): Result<TeacherProfile> {
 
   return { ok: true, value: { ...fields.value, bio: bioRaw || null } };
 }
+
+// Setting a password after a recovery link. Same floor as signup: a reset that
+// accepted something weaker would be the cheapest way to downgrade an account.
+//
+// raw(), not str(): a password is not trimmed. Leading and trailing spaces are
+// legitimate characters, and stripping them stores something the person did not
+// type — which then fails to sign them in, with no visible reason.
+export function parseNewPassword(
+  fd: FormData
+): Result<{ password: string }> {
+  const password = raw(fd, "password");
+  const confirm = raw(fd, "confirmPassword");
+  if (password.length < 8)
+    return fail("Password must be at least 8 characters.");
+  if (password !== confirm) return fail("Passwords do not match.");
+  return { ok: true, value: { password } };
+}

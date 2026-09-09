@@ -4,7 +4,8 @@ import {
   parseStudentSignUp,
   parseTutorSignUp,
   parseTeacherProfile,
-} from "./validation";
+  parseNewPassword,
+}  from "./validation";
 
 const fd = (o: Record<string, string | string[]>) => {
   const f = new FormData();
@@ -449,5 +450,42 @@ describe("parseTutorSignUp and parseTeacherProfile validate profile fields ident
     expect(a.ok).toBe(false);
     expect(b.ok).toBe(false);
     expect(!a.ok && a.error).toBe(!b.ok && b.error);
+  });
+});
+
+describe("parseNewPassword", () => {
+  const fd = (password: string, confirmPassword: string) => {
+    const f = new FormData();
+    f.set("password", password);
+    f.set("confirmPassword", confirmPassword);
+    return f;
+  };
+
+  // Same floor as signup. A reset that accepted a weaker password than signup
+  // would be the cheapest way to downgrade an account's security.
+  it("rejects a password shorter than 8 characters", () => {
+    const r = parseNewPassword(fd("short", "short"));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/8 characters/);
+  });
+
+  it("rejects a mismatched confirmation", () => {
+    const r = parseNewPassword(fd("longenough1", "longenough2"));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/do not match/i);
+  });
+
+  // Not trimmed: leading and trailing spaces are legitimate password
+  // characters, and silently stripping them means the password someone typed
+  // is not the password that was stored.
+  it("preserves surrounding whitespace rather than trimming it", () => {
+    const r = parseNewPassword(fd("  spaced8  ", "  spaced8  "));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.password).toBe("  spaced8  ");
+  });
+
+  it("accepts a valid matching pair", () => {
+    const r = parseNewPassword(fd("goodpassword", "goodpassword"));
+    expect(r.ok).toBe(true);
   });
 });

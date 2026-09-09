@@ -71,8 +71,8 @@ export function SignInForm({
             <input type="checkbox" className="mr-2" />
             <span className="text-muted-foreground">Remember me</span>
           </label>
-          <Button type="button" variant="link" className="h-auto p-0">
-            Forgot password?
+          <Button asChild variant="link" className="h-auto p-0">
+            <Link href="/forgot-password">Forgot password?</Link>
           </Button>
         </div>
 
