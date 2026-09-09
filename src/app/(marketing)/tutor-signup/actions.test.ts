@@ -96,7 +96,7 @@ function validTutorFormData(): FormData {
   fd.set("qualification", "PhD in Physics");
   fd.set("hourlyRate", "500");
   fd.set("hoursPerWeek", "10-20");
-  fd.set("demoVideoUrl", "https://youtube.com/watch?v=abc");
+  fd.set("demoVideoUrl", "https://youtube.com/watch?v=dQw4w9WgXcQ");
   fd.append("curricula", "CBSE");
   fd.append("grades", "10th");
   fd.append("subjects", "Science|Physics");

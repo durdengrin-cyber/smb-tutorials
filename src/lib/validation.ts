@@ -122,6 +122,68 @@ export function parseStudentSignUp(fd: FormData): Result<StudentSignUp> {
   };
 }
 
+// Hosts YouTube actually serves videos from. Checked against URL.hostname and
+// never by substring: "notyoutube.com" and "youtube.com.evil.tld" both
+// contain "youtube.com", and a demo video is the one artefact a vetting
+// operator opens for a stranger who wants to be put in front of a child.
+const YOUTUBE_HOSTS = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "youtu.be",
+  "www.youtu.be",
+]);
+
+// YouTube ids have been exactly 11 characters of [A-Za-z0-9_-] for the
+// platform's entire life. Pinning the length is what turns a typo into a
+// rejection at signup rather than a dead link in front of an operator.
+const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+
+/**
+ * The video id in a YouTube URL, or null if this is not one.
+ *
+ * Accepts every shape a teacher can plausibly paste: watch links, youtu.be
+ * short links, /shorts/ and /embed/, the mobile host, with or without www,
+ * over http or https, and — importantly — carrying the ?si= tracking
+ * parameter that YouTube's own "Share -> Copy link" appends. Rejecting that
+ * last one would fail every teacher who followed our instructions exactly.
+ */
+export function youTubeVideoId(raw: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+
+  const host = url.hostname.toLowerCase();
+  if (!YOUTUBE_HOSTS.has(host)) return null;
+
+  const segments = url.pathname.split("/").filter(Boolean);
+  let id: string | null = null;
+
+  if (host === "youtu.be" || host === "www.youtu.be") {
+    id = segments[0] ?? null;
+  } else if (segments[0] === "watch") {
+    id = url.searchParams.get("v");
+  } else if (segments[0] === "shorts" || segments[0] === "embed" || segments[0] === "v") {
+    id = segments[1] ?? null;
+  }
+
+  return id && YOUTUBE_ID.test(id) ? id : null;
+}
+
+/**
+ * One stored shape for every accepted link. Storing canonical means /admin
+ * always renders the same URL regardless of which form the teacher pasted,
+ * and the share tracking parameter never reaches the database.
+ */
+export function canonicalYouTubeUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
 // Subjects arrive as repeated "subjects" entries encoded "Stream|Subject";
 // curricula and grades as repeated checkbox entries. The three are expanded into
 // one row per (curriculum, grade, stream, subject) — the shape teacher_subjects
@@ -159,9 +221,16 @@ function parseTeacherProfileFields(fd: FormData): Result<TeacherProfileFields> {
   if (!HOURS_PER_WEEK.includes(hoursPerWeek))
     return fail("Select your available hours per week.");
 
-  const demoVideoUrl = str(fd, "demoVideoUrl");
-  if (!/^https?:\/\//.test(demoVideoUrl))
-    return fail("Enter a valid demo video link.");
+  // Was /^https?:\/\//, which accepted any URL on the internet. Google Drive
+  // is deliberately no longer accepted: a Drive link can be un-shared after
+  // an operator approves it, so what was vetted and what a student later sees
+  // are not the same artefact.
+  const videoId = youTubeVideoId(str(fd, "demoVideoUrl"));
+  if (videoId === null)
+    return fail(
+      "Enter a YouTube link for your demo video (youtube.com or youtu.be). Other hosts aren't accepted."
+    );
+  const demoVideoUrl = canonicalYouTubeUrl(videoId);
 
   const curricula = all(fd, "curricula");
   if (curricula.length === 0) return fail("Select at least one curriculum.");

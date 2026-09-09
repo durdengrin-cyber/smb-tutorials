@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { signUpTutor } from "./actions";
 import { SubjectPicker } from "@/components/subject-picker";
 import { FormError } from "@/components/form-error";
+import { DemoVideoGuide } from "@/components/demo-video-guide";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -172,12 +173,11 @@ export function TutorForm() {
       <div>
         <h3 className="text-xl font-bold text-foreground mb-4">Demo Video</h3>
         <div className="space-y-3">
-          <Label htmlFor="tutor-demoVideoUrl">
-            Demo Video Link (YouTube or Google Drive) *
-          </Label>
+          <Label htmlFor="tutor-demoVideoUrl">Demo Video Link (YouTube) *</Label>
           <p className="text-sm text-muted-foreground mb-3">
-            Upload your 2-5 minute demo video to YouTube or Google Drive, then
-            paste the link here. This helps students see your teaching style.
+            Upload your 2-5 minute demo video to YouTube as Unlisted, then paste
+            the link here. This is what we check before approving you, and what
+            students watch when choosing a tutor.
           </p>
 
           <Input
@@ -185,47 +185,21 @@ export function TutorForm() {
             type="url"
             name="demoVideoUrl"
             required
-            placeholder="https://www.youtube.com/watch?v=... or https://drive.google.com/file/d/..."
+            placeholder="https://youtu.be/..."
           />
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800 mb-2">
-              <strong> How to Upload Your Demo Video:</strong>
-            </p>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-semibold text-blue-900">
-                  YouTube (Recommended):
-                </p>
-                <ol className="text-sm text-blue-700 mt-1 ml-4 space-y-1">
-                  <li>1. Upload to YouTube (can be Unlisted)</li>
-                  <li>2. Click Share → Copy link</li>
-                  <li>3. Paste link above</li>
-                </ol>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-blue-900">
-                  Google Drive:
-                </p>
-                <ol className="text-sm text-blue-700 mt-1 ml-4 space-y-1">
-                  <li>1. Upload to Google Drive</li>
-                  <li>2. Right-click → Share → Anyone with link</li>
-                  <li>3. Copy link and paste above</li>
-                </ol>
-              </div>
-            </div>
-          </div>
+          <DemoVideoGuide />
 
           <div className="bg-muted border border-border rounded-lg p-4">
-            <p className="text-sm text-primary">
-              <strong> Demo Video Tips:</strong>
+            <p className="text-sm font-semibold text-foreground">
+              What makes a good demo
             </p>
-            <ul className="text-sm text-primary mt-2 space-y-1 ml-4">
-              <li>• Good lighting and clear audio</li>
-              <li>• Explain a concept step-by-step</li>
-              <li>• Use whiteboard or screen sharing</li>
-              <li>• Be enthusiastic and engaging</li>
-              <li>• Keep it 2-5 minutes long</li>
+            <ul className="text-sm text-muted-foreground mt-2 space-y-1 ml-4 list-disc">
+              <li>Good lighting and clear audio</li>
+              <li>Explain a concept step-by-step</li>
+              <li>Use a whiteboard or screen sharing</li>
+              <li>Be enthusiastic and engaging</li>
+              <li>Keep it 2-5 minutes long</li>
             </ul>
           </div>
         </div>

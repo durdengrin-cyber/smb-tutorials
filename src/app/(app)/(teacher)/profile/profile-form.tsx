@@ -189,16 +189,18 @@ export function ProfileForm(values: ProfileFormValues) {
       <div>
         <h3 className="text-xl font-bold text-foreground mb-4">Demo Video</h3>
         <div className="space-y-2">
-          <Label htmlFor="profile-demoVideoUrl">
-            Demo Video Link (YouTube or Google Drive) *
-          </Label>
+          <Label htmlFor="profile-demoVideoUrl">Demo Video Link (YouTube) *</Label>
+          <p className="text-sm text-muted-foreground">
+            An Unlisted YouTube link — this is what students watch when choosing
+            a tutor.
+          </p>
           <Input
             id="profile-demoVideoUrl"
             type="url"
             name="demoVideoUrl"
             required
             defaultValue={values.demoVideoUrl}
-            placeholder="https://www.youtube.com/watch?v=... or https://drive.google.com/file/d/..."
+            placeholder="https://youtu.be/..."
           />
         </div>
       </div>

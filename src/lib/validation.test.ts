@@ -5,6 +5,7 @@ import {
   parseTutorSignUp,
   parseTeacherProfile,
   parseNewPassword,
+  youTubeVideoId,
 }  from "./validation";
 
 const fd = (o: Record<string, string | string[]>) => {
@@ -138,6 +139,85 @@ describe("parseStudentSignUp", () => {
   });
 });
 
+
+// The demo video is the only thing a vetting operator can judge a stranger by
+// before that stranger is put in front of a child, so it has to actually
+// resolve. The old rule was /^https?:\/\//, which accepted any URL on the
+// internet — including a Google Drive link that can be un-shared after
+// approval, which is why Drive is no longer offered.
+describe("youTubeVideoId", () => {
+  const ID = "dQw4w9WgXcQ"; // 11 chars, the only length YouTube has ever used
+
+  it("accepts a standard watch link", () => {
+    expect(youTubeVideoId(`https://www.youtube.com/watch?v=${ID}`)).toBe(ID);
+  });
+
+  it("accepts a youtu.be short link", () => {
+    expect(youTubeVideoId(`https://youtu.be/${ID}`)).toBe(ID);
+  });
+
+  // YouTube's own Share -> Copy link appends a tracking parameter. Rejecting
+  // it would fail every teacher who follows our instructions exactly, which
+  // is the single most likely way this validator could break signup.
+  it("accepts the share link YouTube actually produces, with ?si=", () => {
+    expect(youTubeVideoId(`https://youtu.be/${ID}?si=AbCdEfGhIjKlMnOp`)).toBe(ID);
+  });
+
+  it("accepts a timestamped link", () => {
+    expect(youTubeVideoId(`https://www.youtube.com/watch?v=${ID}&t=42s`)).toBe(ID);
+  });
+
+  it("accepts the mobile host, which is what a phone pastes", () => {
+    expect(youTubeVideoId(`https://m.youtube.com/watch?v=${ID}`)).toBe(ID);
+  });
+
+  it("accepts a link with no www", () => {
+    expect(youTubeVideoId(`https://youtube.com/watch?v=${ID}`)).toBe(ID);
+  });
+
+  it("accepts shorts and embed forms", () => {
+    expect(youTubeVideoId(`https://www.youtube.com/shorts/${ID}`)).toBe(ID);
+    expect(youTubeVideoId(`https://www.youtube.com/embed/${ID}`)).toBe(ID);
+  });
+
+  it("accepts http as well as https", () => {
+    expect(youTubeVideoId(`http://youtu.be/${ID}`)).toBe(ID);
+  });
+
+  it("rejects Google Drive, the path this change removes", () => {
+    expect(youTubeVideoId("https://drive.google.com/file/d/1a2b3c/view")).toBeNull();
+  });
+
+  it("rejects an arbitrary URL the old rule accepted", () => {
+    expect(youTubeVideoId("https://example.com/my-demo.mp4")).toBeNull();
+  });
+
+  it("rejects a non-http scheme", () => {
+    expect(youTubeVideoId("ftp://example.com/x")).toBeNull();
+  });
+
+  it("rejects a YouTube URL carrying no video id", () => {
+    expect(youTubeVideoId("https://www.youtube.com/watch?v=")).toBeNull();
+    expect(youTubeVideoId("https://www.youtube.com/")).toBeNull();
+  });
+
+  it("rejects an id of the wrong length", () => {
+    expect(youTubeVideoId("https://youtu.be/abc")).toBeNull();
+    expect(youTubeVideoId(`https://youtu.be/${ID}XX`)).toBeNull();
+  });
+
+  // A host that merely ends in something youtube-ish must not pass:
+  // notyoutube.com and youtube.com.evil.tld are both attacker-controlled.
+  it("rejects lookalike hosts", () => {
+    expect(youTubeVideoId(`https://notyoutube.com/watch?v=${ID}`)).toBeNull();
+    expect(youTubeVideoId(`https://youtube.com.evil.tld/watch?v=${ID}`)).toBeNull();
+  });
+
+  it("tolerates surrounding whitespace from a paste", () => {
+    expect(youTubeVideoId(`  https://youtu.be/${ID}  `)).toBe(ID);
+  });
+});
+
 describe("parseTutorSignUp", () => {
   const base = {
     fullName: "Dr. Rao",
@@ -150,7 +230,7 @@ describe("parseTutorSignUp", () => {
     teachingLevel: "school",
     hourlyRate: "500",
     hoursPerWeek: "10-20",
-    demoVideoUrl: "https://youtu.be/abc",
+    demoVideoUrl: "https://youtu.be/dQw4w9WgXcQ",
     curricula: ["CBSE"],
     grades: ["11th", "12th"],
     subjects: ["Science|Physics", "Science|Chemistry"],
@@ -271,7 +351,7 @@ describe("parseTeacherProfile", () => {
     teachingLevel: "school",
     hourlyRate: "500",
     hoursPerWeek: "10-20",
-    demoVideoUrl: "https://youtu.be/abc",
+    demoVideoUrl: "https://youtu.be/dQw4w9WgXcQ",
     bio: "I teach physics with a focus on problem solving.",
     curricula: ["CBSE"],
     grades: ["11th", "12th"],
@@ -339,10 +419,26 @@ describe("parseTeacherProfile", () => {
     expect(parseTeacherProfile(fd({ ...base, hoursPerWeek: "100+" })).ok).toBe(false);
   });
 
-  it("rejects a demo video link that is not http(s)", () => {
+  it("rejects a demo video link that is not a YouTube video", () => {
     expect(parseTeacherProfile(fd({ ...base, demoVideoUrl: "ftp://example.com/x" })).ok).toBe(
       false
     );
+    expect(
+      parseTeacherProfile(fd({ ...base, demoVideoUrl: "https://drive.google.com/file/d/1a2b/view" }))
+        .ok
+    ).toBe(false);
+  });
+
+  // Stored canonical, so /admin always links the same shape and the share
+  // tracking parameter never reaches the database.
+  it("normalises an accepted demo video link to its canonical form", () => {
+    const r = parseTeacherProfile(
+      fd({ ...base, demoVideoUrl: "https://youtu.be/dQw4w9WgXcQ?si=TRACKING" })
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.demoVideoUrl).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    }
   });
 
   it("rejects an invalid curriculum", () => {
@@ -406,7 +502,7 @@ describe("parseTutorSignUp and parseTeacherProfile validate profile fields ident
     teachingLevel: "school",
     hourlyRate: "500",
     hoursPerWeek: "10-20",
-    demoVideoUrl: "https://youtu.be/abc",
+    demoVideoUrl: "https://youtu.be/dQw4w9WgXcQ",
     curricula: ["CBSE"],
     grades: ["11th", "12th"],
     subjects: ["Science|Physics"],
@@ -421,7 +517,7 @@ describe("parseTutorSignUp and parseTeacherProfile validate profile fields ident
     teachingLevel: "school",
     hourlyRate: "500",
     hoursPerWeek: "10-20",
-    demoVideoUrl: "https://youtu.be/abc",
+    demoVideoUrl: "https://youtu.be/dQw4w9WgXcQ",
     bio: "",
     curricula: ["CBSE"],
     grades: ["11th", "12th"],

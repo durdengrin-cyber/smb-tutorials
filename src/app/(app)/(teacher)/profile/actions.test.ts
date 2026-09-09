@@ -85,7 +85,7 @@ function validFormData(): FormData {
   set("teachingLevel", "school");
   set("hourlyRate", "600");
   set("hoursPerWeek", "10-20");
-  set("demoVideoUrl", "https://youtu.be/abc");
+  set("demoVideoUrl", "https://youtu.be/dQw4w9WgXcQ");
   set("bio", "Hello students");
   set("curricula", "CBSE");
   set("grades", ["11th", "12th"]);

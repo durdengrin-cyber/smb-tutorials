@@ -23,7 +23,7 @@ export function SignInForm({
     <div className="bg-card rounded-2xl shadow-xl p-8 border border-hair">
       <div className="text-center mb-8">
         <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-          <span className="text-white font-bold text-2xl">SMB</span>
+          <span className="text-primary-foreground font-bold text-2xl">SMB</span>
         </div>
         <h1 className="text-3xl font-bold text-foreground mb-2">Sign In</h1>
         <p className="text-muted-foreground">Access your account</p>
