@@ -5,6 +5,28 @@
 **Branch: `feat/teacher-vetting` @ `7bef05c`, pushed. Tree clean. It now contains every other
 branch's work, `main` included — shipping is one fast-forward, not a merge.**
 
+### Migration 0023 is APPLIED (2026-09-09, evening)
+`supabase db push` run by the owner; `scripts/probe-revetting.mjs` 7/7 against production;
+`supabase migration list` shows 23 migrations, all LOCAL == REMOTE.
+
+**A teacher who replaces their demo video returns to `unvetted`.** The gate used to protect the
+moment of approval and nothing after it: a cleared teacher could paste a different link and
+students saw a video nobody watched. Enforced in `profiles_vetting_immutable` (one function owns
+"when may vetting_state change?"), forced in a BEFORE trigger so it catches a direct PATCH with
+the anon key, not just the profile form.
+
+**Deploy coupling — the profile form now says "Changing it sends your profile back for review".
+That is true only because 0023 is applied.** `profile-claims.test.ts` fails if the copy exists
+without the migration, and vice versa.
+
+**Not covered by the probe, by design:** reaching `cleared` needs an admin, and
+`handle_new_user` coerces every role that is not `teacher` to `student`, so no throwaway admin
+exists over REST. The positive path is a documented half-minute manual check in the probe's
+header, using `Task13 Tutor Verify`.
+
+**Still deferred:** `full_name` does not reset vetting, though the operator checks the ID against
+it. One more column in the same `IS DISTINCT FROM` when you want it.
+
 ### Branches: there are now two, and that is deliberate (2026-09-09)
 `origin` carries **`main` and `feat/teacher-vetting`, nothing else.** Six branches were deleted
 after each was proven to have zero commits unreachable from `feat/teacher-vetting`. Older text

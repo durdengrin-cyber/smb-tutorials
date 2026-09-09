@@ -52,3 +52,30 @@ describe("the admin page's vetting controls", () => {
     expect(PAGE).toMatch(/\.is\("lifted_at", null\)/);
   });
 });
+
+// The badge is a claim about what students can reach, so it must apply the
+// SAME conjunction available_teachers applies. It once read vetting and
+// suspension only and printed "live" beside a cleared teacher who had never
+// gone online — checked against production on 2026-09-09, where Task13 Tutor
+// Verify showed "live" with availability of null.
+describe("the live badge tells the truth about the roster", () => {
+  it("requires all three gates, not two", () => {
+    expect(PAGE).toMatch(/const pickable = cleared && !suspended && isOnline/);
+  });
+
+  // Narrowed in SQL, not in the component: a second clock in JavaScript is a
+  // second clock to disagree with the database's, and reading "now" during
+  // render is impure besides.
+  it("reads availability, and lets the database rule on a lapsed lease", () => {
+    expect(PAGE).toMatch(/from\("teacher_availability"\)/);
+    expect(PAGE).toMatch(/\.eq\("declared", true\)/);
+    expect(PAGE).toMatch(/\.gt\("declared_until"/);
+    expect(PAGE).not.toMatch(/Date\.now\(\)/);
+  });
+
+  // Cleared-but-offline is not the operator's problem to fix, and must not
+  // look like an un-cleared teacher waiting on them.
+  it("distinguishes offline from not-cleared", () => {
+    expect(PAGE).toMatch(/offline/);
+  });
+});

@@ -16,7 +16,8 @@ export default async function AdminPage() {
   // admin check above already gated getting here; this client only reads what
   // that check already authorized.
   const supabase = createDispatchClient();
-  const [{ data: teachers }, { data: openSuspensions }] = await Promise.all([
+  const [{ data: teachers }, { data: openSuspensions }, { data: availability }] =
+    await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name, phone, demo_video_url, vetting_state, created_at")
@@ -30,11 +31,26 @@ export default async function AdminPage() {
       .from("teacher_suspensions")
       .select("teacher_id, suspended_at")
       .is("lifted_at", null),
+    // available_teachers gates on THREE things, so this page must too. It
+      // previously read vetting and suspension only, and printed "live" beside
+    // a cleared teacher who had never gone online — telling the operator
+    // someone was reachable by students when they were not.
+    // Filtered in the query rather than in the component: available_teachers
+    // makes the same comparison in SQL, and reading "now" during render is
+    // both impure and a second clock to disagree with the database's.
+    supabase
+      .from("teacher_availability")
+      .select("teacher_id")
+      .eq("declared", true)
+      .gt("declared_until", new Date().toISOString()),
   ]);
 
   const suspendedAt = new Map(
     (openSuspensions ?? []).map((s) => [s.teacher_id, s.suspended_at as string])
   );
+  // Already narrowed by the query above to declared, unlapsed leases —
+  // available_teachers' own test, made once, in the database.
+  const online = new Set((availability ?? []).map((a) => a.teacher_id));
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -48,9 +64,11 @@ export default async function AdminPage() {
         {(teachers ?? []).map((t) => {
           const suspended = suspendedAt.get(t.id);
           const cleared = t.vetting_state === "cleared";
-          // Cleared AND not suspended is the only combination a student can
-          // reach: available_teachers requires both.
-          const pickable = cleared && !suspended;
+          const isOnline = online.has(t.id);
+          // The exact conjunction available_teachers applies. Anything less
+          // here is a claim on the operator's screen that the roster does not
+          // honour.
+          const pickable = cleared && !suspended && isOnline;
 
           return (
             <li key={t.id} className="grid gap-3 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -68,6 +86,13 @@ export default async function AdminPage() {
                   {pickable ? (
                     <span className="ml-2 rounded-sm bg-success/15 px-1.5 py-0.5 font-mono text-xs text-success">
                       live
+                    </span>
+                  ) : cleared && !suspended ? (
+                    // Cleared and clean, but not online. Worth distinguishing
+                    // from "not cleared": there is nothing for the operator to
+                    // do about it.
+                    <span className="ml-2 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                      offline
                     </span>
                   ) : null}
                 </p>
