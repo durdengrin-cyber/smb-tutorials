@@ -11,6 +11,10 @@
 # before starting, and because `main` being stale looks exactly like `main`
 # being current. This script makes both states impossible to miss.
 #
+# (Historical note, 2026-09-09: feat/visual-identity-tokens no longer exists. It was
+# absorbed into feat/teacher-vetting and deleted along with four other branches, all
+# proven fully contained. The story above is why this script exists, not current state.)
+#
 # Always exits 0. It reports; it never blocks. A check that blocks gets disabled.
 
 set -uo pipefail

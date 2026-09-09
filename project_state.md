@@ -2,8 +2,34 @@
 
 ## ▶ START HERE (updated 2026-09-09)
 
-**Branch: `feat/teacher-vetting` @ `d864bd0`, pushed. Tree clean. Cut from
-`origin/feat/visual-identity-tokens`, NOT from `main`.**
+**Branch: `feat/teacher-vetting` @ `7bef05c`, pushed. Tree clean. It now contains every other
+branch's work, `main` included — shipping is one fast-forward, not a merge.**
+
+### Branches: there are now two, and that is deliberate (2026-09-09)
+`origin` carries **`main` and `feat/teacher-vetting`, nothing else.** Six branches were deleted
+after each was proven to have zero commits unreachable from `feat/teacher-vetting`. Older text
+in this file and in the handoffs still points at `feat/visual-identity-tokens` — **that branch no
+longer exists**; its 87 commits are a subset of this branch's 100. Read `feat/teacher-vetting`
+wherever a doc names it, `m3-payments`, or `cycle-2/durable-availability`.
+
+Recovery, if ever needed (`git branch <name> <tip>`; git keeps unreachable objects ~90 days):
+
+| deleted branch | tip |
+|---|---|
+| `cycle-2/durable-availability` | `525e29e` |
+| `m3-payments` | `cad3783` |
+| `feat/visual-identity-tokens` | `ba73f13` |
+| `m2-presence-instant-pick` | `790db95` |
+| `redesign/ia-design-system` | `35fc5fc` |
+
+Two local backups remain, neither on any remote:
+- `backup/visual-identity-duplicate` (`533b577`) — **kept on purpose.** It is the only copy of
+  `src/lib/online-count.ts` + its test: 83 lines of pure, tested logic (`countTeachers`,
+  `countBySubject`) for a homepage live-teacher count that was never built. Nothing imports it.
+  Take it from there rather than rewriting, and do not delete the branch without cherry-picking.
+- `backup/teacher-vetting-premigration` (`03b84ee`) — safe to delete, not yet deleted. Holds the
+  **superseded** four-state vetting design and the rejected `0020_teacher_vetting.sql`. Do not
+  read it as current.
 
 ### Read this before you plan anything
 A SessionStart hook now runs `scripts/session-start.sh` and prints where the work actually is.

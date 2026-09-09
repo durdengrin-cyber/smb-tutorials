@@ -1,5 +1,8 @@
 - [Open a file means open it](open-a-file-means-open-it.md) — "open X" = launch it in an editor, not print it.
 - [Never print secrets to terminal](never-print-secrets-to-terminal.md) — printing a secrets file burns it into the transcript.
+- [The local env file is Tyler's to edit](env-local-is-tylers-to-edit.md) — never write to it; propose changes instead.
 - [Forcing the refund path](forcing-the-refund-path.md) — trigger the webhook's refund branch on demand, no race to win.
 - [Terse communication](terse-communication-preferred.md) — short, sharp answers; no walls of text.
 - [Minimise review passes](minimise-review-passes.md) — batch dispatches; review only security-touching code.
+- [Two branches only](branch-layout-two-branches-only.md) — main + feat/teacher-vetting; six deleted 2026-09-09, with recovery SHAs.
+- [Orphaned online-count code](orphaned-online-count-on-backup-branch.md) — the only reason backup/visual-identity-duplicate is kept.
