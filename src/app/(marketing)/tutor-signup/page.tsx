@@ -2,6 +2,8 @@ import Link from "next/link";
 import { GoogleButton } from "@/components/google-button";
 import { PageHeader } from "@/components/page-header";
 import { getIdentity } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { canBecomeTeacher, type Role } from "@/lib/routes";
 import { TutorForm } from "./tutor-form";
 
 export default async function TutorSignUpPage() {
@@ -22,11 +24,60 @@ export default async function TutorSignUpPage() {
   }
 
   const signedIn = identity !== null;
-  // Role-only half of canBecomeTeacher. The session/subject-count half needs a
-  // query and is enforced by the action, which reports it precisely; this
-  // catches the case knowable from identity alone, before a long form is
-  // filled in.
-  const canConvert = identity?.role === "student" || identity?.role === "teacher";
+
+  // The SAME predicate the action enforces, run here so the refusal arrives
+  // before fifteen fields are filled in rather than after. canBecomeTeacher
+  // needs counts as well as a role: a student who has taken a lesson, or who
+  // already has subjects, cannot convert, and become_teacher re-checks that in
+  // SQL regardless of what this page decided.
+  //
+  // Counted here rather than duplicated: importing the predicate is what stops
+  // the page and the action drifting into disagreeing about who may apply.
+  let history: { sessionCount: number; subjectCount: number } | null = null;
+  if (identity) {
+    try {
+      const supabase = await createClient();
+      const [sessionRes, subjectRes] = await Promise.all([
+        supabase
+          .from("sessions")
+          .select("id", { count: "exact", head: true })
+          .eq("student_id", identity.userId),
+        supabase
+          .from("teacher_subjects")
+          .select("teacher_id", { count: "exact", head: true })
+          .eq("teacher_id", identity.userId),
+      ]);
+      // A failed Postgrest query returns { count: null, error }, which is
+      // indistinguishable from a genuine zero. Unlike the action — which fails
+      // CLOSED, because it is the one writing the row — this page fails OPEN
+      // and shows the form: a transient error must not turn a legitimate
+      // applicant away, and the action is still the boundary that refuses.
+      if (!sessionRes.error && !subjectRes.error) {
+        history = {
+          sessionCount: sessionRes.count ?? 0,
+          subjectCount: subjectRes.count ?? 0,
+        };
+      }
+    } catch (e) {
+      console.error("[TutorSignUpPage] history check failed; showing the form", e);
+    }
+  }
+
+  const canConvert =
+    identity === null ||
+    history === null ||
+    canBecomeTeacher({
+      role: identity.role as Role,
+      sessionCount: history.sessionCount,
+      subjectCount: history.subjectCount,
+    });
+
+  // A used account and a wrong role are refused for different reasons, and a
+  // parent who has booked lessons should not be told to "register with a
+  // different email" as though their role were the problem.
+  const usedAccount =
+    signedIn && !canConvert && history !== null &&
+    (history.sessionCount > 0 || history.subjectCount > 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -47,11 +98,25 @@ export default async function TutorSignUpPage() {
             // the machinery behind it will not perform.
             <div className="mx-auto max-w-md rounded-2xl border border-hair bg-card p-8 text-center">
               <p className="font-semibold text-foreground">
-                This account cannot become a tutor account.
+                {usedAccount
+                  ? "This account has already been used for lessons."
+                  : "This account cannot become a tutor account."}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                You are signed in as {identity?.fullName} ({identity?.role}). To
-                apply as a tutor, sign out and register with a different email.
+                {usedAccount ? (
+                  <>
+                    Signed in as {identity?.fullName}. An account with lesson
+                    history keeps that history as a student&apos;s, so it
+                    can&apos;t be turned into a tutor account. Sign out and
+                    register as a tutor with a different email.
+                  </>
+                ) : (
+                  <>
+                    You are signed in as {identity?.fullName} ({identity?.role}).
+                    To apply as a tutor, sign out and register with a different
+                    email.
+                  </>
+                )}
               </p>
               <div className="mt-6">
                 <Link
