@@ -9,10 +9,17 @@ const maybeSingle = vi.fn();
 // signed-in-and-allowed teacher it always did; the consent gate itself gets
 // its own tests below.
 let consentVersion: string | null = CONSENT_VERSION;
+let vettingState: string = "cleared";
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: "t1" } } }) },
+    rpc: async (name: string) => {
+      if (name === "my_vetting_state") {
+        return { data: vettingState, error: null };
+      }
+      return { data: null, error: null };
+    },
     from: (table: string) => {
       if (table === "profiles") {
         return {
@@ -38,6 +45,7 @@ beforeEach(() => {
   upsert.mockClear();
   maybeSingle.mockReset();
   consentVersion = CONSENT_VERSION;
+  vettingState = "cleared";
 });
 
 describe("declareAvailable", () => {

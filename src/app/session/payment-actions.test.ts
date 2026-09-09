@@ -13,12 +13,19 @@ import { CONSENT_VERSION } from "@/lib/consent";
 const state = vi.hoisted(() => ({
   user: null as null | { id: string },
   consentVersion: null as string | null,
+  vettingState: "cleared" as string,
   sessionsCalls: 0,
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: state.user } }) },
+    rpc: async (name: string) => {
+      if (name === "my_vetting_state") {
+        return { data: state.vettingState, error: null };
+      }
+      return { data: null, error: null };
+    },
     from: (table: string) => {
       if (table === "profiles") {
         return {
@@ -52,6 +59,7 @@ import { createCheckout, verifyPaymentNow } from "./payment-actions";
 beforeEach(() => {
   state.user = { id: "student-1" };
   state.consentVersion = CONSENT_VERSION;
+  state.vettingState = "cleared";
   state.sessionsCalls = 0;
 });
 

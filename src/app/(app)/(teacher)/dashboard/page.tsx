@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { NotificationSetup } from "@/components/notification-setup";
+import { VettingBanner } from "@/components/vetting-banner";
 
 export default async function DashboardPage() {
   const identity = await requireRole("teacher");
@@ -82,6 +83,8 @@ export default async function DashboardPage() {
           />
 
           <NotificationSetup variant="card" />
+
+          <VettingBanner state={identity.vettingState} />
 
           <DashboardLive
             teacherId={identity.userId}

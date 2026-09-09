@@ -9,6 +9,7 @@ import { CONSENT_VERSION } from "@/lib/consent";
 const state = vi.hoisted(() => ({
   user: null as null | { id: string },
   consentVersion: null as string | null,
+  vettingState: "unvetted" as string,
   sessionsCalls: 0,
   updateError: null as null | { message: string },
   matchedRows: [{ id: "s1" }] as unknown[],
@@ -17,6 +18,12 @@ const state = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: state.user } }) },
+    rpc: async (name: string) => {
+      if (name === "my_vetting_state") {
+        return { data: state.vettingState, error: null };
+      }
+      return { data: null, error: null };
+    },
     from: (table: string) => {
       if (table === "profiles") {
         return {
@@ -60,6 +67,7 @@ import { cancelSession, completeSession, timeOutSession } from "./actions";
 beforeEach(() => {
   state.user = { id: "student-1" };
   state.consentVersion = CONSENT_VERSION;
+  state.vettingState = "unvetted";
   state.sessionsCalls = 0;
   state.updateError = null;
   state.matchedRows = [{ id: "s1" }];

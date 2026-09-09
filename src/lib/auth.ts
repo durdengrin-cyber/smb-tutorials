@@ -5,12 +5,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { resolveHome, signInRedirect, type Role } from "@/lib/routes";
 import { needsConsent } from "@/lib/consent";
+import { isVettingState, type VettingState } from "@/lib/vetting";
 
 export interface Identity {
   userId: string;
   role: Role;
   fullName: string;
   consentVersion: string | null;
+  vettingState: VettingState;
 }
 
 // Cached for the lifetime of one request, so a layout, a nested layout and the
@@ -41,11 +43,15 @@ export const getIdentity = cache(async (): Promise<Identity | null> => {
   }
 
   if (!profile) return null;
+
+  const { data: vetting } = await supabase.rpc("my_vetting_state");
+
   return {
     userId: profile.id,
     role: profile.role as Role,
     fullName: profile.full_name,
     consentVersion: profile.consent_version as string | null,
+    vettingState: isVettingState(vetting ?? "") ? vetting : "unvetted",
   };
 });
 

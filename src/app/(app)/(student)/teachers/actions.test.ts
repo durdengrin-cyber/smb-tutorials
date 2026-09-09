@@ -13,6 +13,7 @@ import { CONSENT_VERSION } from "@/lib/consent";
 const state = vi.hoisted(() => ({
   user: null as null | { id: string },
   consentVersion: null as string | null,
+  vettingState: "cleared" as string,
   sessionsCalls: 0,
   // Defaults reproduce the original mock's shape: the open-request read
   // errors, so every pre-existing test still fails at that exact point and
@@ -26,6 +27,12 @@ const state = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: state.user } }) },
+    rpc: async (name: string) => {
+      if (name === "my_vetting_state") {
+        return { data: state.vettingState, error: null };
+      }
+      return { data: null, error: null };
+    },
     from: (table: string) => {
       if (table === "profiles") {
         return {
@@ -89,6 +96,7 @@ const validInput = {
 beforeEach(() => {
   state.user = { id: "student-1" };
   state.consentVersion = CONSENT_VERSION;
+  state.vettingState = "cleared";
   state.sessionsCalls = 0;
   state.openRequestRows = [];
   state.openRequestError = { message: "boom" };

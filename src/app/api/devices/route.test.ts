@@ -17,6 +17,7 @@ import { CONSENT_VERSION } from "@/lib/consent";
 const state = vi.hoisted(() => ({
   user: null as null | { id: string },
   consentVersion: null as string | null,
+  vettingState: "cleared" as string,
   rpcCalls: [] as { fn: string; args: unknown }[],
   deleteCalls: [] as unknown[],
 }));
@@ -53,9 +54,12 @@ vi.mock("@/lib/supabase/server", () => ({
         }),
       };
     },
-    rpc: async (fn: string, args: unknown) => {
+    rpc: async (fn: string, args?: unknown) => {
       state.rpcCalls.push({ fn, args });
-      return { error: null };
+      if (fn === "my_vetting_state") {
+        return { data: state.vettingState, error: null };
+      }
+      return { data: null, error: null };
     },
   }),
 }));
@@ -73,6 +77,7 @@ function jsonRequest(body: unknown) {
 beforeEach(() => {
   state.user = { id: "teacher-1" };
   state.consentVersion = CONSENT_VERSION;
+  state.vettingState = "cleared";
   state.rpcCalls = [];
   state.deleteCalls = [];
 });
@@ -82,13 +87,19 @@ describe("POST /api/devices consent gate", () => {
     state.consentVersion = null;
     const res = await POST(jsonRequest({ endpoint: "e", keys: { p256dh: "p", auth: "a" } }));
     expect(res.status).toBe(401);
-    expect(state.rpcCalls).toHaveLength(0);
+    // getIdentity() calls my_vetting_state() even for an unconsented account,
+    // but the consent gate blocks before reaching register_device.
+    expect(state.rpcCalls).toHaveLength(1);
+    expect(state.rpcCalls[0].fn).toBe("my_vetting_state");
   });
 
   it("lets a consented account register a device", async () => {
     const res = await POST(jsonRequest({ endpoint: "e", keys: { p256dh: "p", auth: "a" } }));
     expect(res.status).toBe(200);
-    expect(state.rpcCalls).toHaveLength(1);
+    // getIdentity() calls my_vetting_state(), then register_device().
+    expect(state.rpcCalls).toHaveLength(2);
+    expect(state.rpcCalls[0].fn).toBe("my_vetting_state");
+    expect(state.rpcCalls[1].fn).toBe("register_device");
   });
 });
 
@@ -127,8 +138,12 @@ describe("POST vs DELETE consent asymmetry", () => {
 
     const postRes = await POST(jsonRequest({ endpoint: "e", keys: { p256dh: "p", auth: "a" } }));
     expect(postRes.status).toBe(401);
-    expect(state.rpcCalls).toHaveLength(0);
+    // getIdentity() calls my_vetting_state() after reading the profile,
+    // even for an unconsented account, so 1 RPC call is expected.
+    expect(state.rpcCalls).toHaveLength(1);
+    expect(state.rpcCalls[0].fn).toBe("my_vetting_state");
 
+    state.rpcCalls = [];
     const deleteRes = await DELETE(jsonRequest({ endpoint: "e" }));
     expect(deleteRes.status).toBe(200);
     expect(state.deleteCalls).toHaveLength(1);
