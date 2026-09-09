@@ -97,7 +97,7 @@ describe("NAV", () => {
   // Proves the guard above can fail, rather than passing because routeExists
   // returns true for everything.
   it("routeExists says no to a route that is not there", () => {
-    expect(routeExists("/admin")).toBe(false);
+    expect(routeExists("/not-a-real-route")).toBe(false);
     expect(routeExists("/find")).toBe(true);
   });
 });

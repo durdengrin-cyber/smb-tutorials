@@ -4,7 +4,6 @@ const state = vi.hoisted(() => ({
   user: null as null | { id: string },
   profile: null as null | Record<string, unknown>,
   pathname: "/sessions",
-  vettingState: "cleared" as string,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -20,12 +19,6 @@ vi.mock("next/headers", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: state.user } }) },
-    rpc: async (name: string) => {
-      if (name === "my_vetting_state") {
-        return { data: state.vettingState, error: null };
-      }
-      return { data: null, error: null };
-    },
     from: () => ({
       select: () => ({
         eq: () => ({ single: async () => ({ data: state.profile, error: null }) }),
@@ -43,7 +36,6 @@ beforeEach(() => {
   state.profile = {
     id: "u1", role: "student", full_name: "Asha", consent_version: CONSENT_VERSION,
   };
-  state.vettingState = "cleared";
 });
 
 describe("requireUser consent gate", () => {

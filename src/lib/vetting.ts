@@ -1,8 +1,18 @@
-// Spec §10. The states are duplicated in 0020's CHECK constraint, deliberately:
+// Spec §10. The states are duplicated in 0021's CHECK constraint, deliberately:
 // the database must refuse a bad value even if a future write path forgets to
 // ask this module. If you add a state, add it in both places.
 
-export const VETTING_STATES = ["unvetted", "cleared", "suspended", "removed"] as const;
+// Two states, not four. Suspension is owned by teacher_suspensions (0020) —
+// its own table, its own auto-suspend trigger on conduct reports, its own
+// filter in available_teachers, and my_suspension() for the teacher's banner.
+// A second "suspended" value here would be a competing source of truth that a
+// conduct report would update in one place and not the other.
+//
+// This state answers exactly one question: has a person checked this teacher?
+// Recording "checked and refused" is deferred; the operator leaves them
+// unvetted with a note, and adding a value later is a new value, not a new
+// mechanism (spec §10).
+export const VETTING_STATES = ["unvetted", "cleared"] as const;
 
 export type VettingState = (typeof VETTING_STATES)[number];
 
@@ -20,8 +30,9 @@ export function canBePicked(state: VettingState): boolean {
 }
 
 /**
- * What a teacher is told. A teacher who has declared availability and receives
- * nothing must learn why here, or they conclude the product is broken.
+ * What a teacher is told while they wait to be checked. A suspended teacher is
+ * told separately, by the dashboard's my_suspension() path — this must not
+ * duplicate that message or the two will drift.
  */
 export function vettingMessage(
   state: VettingState
@@ -33,16 +44,6 @@ export function vettingMessage(
       return {
         title: "Your account is under review",
         body: "We check every teacher's ID against their account before they can take a lesson. You can finish your profile now — students will see you once the check is done.",
-      };
-    case "suspended":
-      return {
-        title: "Your account is paused",
-        body: "You are not visible to students while we look into a report. Someone will contact you about it.",
-      };
-    case "removed":
-      return {
-        title: "Your account has been closed",
-        body: "You cannot take lessons on SMB Tutorials. Contact us if you believe this is a mistake.",
       };
   }
 }

@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { NotificationSetup } from "@/components/notification-setup";
 import { VettingBanner } from "@/components/vetting-banner";
+import { isVettingState } from "@/lib/vetting";
 
 export default async function DashboardPage() {
   const identity = await requireRole("teacher");
@@ -68,6 +69,18 @@ export default async function DashboardPage() {
   // transient RPC failure should do here.
   const { data: suspendedAt, error: suspensionError } =
     await supabase.rpc("my_suspension");
+
+  // Read here rather than on Identity: getIdentity runs in every layout on
+  // every request, and only this screen needs the vetting state. Mirrors the
+  // my_suspension() read directly above it.
+  const { data: vetting, error: vettingError } =
+    await supabase.rpc("my_vetting_state");
+  if (vettingError) {
+    console.error("[dashboard] my_vetting_state read failed", vettingError);
+  }
+  // Fail closed: an unreadable state shows the "under review" banner rather
+  // than silently implying the teacher is live.
+  const vettingState = isVettingState(vetting ?? "") ? vetting : "unvetted";
   if (suspensionError) {
     console.error("[dashboard] my_suspension read failed", suspensionError);
   }
@@ -84,7 +97,7 @@ export default async function DashboardPage() {
 
           <NotificationSetup variant="card" />
 
-          <VettingBanner state={identity.vettingState} />
+          <VettingBanner state={vettingState} />
 
           <DashboardLive
             teacherId={identity.userId}

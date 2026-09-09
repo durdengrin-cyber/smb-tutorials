@@ -7,10 +7,11 @@ import {
 } from "./vetting";
 
 describe("VETTING_STATES", () => {
-  // Spec §13 fixes these four. The DB CHECK constraint carries the same list —
-  // if this test and 0020 disagree, one of them is wrong.
-  it("is exactly the four states the migration allows", () => {
-    expect([...VETTING_STATES]).toEqual(["unvetted", "cleared", "suspended", "removed"]);
+  // The DB CHECK constraint in 0021 carries the same list — if this test and
+  // the migration disagree, one of them is wrong. Suspension is deliberately
+  // NOT here: teacher_suspensions (0020) owns it.
+  it("is exactly the two states the migration allows", () => {
+    expect([...VETTING_STATES]).toEqual(["unvetted", "cleared"]);
   });
 });
 
@@ -21,6 +22,7 @@ describe("isVettingState", () => {
 
   it("rejects anything else", () => {
     expect(isVettingState("approved")).toBe(false);
+    expect(isVettingState("suspended")).toBe(false);
     expect(isVettingState("")).toBe(false);
     expect(isVettingState("CLEARED")).toBe(false);
   });
@@ -31,8 +33,6 @@ describe("canBePicked", () => {
   it("is true only for cleared", () => {
     expect(canBePicked("cleared")).toBe(true);
     expect(canBePicked("unvetted")).toBe(false);
-    expect(canBePicked("suspended")).toBe(false);
-    expect(canBePicked("removed")).toBe(false);
   });
 });
 
@@ -43,10 +43,6 @@ describe("vettingMessage", () => {
     expect(vettingMessage("unvetted")).toMatchObject({
       title: expect.stringMatching(/review/i),
     });
-  });
-
-  it("tells a suspended teacher to expect contact", () => {
-    expect(vettingMessage("suspended")?.body).toMatch(/contact/i);
   });
 
   it("says nothing to a cleared teacher", () => {

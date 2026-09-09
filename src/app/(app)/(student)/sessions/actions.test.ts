@@ -7,7 +7,6 @@ const state = vi.hoisted(() => ({
   // every pre-existing test keeps exercising the same signed-in-and-allowed
   // caller it always did; the consent gate itself is covered separately.
   consentVersion: "" as string | null,
-  vettingState: "unvetted" as string,
   insertError: null as null | { message: string; code?: string; details?: string },
   inserted: [] as unknown[],
   // What the post-insert `sessions` lookup finds for the reported session —
@@ -19,12 +18,6 @@ const state = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: state.user } }) },
-    rpc: async (name: string) => {
-      if (name === "my_vetting_state") {
-        return { data: state.vettingState, error: null };
-      }
-      return { data: null, error: null };
-    },
     from: (table: string) => {
       if (table === "profiles") {
         return {

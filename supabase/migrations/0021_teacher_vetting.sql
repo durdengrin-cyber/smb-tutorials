@@ -14,7 +14,7 @@ alter table public.profiles
 
 alter table public.profiles drop constraint if exists profiles_vetting_state_check;
 alter table public.profiles add constraint profiles_vetting_state_check
-  check (vetting_state in ('unvetted', 'cleared', 'suspended', 'removed'));
+  check (vetting_state in ('unvetted', 'cleared'));
 
 -- The waiting list is read by state; every other read is by id.
 create index if not exists profiles_vetting_state_idx
@@ -24,9 +24,10 @@ create index if not exists profiles_vetting_state_idx
 -- list, the push dispatch and the session guard all consume it — so one added
 -- predicate closes every path at once.
 --
--- The body below is 0010's, unchanged except for the vetting_state line. If you
--- are changing this function for another reason, change 0010's copy of the
--- reasoning too.
+-- The body below is 0020_teacher_suspensions' copy — the CURRENT definition —
+-- unchanged except for the vetting_state line. It is NOT 0010's: 0020 added the
+-- suspension filter, and rebuilding from 0010 would silently delete it and put
+-- every suspended teacher back in front of children.
 create or replace function public.available_teachers(
   p_curriculum text,
   p_grade      text,
@@ -45,12 +46,19 @@ as $$
   from public.profiles p
   join public.teacher_availability a on a.teacher_id = p.id
   where p.role = 'teacher'
-    -- The only intended difference from 0010: an unvetted, suspended or
-    -- removed teacher is never published, regardless of presence or subject
-    -- match.
+    -- Vetting (0021). Suspension below removes a teacher AFTER a report;
+    -- this refuses one who was never checked in the first place. Both are
+    -- needed: they answer different questions and are set by different people.
     and p.vetting_state = 'cleared'
     and a.declared
     and a.declared_until > now()
+    -- Suspension (0020). A conduct report removes a teacher from discovery
+    -- immediately and automatically; a report filed at 2am must not wait for
+    -- someone to wake up.
+    and not exists (
+      select 1 from public.teacher_suspensions ts
+      where ts.teacher_id = p.id and ts.lifted_at is null
+    )
     -- A NULL or empty argument means "any", NOT "none". /teachers renders
     -- legitimately with no criteria — that is why online-list carries a
     -- canStart guard — and such a student today sees every teacher, filtered
@@ -118,7 +126,7 @@ begin
     raise exception 'not an admin';
   end if;
 
-  if p_state not in ('unvetted', 'cleared', 'suspended', 'removed') then
+  if p_state not in ('unvetted', 'cleared') then
     raise exception 'invalid vetting state: %', p_state;
   end if;
 
