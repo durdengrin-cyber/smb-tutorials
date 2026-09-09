@@ -1,6 +1,69 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-06, afternoon)
+## ▶ START HERE (updated 2026-09-09)
+
+**Branch: `feat/teacher-vetting` @ `d864bd0`, pushed. Tree clean. Cut from
+`origin/feat/visual-identity-tokens`, NOT from `main`.**
+
+### Read this before you plan anything
+A SessionStart hook now runs `scripts/session-start.sh` and prints where the work actually is.
+**Trust it over `main`.** `main` is 87 commits behind `origin/feat/visual-identity-tokens`, which is
+where development lives and what production's database was built from. On 2026-09-09 a session
+started from `main`, could not see any of it, and rebuilt two plans' worth of work that already
+existed. See CLAUDE.md "Two machines work on this project".
+
+### Shipped to production's database today
+- **Teacher vetting (`0006`, `0021`, `0022`) — APPLIED and PROVEN.** No teacher is pickable until a
+  person clears them. `scripts/probe-vetting.mjs` asserts it against production: 8/8, exit 0. It
+  tries self-clearing, forging the audit record, a service-role write, a non-admin RPC call, and
+  reading another teacher's judgement — all refused.
+- `vetting_state` on `profiles` is the gate (`unvetted` | `cleared` only). Suspension is NOT here —
+  `teacher_suspensions` (`0020`) owns that, with its own trigger and roster filter.
+- The judgement (`vetted_at`, `vetted_by`, `note`) lives in `teacher_vetting`: RLS on, no policies,
+  reachable only via `set_vetting_state` and the service role.
+- `commander.igris.jinwo@gmail.com` is **admin**. Both existing teachers are **cleared**.
+
+### Built, pushed, NOT deployed
+- **Password reset** — the product had none. `/auth/callback` only handled `?code`, so every
+  Supabase email link landed on the homepage and did nothing, and "Forgot password?" was a button
+  with no handler. Now: callback verifies `token_hash` + `type`, `/forgot-password` sends the mail,
+  `/reset-password` sets it. Redirect URLs are already configured in Supabase.
+- **Two-machine sync.** `_memory/` is in the repo and symlinked into Claude's memory path
+  (`scripts/setup-memory.sh`, once per machine — **still owed on the other machine**).
+  `scripts/sync-check.sh` reports branch drift and migration drift; the SessionStart hook runs both.
+
+### Three defects caught before they reached anyone — the pattern is worth keeping
+1. The first `0021` let a teacher `PATCH` their own `vetting_state` to `cleared`. 0013's hole,
+   reopened on a new column. Found by review, before push.
+2. Its `available_teachers` was rebuilt from `0010` and would have silently deleted `0020`'s
+   suspension filter, putting suspended teachers back in front of children. Found by diffing
+   against the live definition.
+3. `revoke select (col...)` is a no-op against a table-level grant, so the vetting notes were
+   world-readable. Found by the probe, fixed by `0022`.
+
+**Reviews and probes found all three. None was caught by writing the code carefully.**
+
+### ▶ Next, in order
+1. **Decide whether `origin/feat/visual-identity-tokens` merges to `main`.** Vercel deploys `main`,
+   so the payments hardening, the profile editor, the new homepage and everything above are live in
+   the database and invisible on the site. This blocks all of it being real.
+2. **Owner:** run `bash scripts/setup-memory.sh` on the other machine; register a phone for push or
+   teacher applications alert nobody.
+3. **Registration form carousel** — swipeable drawn slides for uploading an unlisted YouTube demo,
+   dropping the Google Drive path and tightening `demoVideoUrl` validation to YouTube. Decided
+   2026-09-09: slides are drawn in SVG/CSS, not screenshots. Not started.
+4. Marketing-surface plan (`docs/superpowers/plans/2026-09-09-visual-identity-marketing-surface.md`)
+   is **mostly redundant** — `flow-demo.tsx` and the repainted homepage already exist on the real
+   branch. Re-read it against that branch before executing anything from it.
+
+### Small, known, unfixed
+- `/signin` has a dead "Remember me" checkbox.
+- `profiles.email` diverges from `auth.users.email` — match on `auth.users` for lookups.
+- The Tutor Agreement DOES exist (`08dbc18`); spec §10 saying it needs writing is stale.
+
+---
+
+## ▶ START HERE (updated 2026-09-06, afternoon) — SUPERSEDED
 
 **🛑 Read `docs/superpowers/handoffs/2026-09-06-conduct-suspension-complete.md` first.**
 
