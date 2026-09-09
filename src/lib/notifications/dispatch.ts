@@ -1,6 +1,6 @@
 import "server-only";
 import { createDispatchClient } from "@/lib/supabase/admin";
-import { getNotificationPort, requestPayload } from "./index";
+import { getNotificationPort, requestPayload, applicationPayload } from "./index";
 
 // A teacher legitimately has a handful of devices — a phone, a tablet, a
 // desktop. Twenty is far above any honest ceiling and far below a number that
@@ -167,4 +167,52 @@ export async function notifyTeacherOfRequest(
 
   await flush();
   return { sent, pruned: gone.length };
+}
+
+/**
+ * Tell every admin that someone applied. Best-effort by design: a failure here
+ * must never cost a teacher their signup, which is why the caller does not
+ * await the result on the critical path.
+ */
+export async function notifyAdminsOfApplication(
+  teacherId: string,
+  name: string,
+  subjectCount: number
+): Promise<void> {
+  const supabase = createDispatchClient();
+
+  const { data: admins, error: adminError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("role", "admin");
+
+  if (adminError || !admins?.length) {
+    console.error("[notify-admins] no admin to notify", adminError);
+    return;
+  }
+
+  const { data: devices, error: deviceError } = await supabase
+    .from("teacher_devices")
+    .select("id, endpoint, p256dh, auth")
+    .in("teacher_id", admins.map((a) => a.id));
+
+  if (deviceError || !devices?.length) {
+    console.error("[notify-admins] no admin device registered", deviceError);
+    return;
+  }
+
+  const port = getNotificationPort();
+  const payload = applicationPayload(name, subjectCount);
+
+  await Promise.all(
+    devices.map(async (d) => {
+      const result = await port.send(
+        { endpoint: d.endpoint, p256dh: d.p256dh, auth: d.auth },
+        payload
+      );
+      if (!result.ok && result.gone) {
+        await supabase.from("teacher_devices").delete().eq("id", d.id);
+      }
+    })
+  );
 }

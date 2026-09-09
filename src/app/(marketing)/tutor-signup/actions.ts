@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { notifyAdminsOfApplication } from "@/lib/notifications/dispatch";
 import { parseTutorSignUp } from "@/lib/validation";
 import { CONSENT_VERSION } from "@/lib/consent";
 import type { AuthState } from "@/lib/form-state";
@@ -163,6 +164,15 @@ export async function signUpTutor(
     .insert(v.subjects.map((s) => ({ teacher_id: teacherId, ...s })));
   if (subjectsError) {
     return { error: "Account created but subjects save failed — sign in and retry." };
+  }
+
+  // Best effort, and deliberately not awaited into the failure path: an
+  // operator who misses one alert can read /admin, but a teacher who cannot
+  // sign up because a push service was down has lost something real.
+  try {
+    await notifyAdminsOfApplication(teacherId, v.fullName, v.subjects.length);
+  } catch (e) {
+    console.error("[tutor-signup] admin notification failed", e);
   }
 
   redirect("/setup");
