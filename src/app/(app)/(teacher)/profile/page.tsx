@@ -38,7 +38,7 @@ export default async function ProfilePage() {
         <div className="max-w-3xl mx-auto space-y-8">
           <PageHeader
             title="Your profile"
-            description="Students see your rate, subjects and bio when they pick a teacher."
+            description="Students see your rate, subjects, qualification and experience when they pick a teacher."
           />
           <ProfileForm
             fullName={profile?.full_name ?? identity.fullName}
