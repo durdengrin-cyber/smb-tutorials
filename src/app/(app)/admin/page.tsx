@@ -3,6 +3,32 @@ import { getIdentity } from "@/lib/auth";
 import { createDispatchClient } from "@/lib/supabase/admin";
 import { setVettingState, reinstateTeacher, suspendTeacher } from "./actions";
 
+
+// Column names are not admin-facing language, and a raw JSON blob is not a
+// decision aid. Anything not named here falls back to the column name rather
+// than being hidden — an unlabelled field is still a field the admin must see.
+const FIELD_LABEL: Record<string, string> = {
+  full_name: "Name",
+  email: "Email",
+  phone: "Phone",
+  qualification: "Qualification",
+  experience_years: "Experience",
+  specialization: "Specialization",
+  teaching_level: "Teaching level",
+  hourly_rate: "Rate",
+  hours_per_week: "Hours/week",
+  bio: "Bio",
+  demo_video_url: "Demo video",
+};
+
+// Long values (a bio, a URL) must not push the decision off the screen, and an
+// empty field has to read as empty rather than as nothing at all.
+function short(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "empty";
+  const s = String(v);
+  return s.length > 48 ? `${s.slice(0, 48)}…` : s;
+}
+
 export default async function AdminPage() {
   const identity = await getIdentity();
   // notFound rather than a redirect: a non-admin should not learn this route
@@ -16,8 +42,13 @@ export default async function AdminPage() {
   // admin check above already gated getting here; this client only reads what
   // that check already authorized.
   const supabase = createDispatchClient();
-  const [{ data: teachers }, { data: openSuspensions }, { data: availability }] =
-    await Promise.all([
+  const [
+    { data: teachers },
+    { data: openSuspensions },
+    { data: availability },
+    { data: revetEvents },
+    { data: lastVetted },
+  ] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name, phone, demo_video_url, vetting_state, created_at")
@@ -43,6 +74,14 @@ export default async function AdminPage() {
       .select("teacher_id")
       .eq("declared", true)
       .gt("declared_until", new Date().toISOString()),
+    // Why each unvetted teacher is back in the queue (0026), and when they
+    // were last approved, so only the changes made SINCE that approval are
+    // shown. Older diffs are history, not a decision the admin still owes.
+    supabase
+      .from("teacher_revet_events")
+      .select("teacher_id, changed_at, changes")
+      .order("changed_at", { ascending: false }),
+    supabase.from("teacher_vetting").select("teacher_id, vetted_at"),
   ]);
 
   const suspendedAt = new Map(
@@ -51,6 +90,21 @@ export default async function AdminPage() {
   // Already narrowed by the query above to declared, unlapsed leases —
   // available_teachers' own test, made once, in the database.
   const online = new Set((availability ?? []).map((a) => a.teacher_id));
+
+  const approvedAt = new Map(
+    (lastVetted ?? []).map((v) => [v.teacher_id, Date.parse(v.vetted_at as string)])
+  );
+  // Only what changed since the last approval. A teacher cleared, then edited,
+  // then cleared again, then edited once more should present one decision, not
+  // a growing pile.
+  const changesSince = new Map<string, { changed_at: string; changes: Record<string, { from: unknown; to: unknown }> }[]>();
+  for (const e of revetEvents ?? []) {
+    const since = approvedAt.get(e.teacher_id) ?? 0;
+    if (Date.parse(e.changed_at as string) <= since) continue;
+    const list = changesSince.get(e.teacher_id) ?? [];
+    list.push(e as never);
+    changesSince.set(e.teacher_id, list);
+  }
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -122,6 +176,28 @@ export default async function AdminPage() {
                     </>
                   ) : null}
                 </p>
+                {!cleared && (changesSince.get(t.id)?.length ?? 0) > 0 ? (
+                  <div className="mt-2 rounded-sm border border-border bg-muted/50 p-2">
+                    <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+                      changed since you approved them
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {(changesSince.get(t.id) ?? []).flatMap((e) =>
+                        Object.entries(e.changes).map(([field, d]) => (
+                          <li key={`${e.changed_at}-${field}`} className="text-sm">
+                            <span className="font-medium text-foreground">
+                              {FIELD_LABEL[field] ?? field}
+                            </span>{" "}
+                            <span className="text-muted-foreground">
+                              {short(d.from)} → {short(d.to)}
+                            </span>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                ) : null}
+
                 {suspended ? (
                   <p className="mt-1 text-xs text-muted-foreground">
                     Suspended automatically by a conduct report. Reinstating is

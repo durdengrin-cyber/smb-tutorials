@@ -100,3 +100,33 @@ describe("admin-initiated suspension", () => {
     expect(PAGE).toMatch(/\{suspended \? null : \(/);
   });
 });
+
+// 0024 sends a teacher back to the queue on any profile change, which on its
+// own leaves /admin showing a name and the word "unvetted" — the admin then
+// opens the profile and compares it against memory. 0026 keeps the diff the
+// trigger already computed, and this is the surface that reads it.
+describe("the queue says what changed", () => {
+  it("reads the diff rather than making the admin hunt for it", () => {
+    expect(PAGE).toMatch(/from\("teacher_revet_events"\)/);
+    expect(PAGE).toMatch(/changed since you approved them/);
+  });
+
+  // Shown only for a teacher awaiting a decision. A cleared teacher's old
+  // diffs are history and would just be noise beside a Send-back button.
+  it("shows it only while the teacher is unvetted", () => {
+    expect(PAGE).toMatch(/!cleared && \(changesSince/);
+  });
+
+  // A teacher cleared, edited, cleared, edited again presents ONE decision.
+  it("scopes the diff to changes since the last approval", () => {
+    expect(PAGE).toMatch(/from\("teacher_vetting"\)/);
+    expect(PAGE).toMatch(/approvedAt/);
+    expect(PAGE).toMatch(/<= since\) continue/);
+  });
+
+  // An unlabelled field is still a field the admin must see; falling back to
+  // the column name is right, hiding it is not.
+  it("falls back to the column name for a field it has no label for", () => {
+    expect(PAGE).toMatch(/FIELD_LABEL\[field\] \?\? field/);
+  });
+});
