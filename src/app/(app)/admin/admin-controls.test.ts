@@ -79,3 +79,24 @@ describe("the live badge tells the truth about the roster", () => {
     expect(PAGE).toMatch(/offline/);
   });
 });
+
+// 0025 gave the admin a suspension that is not a conduct report. It must stay
+// distinct from "Send back to review": both take a teacher off the roster, but
+// one says "nobody has checked this person" and the other says "I looked and
+// stopped them". Conflating them loses the only record of which happened.
+describe("admin-initiated suspension", () => {
+  it("suspends through suspendTeacher, never by writing a vetting state", () => {
+    expect(PAGE).toMatch(/action=\{suspendTeacher\}/);
+    // "suspended" is still not a vetting state and must never be submitted as one.
+    expect(PAGE).not.toMatch(/name="state"\s+value="suspended"/);
+  });
+
+  it("requires a reason in the form, as the RPC does in SQL", () => {
+    expect(PAGE).toMatch(/name="reason"/);
+    expect(PAGE).toMatch(/required/);
+  });
+
+  it("is not offered for a teacher who is already suspended", () => {
+    expect(PAGE).toMatch(/\{suspended \? null : \(/);
+  });
+});

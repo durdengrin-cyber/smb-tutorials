@@ -226,7 +226,7 @@ export function ProfileForm(values: ProfileFormValues) {
           <Label htmlFor="profile-bio">
             About you{" "}
             <span className="font-normal text-muted-foreground">
-              (optional, 1000 characters max)
+              (optional, shown to students, 1000 characters max)
             </span>
           </Label>
           <textarea

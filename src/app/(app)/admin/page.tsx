@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getIdentity } from "@/lib/auth";
 import { createDispatchClient } from "@/lib/supabase/admin";
-import { setVettingState, reinstateTeacher } from "./actions";
+import { setVettingState, reinstateTeacher, suspendTeacher } from "./actions";
 
 export default async function AdminPage() {
   const identity = await getIdentity();
@@ -168,6 +168,27 @@ export default async function AdminPage() {
                         Clear
                       </button>
                     )}
+                  </form>
+                )}
+
+                {/* Suspension is a different statement from "not yet checked",
+                    so it is a different control. 0025 requires a reason in
+                    SQL, not merely in this form, so every suspension carries
+                    one whatever calls it. Offered only for a teacher who is
+                    not already suspended. */}
+                {suspended ? null : (
+                  <form action={suspendTeacher} className="flex gap-2">
+                    <input type="hidden" name="teacherId" value={t.id} />
+                    <input
+                      name="reason"
+                      required
+                      placeholder="Reason (required)"
+                      aria-label={`Reason for suspending ${t.full_name}`}
+                      className="w-44 rounded-sm border border-input bg-card px-2 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    />
+                    <button className="rounded-sm border border-destructive/40 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10">
+                      Suspend
+                    </button>
                   </form>
                 )}
               </div>

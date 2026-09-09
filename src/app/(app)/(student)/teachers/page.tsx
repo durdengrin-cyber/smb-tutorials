@@ -20,6 +20,7 @@ type TeacherRow = {
   specialization: string | null;
   experience_years: number | null;
   hourly_rate: number | null;
+  bio: string | null;
   teacher_subjects: SubjectRow[];
 };
 
@@ -79,7 +80,7 @@ export default async function TeachersPage({
   let query = supabase
     .from("profiles")
     .select(
-      "id, full_name, qualification, specialization, experience_years, hourly_rate, teacher_subjects!inner(curriculum, grade, stream, subject)"
+      "id, full_name, qualification, specialization, experience_years, hourly_rate, bio, teacher_subjects!inner(curriculum, grade, stream, subject)"
     )
     .eq("role", "teacher");
 
@@ -101,6 +102,7 @@ export default async function TeachersPage({
     specialization: t.specialization,
     experience_years: t.experience_years,
     hourly_rate: t.hourly_rate,
+    bio: t.bio,
     subject:
       (isSubjectOf(stream, subject) && subject) ||
       t.teacher_subjects[0]?.subject ||

@@ -74,3 +74,35 @@ export async function reinstateTeacher(formData: FormData) {
 
   revalidatePath("/admin");
 }
+
+/**
+ * Suspends a teacher by hand, with a reason.
+ *
+ * Distinct from setVettingState(..., "unvetted"), which both remove a teacher
+ * from the roster but say different things. "Send back to review" means nobody
+ * has checked this person yet. A suspension means an admin looked and stopped
+ * them, and it carries who and why (0025). Only reinstateTeacher lifts it.
+ *
+ * The RPC re-checks admin in SQL and requires a non-empty reason, so this
+ * function's checks are the fast, legible refusals rather than the control.
+ */
+export async function suspendTeacher(formData: FormData) {
+  const identity = await getIdentity();
+  if (identity?.role !== "admin") throw new Error("not an admin");
+
+  const teacherId = String(formData.get("teacherId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  // Refused here as well as in SQL so the admin gets a message rather than a
+  // raised exception page for the most likely mistake.
+  if (!reason) throw new Error("a reason is required to suspend a teacher");
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("suspend_teacher", {
+    p_teacher_id: teacherId,
+    p_reason: reason,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin");
+}

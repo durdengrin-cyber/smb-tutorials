@@ -10,6 +10,7 @@ export interface TeacherCardData {
   specialization: string | null;
   experience_years: number | null;
   hourly_rate: number | null;
+  bio: string | null;
   subject: string;
 }
 
@@ -41,6 +42,17 @@ export function TeacherCard({
             </span>
           </div>
         )}
+
+        {/* The only free text a teacher controls, and until now the only field
+            the profile editor promised students would read and none of them
+            could. Clamped to three lines so one teacher writing an essay does
+            not make every card in the row that tall; the whole thing is still
+            there for the admin to read when vetting. */}
+        {teacher.bio?.trim() ? (
+          <p className="mb-4 line-clamp-3 text-sm italic text-muted-foreground">
+            {teacher.bio.trim()}
+          </p>
+        ) : null}
 
         {teacher.qualification && (
           <div className="mb-4">
