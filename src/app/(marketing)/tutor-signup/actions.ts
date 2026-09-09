@@ -9,18 +9,18 @@ import {
   type TeacherProfileFields,
 } from "@/lib/validation";
 import { CONSENT_VERSION } from "@/lib/consent";
-import { echoTutorForm, type AuthState } from "@/lib/form-state";
+import { echoTutorForm, type TutorFormState } from "@/lib/form-state";
 import { canBecomeTeacher, type Role } from "@/lib/routes";
 
 export async function signUpTutor(
-  _prev: AuthState,
+  _prev: TutorFormState,
   formData: FormData
-): Promise<AuthState> {
+): Promise<TutorFormState> {
   // Built once, up front, and attached to EVERY failure return below. React 19
   // resets the form when this action completes, so any path that returns
   // without these hands the teacher a blank fifteen-field application.
   const values = echoTutorForm(formData);
-  const fail = (error: string): AuthState => ({ error, values });
+  const fail = (error: string): TutorFormState => ({ error, values });
   // Stamped once, here, so both routes into a teacher account record the same
   // agreement: the client says WHETHER they agreed, the server says WHEN.
   const consentAcceptedAt = new Date().toISOString();

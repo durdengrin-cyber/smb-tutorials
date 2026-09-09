@@ -4,12 +4,21 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireConsentedUser } from "@/lib/auth";
 import { parseTeacherProfile } from "@/lib/validation";
-import type { AuthState } from "@/lib/form-state";
+import {
+  echoTeacherProfile,
+  type TeacherProfileState,
+} from "@/lib/form-state";
 
 export async function updateTeacherProfile(
-  _prev: AuthState,
+  _prev: TeacherProfileState,
   formData: FormData
-): Promise<AuthState> {
+): Promise<TeacherProfileState> {
+  // Echoed on every failure. This form already re-seeds from SAVED data, so a
+  // rejected save silently reverted whatever the teacher had just typed — a
+  // quieter failure than the signup form's blank one, and easier to miss.
+  const values = echoTeacherProfile(formData);
+  const fail = (error: string): TeacherProfileState => ({ error, values });
+
   // requireConsentedUser(), not requireRole(): a Server Action is resolved by
   // ID and run BEFORE any page renders, so requireRole()'s underlying
   // requireUser() redirect never gets a chance to fire for a direct call —
@@ -23,11 +32,11 @@ export async function updateTeacherProfile(
   // account, teacher or student.
   const identity = await requireConsentedUser();
   if (!identity || identity.role !== "teacher") {
-    return { error: "Sign in as a teacher to edit your profile." };
+    return fail("Sign in as a teacher to edit your profile.");
   }
 
   const parsed = parseTeacherProfile(formData);
-  if (!parsed.ok) return { error: parsed.error };
+  if (!parsed.ok) return fail(parsed.error);
   const v = parsed.value;
 
   // Under the caller's own client, never the service role: RLS's "update own
@@ -46,7 +55,7 @@ export async function updateTeacherProfile(
     .eq("teacher_id", identity.userId);
   if (deleteError) {
     console.error("[updateTeacherProfile] subject delete failed", deleteError);
-    return { error: "Couldn't update your subjects — try again. Nothing was changed." };
+    return fail("Couldn't update your subjects — try again. Nothing was changed.");
   }
 
   const { error: insertError } = await supabase

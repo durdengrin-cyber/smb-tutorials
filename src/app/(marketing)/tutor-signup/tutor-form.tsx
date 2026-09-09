@@ -6,6 +6,7 @@ import { signUpTutor } from "./actions";
 import { SubjectPicker } from "@/components/subject-picker";
 import { FormError } from "@/components/form-error";
 import { DemoVideoGuide } from "@/components/demo-video-guide";
+import { useResubmitKey } from "@/components/use-resubmit-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,8 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
   // chip, lost to one mistyped character. The action echoes what was typed
   // (never the password) and it is re-seeded here.
   const v = state?.values;
+  // <select> needs a remount to pick up a new default; see useResubmitKey.
+  const resubmitKey = useResubmitKey(state);
 
   return (
     <form
@@ -151,6 +154,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
           <div className="space-y-2">
             <Label htmlFor="tutor-teachingLevel">Preferred Teaching Level</Label>
             <select
+              key={`teachingLevel-${resubmitKey}`}
               id="tutor-teachingLevel"
               name="teachingLevel"
               className={SELECT}
@@ -177,6 +181,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
           <div className="space-y-2">
             <Label htmlFor="tutor-hoursPerWeek">Hours Available per Week *</Label>
             <select
+              key={`hoursPerWeek-${resubmitKey}`}
               id="tutor-hoursPerWeek"
               name="hoursPerWeek"
               required

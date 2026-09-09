@@ -4,7 +4,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseSignIn, parseStudentSignUp } from "@/lib/validation";
 import { CONSENT_VERSION } from "@/lib/consent";
-import type { AuthState } from "@/lib/form-state";
+import {
+  echoStudentForm,
+  type AuthState,
+  type StudentFormState,
+} from "@/lib/form-state";
 import { safeNext } from "@/lib/routes";
 
 export async function signIn(
@@ -23,11 +27,18 @@ export async function signIn(
 }
 
 export async function signUpStudent(
-  _prev: AuthState,
+  _prev: StudentFormState,
   formData: FormData
-): Promise<AuthState> {
+): Promise<StudentFormState> {
+  // Echoed back on every failure: React 19 resets the form when this action
+  // completes, so returning a bare { error } makes a parent re-enter their
+  // name, their child's name and grade, and their email — and re-tick the
+  // guardian consent — because they mistyped a password they cannot see.
+  const values = echoStudentForm(formData);
+  const fail = (error: string): StudentFormState => ({ error, values });
+
   const parsed = parseStudentSignUp(formData);
-  if (!parsed.ok) return { error: parsed.error };
+  if (!parsed.ok) return fail(parsed.error);
   const { email, password, fullName, learnerFirstName, learnerGrade } = parsed.value;
 
   const supabase = await createClient();
@@ -48,7 +59,7 @@ export async function signUpStudent(
       },
     },
   });
-  if (error) return { error: error.message };
+  if (error) return fail(error.message);
 
   redirect("/home");
 }

@@ -109,7 +109,7 @@ beforeEach(() => {
 describe("updateTeacherProfile", () => {
   it("refuses an unauthenticated caller", async () => {
     state.user = null;
-    expect(await updateTeacherProfile(null, validFormData())).toEqual({
+    expect(await updateTeacherProfile(null, validFormData())).toMatchObject({
       error: "Sign in as a teacher to edit your profile.",
     });
     expect(calls.deleteEq).not.toHaveBeenCalled();
@@ -119,7 +119,7 @@ describe("updateTeacherProfile", () => {
   // caller's own session, not from anything the client sent.
   it("refuses a signed-in student", async () => {
     state.role = "student";
-    expect(await updateTeacherProfile(null, validFormData())).toEqual({
+    expect(await updateTeacherProfile(null, validFormData())).toMatchObject({
       error: "Sign in as a teacher to edit your profile.",
     });
     expect(calls.deleteEq).not.toHaveBeenCalled();

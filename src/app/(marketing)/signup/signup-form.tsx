@@ -7,12 +7,21 @@ import { GRADES } from "@/lib/consent";
 import { FormError } from "@/components/form-error";
 import { GoogleButton } from "@/components/google-button";
 import { PageHeader } from "@/components/page-header";
+import { useResubmitKey } from "@/components/use-resubmit-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function SignUpForm() {
   const [state, formAction, isPending] = useActionState(signUpStudent, null);
+
+  // React 19 resets an uncontrolled form when its action completes. Without
+  // these a rejected sign-up asked a parent to re-enter their name, their
+  // child's name and grade, and their email — and re-tick guardian consent.
+  // The password is deliberately not echoed and must be retyped.
+  const v = state?.values;
+  // <select> needs a remount to pick up a new default; see useResubmitKey.
+  const resubmitKey = useResubmitKey(state);
 
   return (
     <div className="bg-card rounded-2xl shadow-xl p-8 border border-hair">
@@ -41,6 +50,7 @@ export function SignUpForm() {
           <Label htmlFor="signup-fullName">Your Full Name (parent or guardian)</Label>
           <Input
             id="signup-fullName"
+            defaultValue={v?.fullName ?? ""}
             type="text"
             name="fullName"
             required
@@ -52,6 +62,7 @@ export function SignUpForm() {
           <Label htmlFor="signup-learnerFirstName">Student&apos;s First Name</Label>
           <Input
             id="signup-learnerFirstName"
+            defaultValue={v?.learnerFirstName ?? ""}
             type="text"
             name="learnerFirstName"
             required
@@ -62,10 +73,11 @@ export function SignUpForm() {
         <div className="space-y-2">
           <Label htmlFor="signup-learnerGrade">Student&apos;s Grade</Label>
           <select
+            key={`learnerGrade-${resubmitKey}`}
             id="signup-learnerGrade"
             name="learnerGrade"
             required
-            defaultValue=""
+            defaultValue={v?.learnerGrade ?? ""}
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
           >
             <option value="" disabled>
@@ -83,6 +95,7 @@ export function SignUpForm() {
           <Label htmlFor="signup-email">Email Address</Label>
           <Input
             id="signup-email"
+            defaultValue={v?.email ?? ""}
             type="email"
             name="email"
             required
@@ -123,6 +136,7 @@ export function SignUpForm() {
             name="consent"
             value="yes"
             required
+            defaultChecked={v?.consent ?? false}
             className="mt-1 mr-2"
           />
           <span className="text-sm text-muted-foreground">

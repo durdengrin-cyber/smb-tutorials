@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { updateTeacherProfile } from "./actions";
 import { SubjectPicker } from "@/components/subject-picker";
+import { useResubmitKey } from "@/components/use-resubmit-key";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,17 @@ export interface ProfileFormValues {
 
 export function ProfileForm(values: ProfileFormValues) {
   const [state, formAction, isPending] = useActionState(updateTeacherProfile, null);
+
+  // What the teacher last TYPED, which must win over what is SAVED.
+  // React 19 resets an uncontrolled form when its action completes, so before
+  // this a rejected save quietly reverted every unsaved edit back to stored
+  // data — the same defect as the signup form's blank return, but harder to
+  // notice, because the form looks populated and simply is not showing your
+  // work any more. Named `edited` because `values` is already this
+  // component's prop, holding the saved row.
+  const edited = state?.values;
+  // <select> needs a remount to pick up a new default; see useResubmitKey.
+  const resubmitKey = useResubmitKey(state);
 
   // Nothing else on this page tells a teacher their save actually landed —
   // there is no redirect and no toast wired into the app shell, so a
@@ -67,7 +79,7 @@ export function ProfileForm(values: ProfileFormValues) {
               type="text"
               name="fullName"
               required
-              defaultValue={values.fullName}
+              defaultValue={edited?.fullName ?? values.fullName}
             />
           </div>
           <div className="space-y-2">
@@ -77,7 +89,7 @@ export function ProfileForm(values: ProfileFormValues) {
               type="tel"
               name="phone"
               required
-              defaultValue={values.phone}
+              defaultValue={edited?.phone ?? values.phone}
               placeholder="10-digit number"
             />
           </div>
@@ -89,7 +101,7 @@ export function ProfileForm(values: ProfileFormValues) {
               name="experience"
               required
               min={0}
-              defaultValue={values.experienceYears ?? ""}
+              defaultValue={edited?.experience ?? values.experienceYears ?? ""}
             />
           </div>
         </div>
@@ -107,15 +119,15 @@ export function ProfileForm(values: ProfileFormValues) {
               type="text"
               name="qualification"
               required
-              defaultValue={values.qualification}
+              defaultValue={edited?.qualification ?? values.qualification}
               placeholder="e.g., PhD in Physics, IIT Delhi"
             />
           </div>
 
           <SubjectPicker
-            defaultCurricula={values.defaultCurricula}
-            defaultGrades={values.defaultGrades}
-            defaultSubjects={values.defaultSubjects}
+            defaultCurricula={edited?.curricula ?? values.defaultCurricula}
+            defaultGrades={edited?.grades ?? values.defaultGrades}
+            defaultSubjects={edited?.subjects ?? values.defaultSubjects}
           />
 
           <div className="space-y-2">
@@ -124,7 +136,7 @@ export function ProfileForm(values: ProfileFormValues) {
               id="profile-specialization"
               type="text"
               name="specialization"
-              defaultValue={values.specialization}
+              defaultValue={edited?.specialization ?? values.specialization}
               placeholder="e.g., Mechanics, Thermodynamics"
             />
           </div>
@@ -139,10 +151,11 @@ export function ProfileForm(values: ProfileFormValues) {
           <div className="space-y-2">
             <Label htmlFor="profile-teachingLevel">Preferred Teaching Level</Label>
             <select
+              key={`teachingLevel-${resubmitKey}`}
               id="profile-teachingLevel"
               name="teachingLevel"
               className={SELECT}
-              defaultValue={values.teachingLevel}
+              defaultValue={edited?.teachingLevel ?? values.teachingLevel}
             >
               <option value="">Select level</option>
               <option value="school">School (6th-12th)</option>
@@ -158,7 +171,7 @@ export function ProfileForm(values: ProfileFormValues) {
               name="hourlyRate"
               required
               min={1}
-              defaultValue={values.hourlyRate ?? ""}
+              defaultValue={edited?.hourlyRate ?? values.hourlyRate ?? ""}
             />
             <p className="text-sm text-muted-foreground">
               A student already mid-request is charged the rate that was live
@@ -169,11 +182,12 @@ export function ProfileForm(values: ProfileFormValues) {
           <div className="space-y-2">
             <Label htmlFor="profile-hoursPerWeek">Hours Available per Week *</Label>
             <select
+              key={`hoursPerWeek-${resubmitKey}`}
               id="profile-hoursPerWeek"
               name="hoursPerWeek"
               required
               className={SELECT}
-              defaultValue={values.hoursPerWeek}
+              defaultValue={edited?.hoursPerWeek ?? values.hoursPerWeek}
             >
               <option value="">Select hours</option>
               <option value="5-10">5-10 hours/week</option>
@@ -199,7 +213,7 @@ export function ProfileForm(values: ProfileFormValues) {
             type="url"
             name="demoVideoUrl"
             required
-            defaultValue={values.demoVideoUrl}
+            defaultValue={edited?.demoVideoUrl ?? values.demoVideoUrl}
             placeholder="https://youtu.be/..."
           />
         </div>
@@ -219,7 +233,7 @@ export function ProfileForm(values: ProfileFormValues) {
             name="bio"
             rows={5}
             maxLength={1000}
-            defaultValue={values.bio}
+            defaultValue={edited?.bio ?? values.bio}
             className="w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             placeholder="Tell students what it's like to learn from you."
           />
