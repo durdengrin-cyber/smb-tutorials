@@ -291,9 +291,17 @@ function parseTeacherProfileFields(fd: FormData): Result<TeacherProfileFields> {
 // parseTeacherProfileFields): a trivial, unlikely-to-drift rule, unlike the
 // rate/qualification/hours-per-week rules that extraction exists to keep in
 // one place, which stay defined only there.
-export function parseTutorSignUp(fd: FormData): Result<TutorSignUp> {
-  const fullName = str(fd, "fullName");
-  if (!fullName) return fail("Enter your full name.");
+// fullName and consent, checked BEFORE anything else and in this order.
+//
+// The ordering is load-bearing and has regressed once already: an earlier
+// extraction moved consent/email/password to run AFTER every profile field,
+// and a signup missing several things silently began reporting a different
+// first error. Keeping the preamble separate from parseTeacherProfileFields
+// costs one duplicated fullName check — trivial and unlikely to drift, unlike
+// the rate/qualification/hours rules that extraction exists to keep in one
+// place, which stay defined only there.
+function parseTutorPreamble(fd: FormData): string | null {
+  if (!str(fd, "fullName")) return "Enter your full name.";
 
   // Checked on the SERVER, exactly as parseStudentSignUp does, and for the
   // same reason: 0014 fixed the student box and missed this one, so tutor
@@ -301,8 +309,19 @@ export function parseTutorSignUp(fd: FormData): Result<TutorSignUp> {
   // Requiring it here is what makes a missing `name` on the checkbox fail
   // loudly instead of shipping silently a second time.
   if (!fd.get("consent")) {
-    return fail("Please agree to the Terms of Service and Tutor Agreement.");
+    return "Please agree to the Terms of Service and Tutor Agreement.";
   }
+  return null;
+}
+
+/**
+ * The signed-OUT route: this form creates the account, so it needs
+ * credentials. Their checks sit between the preamble and the profile fields,
+ * which is where they have always sat.
+ */
+export function parseTutorSignUp(fd: FormData): Result<TutorSignUp> {
+  const preamble = parseTutorPreamble(fd);
+  if (preamble) return fail(preamble);
 
   const email = str(fd, "email");
   if (!email.includes("@")) return fail("Enter a valid email address.");
@@ -315,6 +334,22 @@ export function parseTutorSignUp(fd: FormData): Result<TutorSignUp> {
   if (!fields.ok) return fields;
 
   return { ok: true, value: { email, password, ...fields.value } };
+}
+
+/**
+ * The signed-IN route: signUpTutor upgrades the existing account through
+ * become_teacher and never reads an email or a password, so demanding them
+ * made a signed-in student invent a throwaway password — one they could
+ * reasonably believe had replaced their real one.
+ *
+ * Which parser runs is decided by the SERVER from the session, never by a
+ * field the client sends, so a signed-out caller cannot reach this one and
+ * skip creating credentials.
+ */
+export function parseTutorUpgrade(fd: FormData): Result<TeacherProfileFields> {
+  const preamble = parseTutorPreamble(fd);
+  if (preamble) return fail(preamble);
+  return parseTeacherProfileFields(fd);
 }
 
 const MAX_BIO_LENGTH = 1000;

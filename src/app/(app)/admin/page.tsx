@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getIdentity } from "@/lib/auth";
 import { createDispatchClient } from "@/lib/supabase/admin";
-import { setVettingState } from "./actions";
+import { setVettingState, reinstateTeacher } from "./actions";
 
 export default async function AdminPage() {
   const identity = await getIdentity();
@@ -16,11 +16,25 @@ export default async function AdminPage() {
   // admin check above already gated getting here; this client only reads what
   // that check already authorized.
   const supabase = createDispatchClient();
-  const { data: teachers } = await supabase
-    .from("profiles")
-    .select("id, full_name, phone, demo_video_url, vetting_state, created_at")
-    .eq("role", "teacher")
-    .order("created_at", { ascending: false });
+  const [{ data: teachers }, { data: openSuspensions }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, phone, demo_video_url, vetting_state, created_at")
+      .eq("role", "teacher")
+      .order("created_at", { ascending: false }),
+    // A teacher is off the roster for EITHER reason, and the operator cannot
+    // act correctly without seeing which. Previously this page read only
+    // profiles, so a teacher suspended by a conduct report still displayed as
+    // "cleared" with a Clear button beside them.
+    supabase
+      .from("teacher_suspensions")
+      .select("teacher_id, suspended_at")
+      .is("lifted_at", null),
+  ]);
+
+  const suspendedAt = new Map(
+    (openSuspensions ?? []).map((s) => [s.teacher_id, s.suspended_at as string])
+  );
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -31,62 +45,110 @@ export default async function AdminPage() {
       </p>
 
       <ul className="divide-y divide-border border-y border-border">
-        {(teachers ?? []).map((t) => (
-          <li key={t.id} className="grid gap-3 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
-            <div>
-              <p className="font-semibold">
-                {t.full_name}{" "}
-                <span className="font-mono text-xs text-muted-foreground">
-                  {t.vetting_state}
-                </span>
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {t.demo_video_url ? (
-                  <a href={t.demo_video_url} target="_blank" rel="noopener noreferrer" className="underline">
-                    Demo video
-                  </a>
-                ) : (
-                  "No demo video"
-                )}
-                {t.phone ? (
-                  <>
-                    {" · "}
-                    {/* Opens a chat so the operator can ask for the ID. Ask for
-                        it as view-once, and delete it after checking: WhatsApp
-                        history and phone backups are the same honeypot §10
-                        refuses to build in the database. */}
-                    <a
-                      href={`https://wa.me/91${t.phone.replace(/\D/g, "").slice(-10)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline"
-                    >
-                      WhatsApp
-                    </a>
-                  </>
-                ) : null}
-              </p>
-            </div>
+        {(teachers ?? []).map((t) => {
+          const suspended = suspendedAt.get(t.id);
+          const cleared = t.vetting_state === "cleared";
+          // Cleared AND not suspended is the only combination a student can
+          // reach: available_teachers requires both.
+          const pickable = cleared && !suspended;
 
-            <form action={setVettingState} className="flex gap-2">
-              <input type="hidden" name="teacherId" value={t.id} />
-              <button
-                name="state"
-                value="cleared"
-                className="rounded-sm bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
-              >
-                Clear
-              </button>
-              <button
-                name="state"
-                value="suspended"
-                className="rounded-sm border border-border px-3 py-1.5 text-sm"
-              >
-                Suspend
-              </button>
-            </form>
-          </li>
-        ))}
+          return (
+            <li key={t.id} className="grid gap-3 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div>
+                <p className="font-semibold">
+                  {t.full_name}{" "}
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {t.vetting_state}
+                  </span>
+                  {suspended ? (
+                    <span className="ml-2 rounded-sm bg-destructive/15 px-1.5 py-0.5 font-mono text-xs text-destructive">
+                      suspended
+                    </span>
+                  ) : null}
+                  {pickable ? (
+                    <span className="ml-2 rounded-sm bg-success/15 px-1.5 py-0.5 font-mono text-xs text-success">
+                      live
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {t.demo_video_url ? (
+                    <a href={t.demo_video_url} target="_blank" rel="noopener noreferrer" className="underline">
+                      Demo video
+                    </a>
+                  ) : (
+                    "No demo video"
+                  )}
+                  {t.phone ? (
+                    <>
+                      {" · "}
+                      {/* Opens a chat so the operator can ask for the ID. Ask for
+                          it as view-once, and delete it after checking: WhatsApp
+                          history and phone backups are the same honeypot §10
+                          refuses to build in the database. */}
+                      <a
+                        href={`https://wa.me/91${t.phone.replace(/\D/g, "").slice(-10)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        WhatsApp
+                      </a>
+                    </>
+                  ) : null}
+                </p>
+                {suspended ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Suspended automatically by a conduct report. Reinstating is
+                    the only way back — clearing them again will not do it.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {/* Suspension and vetting are separate gates, so the controls
+                    are separate too. The button that used to sit here sent
+                    state="suspended" — a value VETTING_STATES has not held
+                    since suspension moved to its own table, so every click
+                    threw "invalid state: suspended" before reaching the
+                    database. There is no manual-suspend RPC to point it at:
+                    teacher_suspensions.session_report_id is NOT NULL, so a
+                    suspension without a conduct report cannot be recorded. */}
+                {suspended ? (
+                  <form action={reinstateTeacher} className="flex gap-2">
+                    <input type="hidden" name="teacherId" value={t.id} />
+                    <input type="hidden" name="outcome" value="reinstated" />
+                    <button className="rounded-sm bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
+                      Reinstate
+                    </button>
+                  </form>
+                ) : (
+                  <form action={setVettingState} className="flex gap-2">
+                    <input type="hidden" name="teacherId" value={t.id} />
+                    {cleared ? (
+                      <button
+                        name="state"
+                        value="unvetted"
+                        title="Takes them off the roster immediately — available_teachers requires 'cleared'."
+                        className="rounded-sm border border-border px-3 py-1.5 text-sm hover:bg-accent"
+                      >
+                        Send back to review
+                      </button>
+                    ) : (
+                      <button
+                        name="state"
+                        value="cleared"
+                        className="rounded-sm bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </form>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

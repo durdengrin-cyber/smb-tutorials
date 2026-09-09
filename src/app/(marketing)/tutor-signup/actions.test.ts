@@ -104,6 +104,47 @@ function validTutorFormData(): FormData {
   return fd;
 }
 
+// The dual-nature bug. /tutor-signup is reachable while signed in, and this
+// branch upgrades the existing account through become_teacher without ever
+// reading an email or a password — but parseTutorSignUp demanded both, so the
+// form made a signed-in student invent an 8-character password that was then
+// discarded. Nothing told them it had been discarded, so the reasonable
+// conclusion was that they had just set their password.
+describe("signUpTutor — a signed-in account needs no credentials", () => {
+  function upgradeFormData(): FormData {
+    const fd = validTutorFormData();
+    fd.delete("email");
+    fd.delete("password");
+    return fd;
+  }
+
+  it("upgrades an existing account from a form carrying neither", async () => {
+    state.user = { id: "existing-user-id" };
+    // Success ends in redirect("/setup"), which the mock throws. Reaching the
+    // throw IS the pass: before this change the call returned early with
+    // "Enter a valid email address." instead.
+    await expect(signUpTutor(null, upgradeFormData())).rejects.toThrow("NEXT_REDIRECT");
+    expect(state.rpcCalls.some((c) => c.fn === "become_teacher")).toBe(true);
+    // Nothing was created; the existing account was upgraded.
+    expect(state.signUpCalls).toHaveLength(0);
+  });
+
+  it("still refuses a signed-OUT signup with no credentials", async () => {
+    state.user = null;
+    const result = await signUpTutor(null, upgradeFormData());
+    expect(result?.error).toMatch(/email/i);
+    expect(state.signUpCalls).toHaveLength(0);
+  });
+
+  // The session decides, never the form: a signed-out caller must not be able
+  // to reach the credential-free path by omitting fields.
+  it("creates the account normally when signed out and credentials are given", async () => {
+    state.user = null;
+    await expect(signUpTutor(null, validTutorFormData())).rejects.toThrow("NEXT_REDIRECT");
+    expect(state.signUpCalls).toHaveLength(1);
+  });
+});
+
 beforeEach(() => {
   state.user = { id: "existing-user-id" };
   state.sessionError = null;

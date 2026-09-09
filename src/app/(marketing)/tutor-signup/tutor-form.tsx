@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 const SELECT =
   "h-8 w-full rounded-lg border border-input bg-card px-2.5 py-1 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
-export function TutorForm() {
+export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
   const [state, formAction, isPending] = useActionState(signUpTutor, null);
 
   return (
@@ -37,32 +37,40 @@ export function TutorForm() {
               placeholder="Dr. John Doe"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="tutor-email">Email Address *</Label>
-            <Input
-              id="tutor-email"
-              type="email"
-              name="email"
-              required
-              placeholder="your.email@example.com"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="tutor-password">
-              Password *{" "}
-              <span className="font-normal text-muted-foreground">
-                (you&apos;ll use this to sign in)
-              </span>
-            </Label>
-            <Input
-              id="tutor-password"
-              type="password"
-              name="password"
-              required
-              minLength={8}
-              placeholder="At least 8 characters"
-            />
-          </div>
+          {/* Only on the signed-out path. signUpTutor upgrades an existing
+              account through become_teacher and never reads either field, so
+              asking a signed-in person for a password made them invent one
+              that was silently discarded. */}
+          {signedIn ? null : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="tutor-email">Email Address *</Label>
+                <Input
+                  id="tutor-email"
+                  type="email"
+                  name="email"
+                  required
+                  placeholder="your.email@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tutor-password">
+                  Password *{" "}
+                  <span className="font-normal text-muted-foreground">
+                    (you&apos;ll use this to sign in)
+                  </span>
+                </Label>
+                <Input
+                  id="tutor-password"
+                  type="password"
+                  name="password"
+                  required
+                  minLength={8}
+                  placeholder="At least 8 characters"
+                />
+              </div>
+            </>
+          )}
           <div className="space-y-2">
             <Label htmlFor="tutor-phone">Phone Number *</Label>
             <Input

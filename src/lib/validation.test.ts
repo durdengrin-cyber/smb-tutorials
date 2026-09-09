@@ -3,6 +3,7 @@ import {
   parseSignIn,
   parseStudentSignUp,
   parseTutorSignUp,
+  parseTutorUpgrade,
   parseTeacherProfile,
   parseNewPassword,
   youTubeVideoId,
@@ -338,6 +339,61 @@ describe("parseTutorSignUp", () => {
       })
     );
     expect(r.ok && r.value.subjects).toHaveLength(1);
+  });
+});
+
+
+// /tutor-signup is reachable while already signed in — the header offers
+// "Go to your dashboard" on the same screen as "Sign up with Google" — and
+// signUpTutor's existing-user branch upgrades that account instead of
+// creating one. It never reads the email or password in that branch.
+//
+// parseTutorSignUp demanded both anyway, so a signed-in student converting to
+// a teacher had to invent an 8-character password that was then thrown away.
+// A reasonable person would believe they had just set their password.
+describe("parseTutorUpgrade — the signed-in path", () => {
+  const base = {
+    fullName: "Dr. Rao",
+    phone: "9876543210",
+    experience: "8",
+    qualification: "PhD Physics",
+    specialization: "Mechanics",
+    teachingLevel: "school",
+    hourlyRate: "500",
+    hoursPerWeek: "10-20",
+    demoVideoUrl: "https://youtu.be/dQw4w9WgXcQ",
+    curricula: ["CBSE"],
+    grades: ["11th"],
+    subjects: ["Science|Physics"],
+    consent: "yes",
+  };
+
+  it("accepts a form carrying no email and no password", () => {
+    const r = parseTutorUpgrade(fd(base));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.fullName).toBe("Dr. Rao");
+  });
+
+  it("still requires consent, which is recorded either way", () => {
+    const withoutConsent = { ...base, consent: "" };
+    expect(parseTutorUpgrade(fd(withoutConsent)).ok).toBe(false);
+  });
+
+  it("still validates the profile fields", () => {
+    expect(parseTutorUpgrade(fd({ ...base, hourlyRate: "0" })).ok).toBe(false);
+    expect(parseTutorUpgrade(fd({ ...base, demoVideoUrl: "https://example.com/x" })).ok).toBe(
+      false
+    );
+  });
+
+  // The signed-out form is unchanged: it must still refuse to create an
+  // account with no credentials.
+  it("does not weaken the signed-out path", () => {
+    const { consent, ...rest } = base;
+    expect(parseTutorSignUp(fd({ ...rest, consent })).ok).toBe(false);
+    expect(
+      parseTutorSignUp(fd({ ...base, email: "rao@x.com", password: "secret123" })).ok
+    ).toBe(true);
   });
 });
 

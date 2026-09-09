@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { notifyAdminsOfApplication } from "@/lib/notifications/dispatch";
-import { parseTutorSignUp } from "@/lib/validation";
+import {
+  parseTutorSignUp,
+  parseTutorUpgrade,
+  type TeacherProfileFields,
+} from "@/lib/validation";
 import { CONSENT_VERSION } from "@/lib/consent";
 import type { AuthState } from "@/lib/form-state";
 import { canBecomeTeacher, type Role } from "@/lib/routes";
@@ -12,23 +16,35 @@ export async function signUpTutor(
   _prev: AuthState,
   formData: FormData
 ): Promise<AuthState> {
-  const parsed = parseTutorSignUp(formData);
-  if (!parsed.ok) return { error: parsed.error };
-  const v = parsed.value;
-
   // Stamped once, here, so both routes into a teacher account record the same
   // agreement: the client says WHETHER they agreed, the server says WHEN.
   const consentAcceptedAt = new Date().toISOString();
 
   const supabase = await createClient();
 
+  // Identity is resolved BEFORE parsing, because it decides which shape this
+  // form is required to have. /tutor-signup is reachable while signed in — the
+  // header offers "Go to your dashboard" on the same screen — and this branch
+  // upgrades the existing account without ever reading an email or password.
+  // parseTutorSignUp demanded both regardless, so a signed-in student had to
+  // invent an 8-character password that was then discarded, with nothing
+  // telling them it had been.
+  //
+  // The SESSION picks the parser, never a field the client sends: a signed-out
+  // caller cannot reach the credential-free path and create an account with no
+  // password.
   const {
     data: { user: existingUser },
   } = await supabase.auth.getUser();
 
   let teacherId: string;
+  let v: TeacherProfileFields;
 
   if (existingUser) {
+    const parsed = parseTutorUpgrade(formData);
+    if (!parsed.ok) return { error: parsed.error };
+    v = parsed.value;
+
     // Arrived via Google with teacher intent: handle_new_user() already
     // created this account as a student (Google sends no role). Upgrade it
     // only if it has no history — an account that has already been used
@@ -116,9 +132,13 @@ export async function signUpTutor(
       return { error: "Could not record your agreement. Try again in a moment." };
     }
   } else {
+    const parsed = parseTutorSignUp(formData);
+    if (!parsed.ok) return { error: parsed.error };
+    v = parsed.value;
+
     const { data, error } = await supabase.auth.signUp({
-      email: v.email,
-      password: v.password,
+      email: parsed.value.email,
+      password: parsed.value.password,
       options: {
         data: {
           role: "teacher",

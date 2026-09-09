@@ -13,18 +13,29 @@ interface Slide {
   art: React.ReactNode;
 }
 
-// Shared frame so every panel sits on the same baseline and the carousel does
-// not jump height between steps.
-function Art({ children }: { children: React.ReactNode }) {
+// Every panel draws the screen the teacher is about to be looking at, not an
+// abstract icon. The first version of this used generic boxes and arrows,
+// which decorated the step without explaining it — a teacher who does not
+// already know where YouTube keeps "Unlisted" learned nothing from a
+// rectangle. These mirror the real controls: the Create menu, the visibility
+// radio list, the Share panel's Copy button.
+//
+// Drawn, not screenshotted: a screenshot goes stale the next time YouTube
+// moves a button, and cannot be themed. Tokens and currentColor only — the
+// surface guards reject a raw hex on sight.
+
+const VB = { width: 200, height: 120 };
+
+function Art({ children, label }: { children: React.ReactNode; label: string }) {
   return (
     <svg
-      viewBox="0 0 160 100"
-      role="presentation"
-      focusable="false"
-      className="h-28 w-full text-primary"
+      viewBox={`0 0 ${VB.width} ${VB.height}`}
+      role="img"
+      aria-label={label}
+      className="h-32 w-full text-foreground"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
@@ -33,54 +44,169 @@ function Art({ children }: { children: React.ReactNode }) {
   );
 }
 
+// The parent sets stroke; text must opt back out of it or every glyph is
+// outlined and turns to mud at this size.
+function T({
+  x,
+  y,
+  children,
+  size = 9,
+  dim = false,
+  bold = false,
+}: {
+  x: number;
+  y: number;
+  children: React.ReactNode;
+  size?: number;
+  dim?: boolean;
+  bold?: boolean;
+}) {
+  return (
+    <text
+      x={x}
+      y={y}
+      fontSize={size}
+      fill="currentColor"
+      stroke="none"
+      opacity={dim ? 0.55 : 1}
+      fontWeight={bold ? 600 : 400}
+    >
+      {children}
+    </text>
+  );
+}
+
+/** A filled panel behind a highlighted row, at token opacity. */
+function Fill(props: React.SVGProps<SVGRectElement>) {
+  return <rect {...props} fill="currentColor" stroke="none" opacity={0.12} />;
+}
+
 const SLIDES: Slide[] = [
   {
-    title: "Record 2–5 minutes",
-    body: "Explain one concept, step by step. Good light, clear audio, whiteboard or screen share.",
+    title: "Record 2–5 minutes of you teaching",
+    body: "Pick one concept and explain it start to finish, the way you would to a student. Face visible, clear audio, whiteboard or screen share.",
     art: (
-      <Art>
-        <rect x="26" y="24" width="86" height="54" rx="6" />
-        <path d="M70 42v18l16-9z" fill="currentColor" stroke="none" />
-        <circle cx="126" cy="34" r="7" />
-        <path d="M126 30v4l3 2" />
-        <path d="M40 88h58" className="opacity-40" />
+      <Art label="A video frame showing a tutor beside a whiteboard, marked 2 to 5 minutes">
+        <rect x="6" y="8" width="188" height="86" rx="6" />
+        {/* whiteboard */}
+        <rect x="18" y="20" width="94" height="60" rx="3" />
+        <path d="M28 36h56M28 48h40M28 60h64" opacity="0.35" />
+        {/* tutor */}
+        <circle cx="152" cy="42" r="12" />
+        <path d="M130 80c0-12 10-22 22-22s22 10 22 22" />
+        {/* record state */}
+        <circle cx="16" cy="105" r="4" fill="currentColor" stroke="none" />
+        <T x={26} y={108} size={9} bold>
+          REC
+        </T>
+        <T x={54} y={108} size={9} dim>
+          2–5 min · one concept, explained
+        </T>
       </Art>
     ),
   },
   {
     title: "Upload it to YouTube",
-    body: "Sign in to YouTube, choose Create, then Upload video. Any account works — you don't need a channel audience.",
+    body: "On youtube.com, press Create in the top bar, then Upload video. A personal account is fine — you do not need a channel or an audience.",
     art: (
-      <Art>
-        <rect x="30" y="46" width="100" height="34" rx="6" />
-        <path d="M80 62V22" />
-        <path d="M66 36l14-14 14 14" />
-        <path d="M52 64h12" className="opacity-40" />
+      <Art label="The YouTube top bar with the Create menu open on Upload video">
+        {/* top bar */}
+        <rect x="6" y="8" width="188" height="24" rx="5" />
+        <path d="M18 20h8M18 16h14M18 24h11" opacity="0.35" />
+        <rect x="120" y="12" width="44" height="16" rx="8" />
+        <path d="M130 20h8M134 16v8" />
+        <T x={142} y={23} size={8}>
+          Create
+        </T>
+        {/* dropdown */}
+        <rect x="104" y="40" width="90" height="52" rx="5" />
+        <Fill x={108} y={44} width={82} height={20} rx={3} />
+        <path d="M120 58v-9M116 53l4-4 4 4" />
+        <T x={132} y={57} size={9} bold>
+          Upload video
+        </T>
+        <T x={132} y={80} size={9} dim>
+          Go live
+        </T>
+        <T x={6} y={110} size={9} dim>
+          Top bar → Create → Upload video
+        </T>
       </Art>
     ),
   },
   {
     title: "Set visibility to Unlisted",
-    body: "Unlisted keeps it off search and off your channel. Only someone with the link can watch — that's us, and the students who pick you.",
+    body: "Unlisted keeps the video off YouTube search and off your channel. Only someone holding the link can watch it — us while we check, and students choosing a tutor.",
     art: (
-      <Art>
-        <rect x="34" y="30" width="92" height="44" rx="6" />
-        <path d="M48 44h34" className="opacity-40" />
-        <path d="M48 58h22" className="opacity-40" />
-        <circle cx="104" cy="52" r="10" />
-        <path d="M100 52l3 3 6-6" />
+      <Art label="YouTube's visibility options with Unlisted selected">
+        <rect x="18" y="6" width="164" height="90" rx="6" />
+        <T x={30} y={24} size={10} bold>
+          Visibility
+        </T>
+        {/* Private */}
+        <circle cx="36" cy="42" r="5.5" />
+        <T x={50} y={45}>
+          Private
+        </T>
+        <T x={104} y={45} dim size={8}>
+          only you
+        </T>
+        {/* Unlisted — selected */}
+        <Fill x={24} y={52} width={152} height={20} rx={4} />
+        <circle cx="36" cy="62" r="5.5" />
+        <circle cx="36" cy="62" r="2.6" fill="currentColor" stroke="none" />
+        <T x={50} y={65} bold>
+          Unlisted
+        </T>
+        <T x={104} y={65} dim size={8}>
+          anyone with the link
+        </T>
+        {/* Public */}
+        <circle cx="36" cy="82" r="5.5" />
+        <T x={50} y={85}>
+          Public
+        </T>
+        <T x={104} y={85} dim size={8}>
+          shown in search
+        </T>
+        <T x={18} y={112} size={9} dim>
+          Choose the middle one
+        </T>
       </Art>
     ),
   },
   {
-    title: "Copy the link, paste it below",
-    body: "Press Share, then Copy. The link looks like youtu.be/… — paste it exactly as YouTube gives it to you.",
+    title: "Copy the link and paste it below",
+    body: "Press Share, then Copy. You will get a link starting youtu.be/ — paste it exactly as YouTube gives it to you, extra characters and all.",
     art: (
-      <Art>
-        <rect x="24" y="34" width="66" height="26" rx="13" />
-        <path d="M40 47h34" className="opacity-40" />
-        <rect x="70" y="52" width="66" height="26" rx="13" />
-        <path d="M86 65h34" className="opacity-40" />
+      <Art label="The Share panel's copy button, and the link being pasted into the form field">
+        <rect x="6" y="6" width="188" height="34" rx="6" />
+        <T x={16} y={20} size={8} dim>
+          Share
+        </T>
+        <T x={16} y={33} size={9}>
+          youtu.be/dQw4w9WgXcQ
+        </T>
+        <Fill x={140} y={14} width={44} height={20} rx={5} />
+        <path d="M150 24h-4v-6h10v4" opacity="0.6" />
+        <T x={158} y={28} size={9} bold>
+          Copy
+        </T>
+        {/* arrow down */}
+        <path d="M100 46v16M93 55l7 7 7-7" />
+        {/* the form field on this very page */}
+        <rect
+          x="6"
+          y="70"
+          width="188"
+          height="30"
+          rx="6"
+          strokeDasharray="5 4"
+          opacity="0.7"
+        />
+        <T x={18} y={89} size={9} dim>
+          Demo Video Link — paste here
+        </T>
       </Art>
     ),
   },
