@@ -106,14 +106,15 @@ try {
   ok(!selfClear.ok && afterSelfClear[0]?.vetting_state === "unvetted",
      `a teacher cannot PATCH their own vetting_state (HTTP ${selfClear.status}, still ${afterSelfClear[0]?.vetting_state})`);
 
-  // The audit fields are forgeable the same way if left unguarded — a teacher
-  // who cannot set the state but can set vetted_by fabricates the evidence
-  // that someone checked them.
-  const forgeAudit = await fetch(`${URL}/rest/v1/profiles?id=eq.${teacher.id}`, {
-    method: "PATCH", headers: jsonHeaders(TH),
-    body: JSON.stringify({ vetted_at: new Date().toISOString(), vetting_note: "looks fine to me" }),
+  // The audit record is forgeable if left unguarded — a teacher who cannot set
+  // the state but can write teacher_vetting fabricates the evidence that
+  // someone checked them. 0022 moved it to its own table with RLS and no
+  // policy, so there is no shape of client request that reaches it.
+  const forgeAudit = await fetch(`${URL}/rest/v1/teacher_vetting`, {
+    method: "POST", headers: jsonHeaders(TH),
+    body: JSON.stringify({ teacher_id: teacher.id, note: "looks fine to me" }),
   });
-  ok(!forgeAudit.ok, `a teacher cannot forge the audit fields (HTTP ${forgeAudit.status})`);
+  ok(!forgeAudit.ok, `a teacher cannot forge a vetting record (HTTP ${forgeAudit.status})`);
 
   // ---- 4. Even the service role goes through the function ----------------
   // The trigger is not a policy: it does not care who is calling. This is what
@@ -136,12 +137,13 @@ try {
   // The profiles select policy makes every teacher row world-readable, which is
   // how students browse. That must not also publish who was refused, or the
   // operator's private note about them.
-  const readOthers = await fetch(
-    `${URL}/rest/v1/profiles?role=eq.teacher&select=vetting_state,vetting_note`,
-    { headers: TH }
-  );
-  ok(!readOthers.ok,
-     `vetting_state and vetting_note are not readable by an ordinary signed-in account (HTTP ${readOthers.status})`);
+  // 0021 tried to do this with a column-level revoke on profiles, which is a
+  // no-op against a table-level grant — this probe caught that. 0022 moved the
+  // judgement into its own table instead.
+  const readOthers = await fetch(`${URL}/rest/v1/teacher_vetting?select=*`, { headers: TH });
+  const leaked = readOthers.ok ? await readOthers.json() : null;
+  ok(!readOthers.ok || (Array.isArray(leaked) && leaked.length === 0),
+     `the vetting record is not readable by an ordinary signed-in account (HTTP ${readOthers.status}, rows ${Array.isArray(leaked) ? leaked.length : "n/a"})`);
 
   // ---- 7. ...but a teacher can still see their own state -----------------
   // Without this the dashboard banner cannot tell them why no requests arrive,
