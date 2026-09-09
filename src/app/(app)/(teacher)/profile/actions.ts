@@ -40,44 +40,23 @@ export async function updateTeacherProfile(
   const v = parsed.value;
 
   // Under the caller's own client, never the service role: RLS's "update own
-  // profile", "teacher manages own subjects" and "teacher deletes own
-  // subjects" policies (migration 0001) are what authorise every write below.
+  // profile" policy is what authorises the write below.
   const supabase = await createClient();
 
-  // Subjects first, profile second. If the profile update lands and the
-  // subject write then fails, the teacher ends up with a new rate and stale
-  // subjects — a rate that no longer matches what it was set for. Doing the
-  // subject replacement first means a failed profile update instead leaves
-  // correct subjects and an old rate, which is the less wrong half.
-  const { error: deleteError } = await supabase
-    .from("teacher_subjects")
-    .delete()
-    .eq("teacher_id", identity.userId);
-  if (deleteError) {
-    console.error("[updateTeacherProfile] subject delete failed", deleteError);
-    return fail("Couldn't update your subjects — try again. Nothing was changed.");
-  }
-
-  const { error: insertError } = await supabase
-    .from("teacher_subjects")
-    .insert(v.subjects.map((s) => ({ teacher_id: identity.userId, ...s })));
-  if (insertError) {
-    console.error("[updateTeacherProfile] subject insert failed", insertError);
-    // The delete above already succeeded, so this teacher now has NO
-    // subjects, not stale ones — a materially worse state that needs its own
-    // message rather than reusing the delete-failure wording above.
-    //
-    // And the dashboard's "You're live for" card (which reads teacher_subjects
-    // directly) is now serving a cache of subjects that no longer exist in the
-    // database — without this, the teacher would be invisible in search while
-    // their own dashboard kept showing them as live. Revalidate before
-    // returning, not after some later success that may never come.
-    revalidatePath("/dashboard");
-    return {
-      error:
-        "Your subjects are now empty because part of the save failed — reselect your subjects and try again.",
-    };
-  }
+  // Subjects are NOT written here any more. 0027 removed the teacher's INSERT
+  // and DELETE policies on teacher_subjects, because changing what you claim
+  // to be qualified to teach a child is not a form field — it goes through
+  // request_subject_change, which carries a new demo video, and takes effect
+  // only when an admin approves it.
+  //
+  // The careful delete-then-insert ordering that used to live here, and its
+  // "your subjects are now empty" recovery message, are gone with it: there is
+  // no longer a half-state to recover from, because this action touches one
+  // table.
+  //
+  // v.subjects is parsed but ignored: the profile form submits none (the
+  // picker is read-only there), so it arrives empty, and parseTeacherProfile
+  // passes requireSubjects: false for exactly that reason.
 
   const { error: profileError } = await supabase
     .from("profiles")

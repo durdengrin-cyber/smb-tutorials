@@ -183,9 +183,14 @@ export async function signUpTutor(
     return fail("Account created but profile save failed — sign in and retry.");
   }
 
-  const { error: subjectsError } = await supabase
-    .from("teacher_subjects")
-    .insert(v.subjects.map((s) => ({ teacher_id: teacherId, ...s })));
+  // Through set_initial_subjects, not a direct insert: 0027 removed the
+  // teacher's INSERT policy on teacher_subjects so that changing what you
+  // claim to teach has to go past an admin. The RPC is the one remaining way
+  // in, and it refuses a second call — so this cannot become a back door for
+  // the change flow it exists alongside.
+  const { error: subjectsError } = await supabase.rpc("set_initial_subjects", {
+    p_subjects: v.subjects,
+  });
   if (subjectsError) {
     return fail("Account created but subjects save failed — sign in and retry.");
   }

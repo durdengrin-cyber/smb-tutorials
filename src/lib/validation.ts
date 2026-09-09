@@ -206,6 +206,43 @@ export function canonicalYouTubeUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
+/**
+ * curricula × grades × subject-pairs -> one teacher_subjects row per
+ * combination, with the taxonomy checked.
+ *
+ * Extracted so signup and the 0027 subject-change request expand and validate
+ * identically. A request that accepted something signup rejects would be a way
+ * around signup.
+ */
+function expandSubjects(fd: FormData): Result<SubjectRow[]> {
+  const curricula = all(fd, "curricula");
+  if (curricula.length === 0) return fail("Select at least one curriculum.");
+  if (!curricula.every(isCurriculum)) return fail("Select a valid curriculum.");
+
+  const grades = all(fd, "grades");
+  if (grades.length === 0) return fail("Select at least one grade.");
+  if (!grades.every(isGrade)) return fail("Select a valid grade.");
+
+  const pairs = all(fd, "subjects");
+  const subjects: SubjectRow[] = [];
+  const seen = new Set<string>();
+  for (const pair of pairs) {
+    const [stream, subject] = pair.split("|");
+    if (!isStream(stream) || !isSubjectOf(stream, subject ?? "")) {
+      return fail(`"${pair}" is not a subject we offer.`);
+    }
+    for (const curriculum of curricula as Curriculum[]) {
+      for (const grade of grades as Grade[]) {
+        const key = `${curriculum}|${grade}|${stream}|${subject}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        subjects.push({ curriculum, grade, stream, subject });
+      }
+    }
+  }
+  return { ok: true, value: subjects };
+}
+
 // Subjects arrive as repeated "subjects" entries encoded "Stream|Subject";
 // curricula and grades as repeated checkbox entries. The three are expanded into
 // one row per (curriculum, grade, stream, subject) — the shape teacher_subjects
@@ -214,7 +251,14 @@ export function canonicalYouTubeUrl(videoId: string): string {
 // Shared by parseTutorSignUp and parseTeacherProfile so signup and editing
 // validate a rate, a qualification, or a subject list identically — this is
 // the ONLY place either one may define what "valid" means for these fields.
-function parseTeacherProfileFields(fd: FormData): Result<TeacherProfileFields> {
+function parseTeacherProfileFields(
+  fd: FormData,
+  // Signup collects subjects; the profile editor no longer does. 0027 made
+  // subjects changeable only through a request an admin approves, so the
+  // profile form shows them read-only and submits nothing — and requiring
+  // them here would reject every profile save.
+  { requireSubjects = true }: { requireSubjects?: boolean } = {}
+): Result<TeacherProfileFields> {
   const fullName = str(fd, "fullName");
   if (!fullName) return fail("Enter your full name.");
 
@@ -256,37 +300,15 @@ function parseTeacherProfileFields(fd: FormData): Result<TeacherProfileFields> {
     );
   const demoVideoUrl = canonicalYouTubeUrl(inspected.id);
 
-  const curricula = all(fd, "curricula");
-  if (curricula.length === 0) return fail("Select at least one curriculum.");
-  if (!curricula.every(isCurriculum)) return fail("Select a valid curriculum.");
-
-  const grades = all(fd, "grades");
-  if (grades.length === 0) return fail("Select at least one grade.");
-  if (!grades.every(isGrade)) return fail("Select a valid grade.");
-
-  const pairs = all(fd, "subjects");
-  // A teacher with zero subjects is invisible in search and has no other way
-  // to find out why (this rejection is reachable from the profile-editing
-  // form as well as signup, so it has to explain itself both times).
-  if (pairs.length === 0)
+  // requireSubjects is checked BEFORE expanding, so signup's specific
+  // "you won't appear in search" wording survives — expandSubjects has no way
+  // to know which caller it is serving.
+  if (requireSubjects && all(fd, "subjects").length === 0)
     return fail("Select at least one subject — with none, you won't appear in search.");
 
-  const subjects: SubjectRow[] = [];
-  const seen = new Set<string>();
-  for (const pair of pairs) {
-    const [stream, subject] = pair.split("|");
-    if (!isStream(stream) || !isSubjectOf(stream, subject ?? "")) {
-      return fail(`"${pair}" is not a subject we offer.`);
-    }
-    for (const curriculum of curricula as Curriculum[]) {
-      for (const grade of grades as Grade[]) {
-        const key = `${curriculum}|${grade}|${stream}|${subject}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        subjects.push({ curriculum, grade, stream, subject });
-      }
-    }
-  }
+  const expanded = expandSubjects(fd);
+  if (!expanded.ok) return expanded;
+  const subjects = expanded.value;
 
   return {
     ok: true,
@@ -381,7 +403,7 @@ const MAX_BIO_LENGTH = 1000;
 // Editing, not signup: email is auth-managed and role is immutable by design
 // (migration 0013), so neither is read here even if a form sent them.
 export function parseTeacherProfile(fd: FormData): Result<TeacherProfile> {
-  const fields = parseTeacherProfileFields(fd);
+  const fields = parseTeacherProfileFields(fd, { requireSubjects: false });
   if (!fields.ok) return fields;
 
   const bioRaw = str(fd, "bio");
@@ -406,4 +428,43 @@ export function parseNewPassword(
     return fail("Password must be at least 8 characters.");
   if (password !== confirm) return fail("Passwords do not match.");
   return { ok: true, value: { password } };
+}
+
+export interface SubjectChangeRequest {
+  subjects: SubjectRow[];
+  demoVideoUrl: string;
+}
+
+/**
+ * A teacher's request to change what they teach (0027).
+ *
+ * Validates exactly as signup does — same taxonomy expansion, same YouTube
+ * rule — because a request that could carry something the signup form rejects
+ * would be a way around the signup form. The demo video is REQUIRED and is the
+ * point: the admin is being asked to approve a claim to teach something new,
+ * and needs to watch the teacher teach it.
+ */
+export function parseSubjectChangeRequest(
+  fd: FormData
+): Result<SubjectChangeRequest> {
+  const inspected = inspectDemoVideoUrl(str(fd, "demoVideoUrl"));
+  if (!inspected.ok)
+    return fail(
+      inspected.reason === "bad-id"
+        ? "That YouTube link has no video in it. Open the video on YouTube, press Share, then Copy, and paste what you get — the link ends in an 11-character video id."
+        : "Add a YouTube link showing you teaching the new subjects (youtube.com or youtu.be)."
+    );
+
+  const subjects = expandSubjects(fd);
+  if (!subjects.ok) return subjects;
+  if (subjects.value.length === 0)
+    return fail("Select at least one subject to request.");
+
+  return {
+    ok: true,
+    value: {
+      subjects: subjects.value,
+      demoVideoUrl: canonicalYouTubeUrl(inspected.id),
+    },
+  };
 }

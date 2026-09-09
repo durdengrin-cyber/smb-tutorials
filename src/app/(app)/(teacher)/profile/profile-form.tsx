@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { updateTeacherProfile } from "./actions";
-import { SubjectPicker } from "@/components/subject-picker";
 import { useResubmitKey } from "@/components/use-resubmit-key";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/ui/button";
@@ -124,11 +124,44 @@ export function ProfileForm(values: ProfileFormValues) {
             />
           </div>
 
-          <SubjectPicker
-            defaultCurricula={edited?.curricula ?? values.defaultCurricula}
-            defaultGrades={edited?.grades ?? values.defaultGrades}
-            defaultSubjects={edited?.subjects ?? values.defaultSubjects}
-          />
+          {/* Read-only since 0027. Changing what you claim to be qualified to
+              teach a child is not a form field: it goes through a request that
+              carries a new demo video and takes effect only when an admin has
+              watched it. The picker is still used, on /profile/subjects, to
+              compose that request. */}
+          <div className="rounded-lg border border-border bg-muted p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground">
+                What you teach
+              </p>
+              <Link
+                href="/profile/subjects"
+                className="text-sm text-primary underline underline-offset-4"
+              >
+                Request a change
+              </Link>
+            </div>
+            {values.defaultSubjects.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                No subjects yet.
+              </p>
+            ) : (
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {values.defaultSubjects.map((s) => (
+                  <li
+                    key={s}
+                    className="rounded-sm bg-card px-2 py-1 font-mono text-xs text-muted-foreground"
+                  >
+                    {s.replace("|", " · ")}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">
+              Across {values.defaultCurricula.join(", ") || "no curriculum"} ·{" "}
+              {values.defaultGrades.join(", ") || "no grade"}
+            </p>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="profile-specialization">Specialization</Label>

@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import { getIdentity } from "@/lib/auth";
 import { createDispatchClient } from "@/lib/supabase/admin";
-import { setVettingState, reinstateTeacher, suspendTeacher } from "./actions";
+import {
+  setVettingState,
+  reinstateTeacher,
+  suspendTeacher,
+  decideSubjectChange,
+} from "./actions";
 
 
 // Column names are not admin-facing language, and a raw JSON blob is not a
@@ -48,6 +53,7 @@ export default async function AdminPage() {
     { data: availability },
     { data: revetEvents },
     { data: lastVetted },
+    { data: subjectRequests },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -82,6 +88,14 @@ export default async function AdminPage() {
       .select("teacher_id, changed_at, changes")
       .order("changed_at", { ascending: false }),
     supabase.from("teacher_vetting").select("teacher_id, vetted_at"),
+    // Pending subject changes (0027). Shown ABOVE the roster because each is a
+    // teacher waiting on a decision that only an admin can make, where the
+    // list below is mostly people needing nothing.
+    supabase
+      .from("subject_change_requests")
+      .select("id, teacher_id, requested_at, demo_video_url, subjects")
+      .eq("status", "pending")
+      .order("requested_at", { ascending: true }),
   ]);
 
   const suspendedAt = new Map(
@@ -113,6 +127,93 @@ export default async function AdminPage() {
         Check the ID against the name on the account, watch the demo, then clear them.
         Never save the document.
       </p>
+
+      {(subjectRequests ?? []).length > 0 ? (
+        <section className="mb-10">
+          <h2 className="mb-1 text-lg font-bold tracking-tight">
+            Subject changes waiting
+          </h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Watch the video before approving. Approving adopts it as their demo
+            video, replaces their subjects and clears them in one step — you do
+            not need to clear them again afterwards.
+          </p>
+          <ul className="divide-y divide-border border-y border-border">
+            {(subjectRequests ?? []).map((r) => {
+              const teacher = (teachers ?? []).find((t) => t.id === r.teacher_id);
+              const proposed = Array.isArray(r.subjects)
+                ? (r.subjects as { curriculum: string; grade: string; stream: string; subject: string }[])
+                : [];
+              return (
+                <li key={r.id} className="py-4">
+                  <p className="font-semibold">
+                    {teacher?.full_name ?? "Unknown teacher"}{" "}
+                    <span className="font-mono text-xs text-muted-foreground">
+                      requested{" "}
+                      {new Date(r.requested_at as string).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-sm">
+                    <a
+                      href={r.demo_video_url as string}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      Watch the new demo video
+                    </a>
+                  </p>
+                  <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {[...new Set(proposed.map((s) => `${s.stream} · ${s.subject}`))].map(
+                      (label) => (
+                        <li
+                          key={label}
+                          className="rounded-sm bg-muted px-2 py-1 font-mono text-xs text-muted-foreground"
+                        >
+                          {label}
+                        </li>
+                      )
+                    )}
+                  </ul>
+                  <p className="mt-1 font-mono text-xs text-muted-foreground">
+                    {[...new Set(proposed.map((s) => s.curriculum))].join(", ")} ·{" "}
+                    {[...new Set(proposed.map((s) => s.grade))].join(", ")}
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <form action={decideSubjectChange} className="flex flex-wrap gap-2">
+                      <input type="hidden" name="requestId" value={r.id} />
+                      <input
+                        name="note"
+                        placeholder="Note (optional)"
+                        aria-label="Note on this decision"
+                        className="w-44 rounded-sm border border-input bg-card px-2 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      />
+                      <button
+                        name="decision"
+                        value="approve"
+                        className="rounded-sm bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        name="decision"
+                        value="reject"
+                        className="rounded-sm border border-border px-3 py-1.5 text-sm hover:bg-accent"
+                      >
+                        Reject
+                      </button>
+                    </form>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <ul className="divide-y divide-border border-y border-border">
         {(teachers ?? []).map((t) => {

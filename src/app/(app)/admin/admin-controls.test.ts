@@ -130,3 +130,64 @@ describe("the queue says what changed", () => {
     expect(PAGE).toMatch(/FIELD_LABEL\[field\] \?\? field/);
   });
 });
+
+// 0027 took subjects out of self-service. A teacher was cleared to teach the
+// subjects an admin saw them demonstrate; adding one with a PATCH and being
+// picked for it the same minute is the hole this closes.
+describe("subject change requests", () => {
+  const ACTIONS = readFileSync(join("src", "app", "(app)", "admin", "actions.ts"), "utf8");
+  const MIGRATION = readFileSync(
+    join("supabase", "migrations", "0027_subject_change_requests.sql"),
+    "utf8"
+  );
+
+  it("the admin page shows pending requests with the video to watch", () => {
+    expect(PAGE).toMatch(/from\("subject_change_requests"\)/);
+    expect(PAGE).toMatch(/\.eq\("status", "pending"\)/);
+    expect(PAGE).toMatch(/Watch the new demo video/);
+  });
+
+  it("decides through the RPC, in one transaction", () => {
+    expect(ACTIONS).toMatch(/rpc\("decide_subject_change"/);
+    // Never by writing the tables directly: approval replaces subjects, adopts
+    // the video, clears the teacher and stamps teacher_vetting, and doing that
+    // in four round trips leaves half-states.
+    expect(ACTIONS).not.toMatch(/from\("teacher_subjects"\)/);
+  });
+
+  // The whole point of a request over a re-vet: the admin gets something new
+  // to watch. A request with no video is not reviewable.
+  it("requires a demo video, in SQL and not only in the form", () => {
+    expect(MIGRATION).toMatch(/demo_video_url text not null/);
+    expect(MIGRATION).toMatch(/a demo video is required for the new subjects/);
+  });
+
+  // The direct write path has to be gone, or the request flow is optional.
+  it("drops the policies that let a teacher write subjects directly", () => {
+    expect(MIGRATION).toMatch(/drop policy if exists "teacher manages own subjects"/);
+    expect(MIGRATION).toMatch(/drop policy if exists "teacher deletes own subjects"/);
+  });
+
+  // ...but signup still has to work, and it inserted subjects with the
+  // teacher's own session.
+  it("leaves signup a way in, used once", () => {
+    expect(MIGRATION).toMatch(/function public\.set_initial_subjects/);
+    expect(MIGRATION).toMatch(/subjects are already set; request a change instead/);
+    const SIGNUP = readFileSync(
+      join("src", "app", "(marketing)", "tutor-signup", "actions.ts"),
+      "utf8"
+    );
+    expect(SIGNUP).toMatch(/rpc\("set_initial_subjects"/);
+    // Reading teacher_subjects is still fine and still needed — the history
+    // check counts them to decide whether an account may convert. What must be
+    // gone is the WRITE.
+    expect(SIGNUP).not.toMatch(/from\("teacher_subjects"\)[\s\S]{0,120}\.insert\(/);
+  });
+
+  // Approving must not trip 0024's re-vet on the demo video it is adopting,
+  // and must not leave the flag on for the rest of the transaction.
+  it("guards the vetting flag on both sides of the approval", () => {
+    expect(MIGRATION).toMatch(/set_config\('app\.allow_vetting_change', 'on', true\)/);
+    expect(MIGRATION).toMatch(/set_config\('app\.allow_vetting_change', 'off', true\)/);
+  });
+});

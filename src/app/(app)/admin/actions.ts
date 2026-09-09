@@ -106,3 +106,35 @@ export async function suspendTeacher(formData: FormData) {
 
   revalidatePath("/admin");
 }
+
+/**
+ * Approves or rejects a teacher's subject change (0027).
+ *
+ * Approving is a vetting decision — an admin watched a video and said yes — so
+ * the RPC does all of it in one transaction: replaces the subjects, adopts the
+ * new demo video, clears the teacher, and stamps teacher_vetting. Doing it here
+ * in four round trips would leave a teacher with new subjects and an old video
+ * if the second one failed.
+ */
+export async function decideSubjectChange(formData: FormData) {
+  const identity = await getIdentity();
+  if (identity?.role !== "admin") throw new Error("not an admin");
+
+  const requestId = String(formData.get("requestId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  if (decision !== "approve" && decision !== "reject") {
+    throw new Error(`invalid decision: ${decision}`);
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("decide_subject_change", {
+    p_request_id: requestId,
+    p_approve: decision === "approve",
+    p_note: note,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin");
+}

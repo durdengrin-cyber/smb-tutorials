@@ -561,10 +561,33 @@ describe("parseTeacherProfile", () => {
     expect(parseTeacherProfile(fd({ ...base, grades: [] })).ok).toBe(false);
   });
 
-  // A teacher with zero subjects is invisible in search and has no other way
-  // to find out why — the rejection has to say so, not just fail silently.
-  it("rejects zero subjects with a message explaining why that matters", () => {
+  // Since 0027 the profile editor does not collect subjects at all — changing
+  // what you claim to teach goes through a request an admin approves, carrying
+  // a new demo video — so this form submits none and must still save.
+  it("accepts a profile save carrying no subjects", () => {
     const r = parseTeacherProfile(fd({ ...base, subjects: [] }));
+    expect(r.ok).toBe(true);
+  });
+
+  // Signup is unchanged and still insists: a teacher who finishes signing up
+  // with zero subjects is invisible in search with no way to find out why.
+  it("still rejects zero subjects at SIGNUP, where they are collected", () => {
+    const signup = {
+      fullName: "Dr. Rao",
+      email: "rao@x.com",
+      password: "secret123",
+      phone: "9876543210",
+      experience: "8",
+      qualification: "PhD Physics",
+      hourlyRate: "500",
+      hoursPerWeek: "10-20",
+      demoVideoUrl: "https://youtu.be/dQw4w9WgXcQ",
+      curricula: ["CBSE"],
+      grades: ["11th"],
+      subjects: [] as string[],
+      consent: "yes",
+    };
+    const r = parseTutorSignUp(fd(signup));
     expect(r.ok).toBe(false);
     expect(!r.ok && r.error).toMatch(/subject/i);
     expect(!r.ok && r.error).toMatch(/search/i);

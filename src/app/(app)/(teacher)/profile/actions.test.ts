@@ -133,47 +133,11 @@ describe("updateTeacherProfile", () => {
     expect(calls.deleteEq).not.toHaveBeenCalled();
   });
 
-  it("replaces subjects before touching the profile row", async () => {
-    await updateTeacherProfile(null, validFormData());
-    expect(calls.deleteEq).toHaveBeenCalledWith("teacher_id", "teacher-1");
-    expect(calls.insert).toHaveBeenCalledWith([
-      { teacher_id: "teacher-1", curriculum: "CBSE", grade: "11th", stream: "Science", subject: "Physics" },
-      { teacher_id: "teacher-1", curriculum: "CBSE", grade: "12th", stream: "Science", subject: "Physics" },
-    ]);
-    expect(calls.profileUpdateEq).toHaveBeenCalled();
-  });
-
   it("saves and revalidates both the profile and dashboard on full success", async () => {
     const result = await updateTeacherProfile(null, validFormData());
     expect(result).toBeNull();
     expect(revalidatePath).toHaveBeenCalledWith("/profile");
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
-  });
-
-  it("stops before the profile update when the subject delete fails, and changes nothing", async () => {
-    state.deleteError = { message: "boom" };
-    const result = await updateTeacherProfile(null, validFormData());
-    expect(result?.error).toMatch(/nothing was changed/i);
-    expect(calls.insert).not.toHaveBeenCalled();
-    expect(calls.profileUpdateEq).not.toHaveBeenCalled();
-    // The delete never committed, so the dashboard's cache still matches the
-    // database — nothing here should trigger a revalidation.
-    expect(revalidatePath).not.toHaveBeenCalled();
-  });
-
-  // Distinct from the delete-failure case above: here the delete already
-  // succeeded, so the teacher's subjects are genuinely gone, not merely
-  // unchanged — the message has to say that, not reuse the generic one.
-  it("reports subjects as empty, not merely failed, when insert fails after delete succeeds", async () => {
-    state.insertError = { message: "boom" };
-    const result = await updateTeacherProfile(null, validFormData());
-    expect(result?.error).toMatch(/empty/i);
-    expect(calls.profileUpdateEq).not.toHaveBeenCalled();
-    // The subjects are genuinely gone from the database at this point, so the
-    // dashboard's "You're live for" card must be told before this returns —
-    // otherwise it goes on serving a cached list that no longer exists.
-    expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
-    expect(revalidatePath).not.toHaveBeenCalledWith("/profile");
   });
 
   it("says which half saved when subjects succeed but the profile update fails", async () => {
@@ -184,5 +148,36 @@ describe("updateTeacherProfile", () => {
     // cache is stale even though the rate/profile fields didn't change.
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
     expect(revalidatePath).not.toHaveBeenCalledWith("/profile");
+  });
+});
+
+// 0027 took subjects out of this action entirely. Changing what you claim to
+// be qualified to teach a child is not a form field: it goes through
+// request_subject_change, carries a new demo video, and takes effect only when
+// an admin approves it. The three tests that used to sit here documented the
+// delete-then-insert ordering and its "your subjects are now empty" recovery
+// message — a half-state that can no longer occur, because this action touches
+// one table.
+describe("updateTeacherProfile leaves subjects alone", () => {
+  it("neither deletes nor inserts subjects", async () => {
+    await updateTeacherProfile(null, validFormData());
+    expect(calls.deleteEq).not.toHaveBeenCalled();
+    expect(calls.insert).not.toHaveBeenCalled();
+  });
+
+  it("still saves the profile row", async () => {
+    await updateTeacherProfile(null, validFormData());
+    expect(calls.profileUpdateEq).toHaveBeenCalled();
+  });
+
+  // The delete used to run first, so a failing subject write left a teacher
+  // with none. That failure mode is gone with the write itself: a broken
+  // subject table cannot now affect a profile save at all.
+  it("saves the profile even if the subject table would have refused", async () => {
+    state.deleteError = { message: "permission denied for table teacher_subjects" };
+    state.insertError = { message: "permission denied for table teacher_subjects" };
+    const result = await updateTeacherProfile(null, validFormData());
+    expect(result?.error).toBeUndefined();
+    expect(calls.profileUpdateEq).toHaveBeenCalled();
   });
 });
