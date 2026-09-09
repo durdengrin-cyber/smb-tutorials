@@ -18,6 +18,18 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/scripts/session-start.sh\"",
+            "statusMessage": "Syncing, and checking where the work actually is...",
+            "timeout": 60
+          }
+        ]
+      }
     ]
   }
 }

@@ -1,8 +1,44 @@
 # SMB Tutorials — Claude Code Rules
 
 ## Session Start
-- **First:** read `project_state.md` and the spec it points to (`docs/superpowers/specs/`). State the current phase + next step in one line before doing anything else.
+- **First:** read `_memory/MEMORY.md` and `project_state.md`, plus the spec `project_state.md`
+  points to (`docs/superpowers/specs/`). Batch them into one tool call. State the current phase +
+  next step in one line before doing anything else.
+- **A SessionStart hook has already run `scripts/session-start.sh`** — it pulls the current branch
+  and reports where development actually lives. **Read its output before planning anything.** If it
+  says main is behind another branch, the work you are about to plan may already exist there.
 - Confirm branch with `git branch --show-current` before any push.
+
+### Two machines work on this project — assume nothing is where you expect
+Learned expensively on 2026-09-09. `main` was in sync with `origin/main`, so everything looked
+current. It was not: 87 commits of shipped work sat on `feat/visual-identity-tokens`, including
+migration `0020`, which had **already been applied to production**. Two full plans were written and
+one was executed against a base that was three weeks stale, rebuilding work that already existed.
+
+`git pull` does not catch this — the branch you are on can be perfectly in sync while the work is
+somewhere else entirely. Before planning any feature, and especially before writing a migration:
+
+- `git fetch --all` then check every remote branch against `main`, not just your own.
+- Run `scripts/sync-check.sh` if you did not see the hook's output. It answers both questions:
+  which branch development is really on, and whether the migration ledger agrees with the repo.
+- **A migration applied in production but missing from your branch means you are on the wrong
+  base.** Do not write SQL against objects you cannot see the definition of — `0021` was nearly
+  built from `0010`'s copy of `available_teachers`, which would have deleted the suspension
+  filter added by `0020` and put suspended teachers back in front of children.
+
+## Shared memory — `_memory/` is version-controlled, and that is the point
+- **`_memory/` at the repo root is the single source of truth for what Claude remembers here.**
+  All memory writes go there — never to a machine-local `~/.claude/` path.
+- **On a new machine, run `bash scripts/setup-memory.sh` once.** It symlinks
+  `~/.claude/projects/<key>/memory/` to the repo's `_memory/`, so Claude Code's ordinary auto-load
+  and auto-write transparently hit files that git tracks. Existing machine-local memories are
+  copied in and the old directory is backed up, never deleted.
+- **Commit and push `_memory/` at the end of a session, and before any `/compact`.** That push is
+  the only thing that gets a fact to the other machine.
+- On a merge conflict inside `_memory/`, keep the more recent fact.
+
+The mechanism is borrowed from `HL-Trader-Private`, which has run it across two machines; its
+`CLAUDE.md` "Shared Memory Protocol" is the original.
 
 ## Project
 - Serverless student↔teacher 1:1 tutoring over peer-to-peer video.

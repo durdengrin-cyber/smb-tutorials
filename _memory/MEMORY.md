@@ -1,0 +1,5 @@
+- [Open a file means open it](open-a-file-means-open-it.md) — "open X" = launch it in an editor, not print it.
+- [Never print secrets to terminal](never-print-secrets-to-terminal.md) — printing a secrets file burns it into the transcript.
+- [Forcing the refund path](forcing-the-refund-path.md) — trigger the webhook's refund branch on demand, no race to win.
+- [Terse communication](terse-communication-preferred.md) — short, sharp answers; no walls of text.
+- [Minimise review passes](minimise-review-passes.md) — batch dispatches; review only security-touching code.
