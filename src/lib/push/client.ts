@@ -20,6 +20,45 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
+/**
+ * The configured VAPID public key as bytes, or null if this deployment has
+ * none usable.
+ *
+ * Exists so the key can be checked BEFORE Notification.requestPermission().
+ * The order used to be: register, request permission, then subscribe with
+ * `process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""`. With the variable unset
+ * that is an empty key, and subscribe throws InvalidAccessError — but only
+ * AFTER the teacher has already granted permission. The comment on that
+ * subscribe call has always said it is "the one call in the flow with no
+ * second chance", and spec §6.4 says the permission must never be spent
+ * carelessly; a missing environment variable was quietly doing exactly that,
+ * behind a generic "try again" that no amount of trying could fix.
+ *
+ * Found on 2026-09-09 when a local dev environment without the key surfaced
+ * InvalidAccessError from the dashboard's "Turn on notifications" button.
+ * Vercel has the key in all three environments, so this was never a
+ * production outage — but nothing in the code made that the difference
+ * between a clear refusal and a burnt permission grant.
+ */
+function applicationServerKey(): Uint8Array<ArrayBuffer> | null {
+  const raw = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").trim();
+  if (!raw) return null;
+
+  let bytes: Uint8Array<ArrayBuffer>;
+  try {
+    bytes = urlBase64ToUint8Array(raw);
+  } catch {
+    // atob throws on anything that is not base64.
+    return null;
+  }
+
+  // An uncompressed P-256 public key: the 0x04 tag followed by two 32-byte
+  // coordinates. Checking the shape here is what turns a truncated or
+  // pasted-wrong key into a refusal instead of a spent permission.
+  if (bytes.length !== 65 || bytes[0] !== 0x04) return null;
+  return bytes;
+}
+
 function detectIOS(): boolean {
   if (typeof navigator === "undefined") return false;
   // iPadOS reports itself as MacIntel with touch points, which is why the
@@ -77,6 +116,21 @@ export async function readSetupFacts(): Promise<SetupFacts> {
 export async function enableNotifications(): Promise<
   { ok: true } | { error: string }
 > {
+  // BEFORE requestPermission, never after. A missing or malformed key makes
+  // subscribe throw, and by then the permission has been spent on a request
+  // that could not have succeeded. This is the whole reason the check exists
+  // as a separate step.
+  const key = applicationServerKey();
+  if (!key) {
+    console.error(
+      "[push] NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing or malformed — refusing to request notification permission, which would be spent on a subscribe that cannot succeed"
+    );
+    return {
+      error:
+        "Notifications aren't set up on this site yet. Nothing to fix on your side — please let us know.",
+    };
+  }
+
   try {
     const reg = await navigator.serviceWorker.register(SW_PATH);
     const permission = await Notification.requestPermission();
@@ -88,13 +142,8 @@ export async function enableNotifications(): Promise<
       // silent way to test whether a device is still reachable.
       userVisibleOnly: true,
       // Converted rather than passed as a string. Current browsers accept a
-      // base64url DOMString, but Safari has lagged here and this is the one
-      // call in the flow with no second chance: a rejected subscribe spends
-      // the permission and leaves the teacher unreachable with no way to
-      // re-ask.
-      applicationServerKey: urlBase64ToUint8Array(
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""
-      ),
+      // base64url DOMString, but Safari has lagged here.
+      applicationServerKey: key,
     });
     await postSubscription(sub);
     return { ok: true };
@@ -125,11 +174,18 @@ export async function registerExistingSubscription(): Promise<void> {
       // granted: subscribe() only prompts from "default", which the guard
       // above has excluded. Nothing is spent, so §6.4's "never spend the
       // permission on a load nobody asked for" is not in play here.
+      // Guarded here too, but only on the re-subscribe branch: an existing
+      // subscription is still worth posting even if the key has since gone
+      // missing, because that repairs the server's record of a device that
+      // already works.
+      const key = applicationServerKey();
+      if (!key) {
+        console.error("[push] re-subscribe skipped — VAPID public key missing or malformed");
+        return;
+      }
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""
-        ),
+        applicationServerKey: key,
       });
     }
     await postSubscription(sub);

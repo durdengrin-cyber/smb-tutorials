@@ -12,7 +12,11 @@
 // jsdom does not implement the Service Worker / Push API at all, so
 // navigator.serviceWorker has to be stubbed by hand.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { removeThisDevice, registerExistingSubscription } from "./client";
+import {
+  removeThisDevice,
+  registerExistingSubscription,
+  enableNotifications,
+} from "./client";
 
 const ENDPOINT = "https://push.example.com/subscription/abc123";
 
@@ -89,15 +93,32 @@ let fetchMock: ReturnType<typeof vi.fn>;
 // consistent, and exposed so the assertions can pin what was logged.
 let errorSpy: ReturnType<typeof vi.spyOn>;
 
+// 65 bytes: the 0x04 tag of an uncompressed P-256 point plus two 32-byte
+// coordinates, base64url encoded the way a real VAPID key travels. A
+// configured deployment is the DEFAULT state for this file — Vercel has the
+// key in all three environments — so beforeEach stubs it and only the tests
+// about a broken deployment override it.
+function validKey(): string {
+  const bytes = new Uint8Array(65);
+  bytes[0] = 0x04;
+  for (let i = 1; i < 65; i++) bytes[i] = i;
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 beforeEach(() => {
   fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 } as Response);
   vi.stubGlobal("fetch", fetchMock);
   errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", validKey());
 });
 
 afterEach(() => {
   errorSpy.mockRestore();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   Object.defineProperty(navigator, "serviceWorker", {
     configurable: true,
     value: undefined,
@@ -285,3 +306,99 @@ describe("registerExistingSubscription", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+// The permission is the scarce resource in this whole feature. Spec §6.4:
+// never spend it on something that cannot succeed. A missing
+// NEXT_PUBLIC_VAPID_PUBLIC_KEY made subscribe throw InvalidAccessError —
+// but only AFTER requestPermission had already been answered, so the grant
+// was consumed by a call that never had a chance, behind a generic
+// "try again" that trying could not fix.
+describe("enableNotifications — the key is checked before the permission is spent", () => {
+  function stubNotification(permission: NotificationPermission = "granted") {
+    const requestPermission = vi.fn().mockResolvedValue(permission);
+    Object.defineProperty(globalThis, "Notification", {
+      configurable: true,
+      value: { permission, requestPermission },
+    });
+    return requestPermission;
+  }
+
+  it("refuses without asking for permission when the key is absent", async () => {
+    vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", "");
+    stubForRegistration({ permission: "default", existing: null });
+    const requestPermission = stubNotification();
+
+    const result = await enableNotifications();
+
+    expect("error" in result && result.error).toMatch(/aren't set up/i);
+    // The assertion that matters: the grant was never touched.
+    expect(requestPermission).not.toHaveBeenCalled();
+  });
+
+  it("refuses without asking when the key is the wrong length", async () => {
+    vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", "QUJDREVG");
+    stubForRegistration({ permission: "default", existing: null });
+    const requestPermission = stubNotification();
+
+    const result = await enableNotifications();
+
+    expect("error" in result).toBe(true);
+    expect(requestPermission).not.toHaveBeenCalled();
+  });
+
+  it("refuses without asking when the key is not base64 at all", async () => {
+    vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", "not a key!!!");
+    stubForRegistration({ permission: "default", existing: null });
+    const requestPermission = stubNotification();
+
+    await enableNotifications();
+
+    expect(requestPermission).not.toHaveBeenCalled();
+  });
+
+  it("blames the site, not the teacher, since they cannot fix it", async () => {
+    vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", "");
+    stubForRegistration({ permission: "default", existing: null });
+    stubNotification();
+
+    const result = await enableNotifications();
+
+    expect("error" in result && result.error).toMatch(/nothing to fix on your side/i);
+    // Must NOT be the "blocked for this site" message, which tells a teacher
+    // to go change a browser setting that is not the problem.
+    expect("error" in result && result.error).not.toMatch(/blocked/i);
+  });
+
+  it("asks for permission and subscribes with 65 bytes when the key is good", async () => {
+    vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", validKey());
+    const subscribe = vi.fn().mockResolvedValue(makeSubscription());
+    stubForRegistration({ permission: "default", existing: null, subscribe });
+    // AFTER stubForRegistration: that helper stubGlobals Notification with
+    // only { permission }, so stubbing first would lose requestPermission.
+    const requestPermission = stubNotification("granted");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 })
+    );
+
+    const result = await enableNotifications();
+
+    expect(requestPermission).toHaveBeenCalled();
+    expect("ok" in result && result.ok).toBe(true);
+    const passed = subscribe.mock.calls[0][0].applicationServerKey;
+    expect(passed).toBeInstanceOf(Uint8Array);
+    expect(passed.length).toBe(65);
+    expect(passed[0]).toBe(0x04);
+  });
+
+  it("does not re-subscribe on mount when the key is missing", async () => {
+    vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", "");
+    const subscribe = vi.fn();
+    stubForRegistration({ permission: "granted", existing: null, subscribe });
+    stubNotification("granted");
+
+    await registerExistingSubscription();
+
+    expect(subscribe).not.toHaveBeenCalled();
+  });
+});
+
