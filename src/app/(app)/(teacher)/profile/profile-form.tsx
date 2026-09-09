@@ -206,7 +206,8 @@ export function ProfileForm(values: ProfileFormValues) {
           <Label htmlFor="profile-demoVideoUrl">Demo Video Link (YouTube) *</Label>
           <p className="text-sm text-muted-foreground">
             An Unlisted YouTube link — this is what students watch when choosing
-            a tutor.
+            a tutor. Changing it sends your profile back for review, and you
+            will not appear in search until someone has watched the new one.
           </p>
           <Input
             id="profile-demoVideoUrl"

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // The profile editor told teachers their bio was "shown to students", and the
@@ -54,5 +54,35 @@ describe("what the profile editor promises matches what a student sees", () => {
 
   it("still collects a bio, so correcting the copy did not delete the field", () => {
     expect(FORM).toMatch(/name="bio"/);
+  });
+});
+
+// The copy "Changing it sends your profile back for review" was written once
+// before anything did that, and removed the same day for being untrue.
+// Migration 0023 makes it true. This pins the two together so the sentence
+// cannot outlive the mechanism again — and so that a migration reverted
+// without the copy is caught here rather than by a teacher.
+describe("the re-review promise has a migration behind it", () => {
+  const MIGRATION = join("supabase", "migrations", "0023_revet_on_demo_video_change.sql");
+
+  it("promises re-review only if 0023 exists", () => {
+    const promised = /back for review/i.test(FORM);
+    expect(existsSync(MIGRATION), "profile copy promises re-review").toBe(promised);
+  });
+
+  it("0023 actually resets the state on a demo video change", () => {
+    const sql = readFileSync(MIGRATION, "utf8");
+    expect(sql).toMatch(/demo_video_url is distinct from old\.demo_video_url/);
+    expect(sql).toMatch(/new\.vetting_state\s*:=\s*'unvetted'/);
+    // Only for a teacher who was actually cleared, or every profile save on an
+    // unvetted teacher looks like a state change.
+    expect(sql).toMatch(/old\.vetting_state = 'cleared'/);
+  });
+
+  // db push wraps each migration in its own transaction; an explicit commit
+  // inside would end it early and run the rest unprotected.
+  it("0023 carries no explicit transaction control", () => {
+    const sql = readFileSync(MIGRATION, "utf8");
+    expect(sql).not.toMatch(/^\s*(begin|commit)\s*;/im);
   });
 });
