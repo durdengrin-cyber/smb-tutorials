@@ -18,6 +18,10 @@ export default async function SubjectChangePage() {
     supabase
       .from("subject_change_requests")
       .select("id, requested_at, demo_video_url, subjects, status, decision_note")
+      // RLS already limits this to their own rows; filtering explicitly too so
+      // the query says what it means and does not depend on a policy staying
+      // exactly as it is to remain correct.
+      .eq("teacher_id", identity.userId)
       .eq("status", "pending")
       .maybeSingle(),
   ]);
