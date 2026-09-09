@@ -7,6 +7,7 @@ import {
   parseTeacherProfile,
   parseNewPassword,
   youTubeVideoId,
+  inspectDemoVideoUrl,
 }  from "./validation";
 
 const fd = (o: Record<string, string | string[]>) => {
@@ -351,6 +352,61 @@ describe("parseTutorSignUp", () => {
 // parseTutorSignUp demanded both anyway, so a signed-in student converting to
 // a teacher had to invent an 8-character password that was then thrown away.
 // A reasonable person would believe they had just set their password.
+
+// The two rejections are different problems and need different words.
+// Production held "https://www.youtube.com/watch?v=abc123" — a genuine
+// YouTube host with a six-character id where every real one is eleven. Both
+// existing teachers had a link of this shape, so both would have been blocked
+// from saving ANY profile change, and the message they'd have seen told them
+// to enter a YouTube link they had already entered.
+describe("inspectDemoVideoUrl — why a link was refused", () => {
+  it("calls a non-YouTube host not-youtube", () => {
+    expect(inspectDemoVideoUrl("https://drive.google.com/file/d/1a2b/view")).toEqual({
+      ok: false,
+      reason: "not-youtube",
+    });
+    expect(inspectDemoVideoUrl("ftp://example.com/x").ok).toBe(false);
+  });
+
+  // The exact values found in production on 2026-09-09.
+  it("calls a real YouTube host with a fake id bad-id", () => {
+    expect(inspectDemoVideoUrl("https://www.youtube.com/watch?v=abc123")).toEqual({
+      ok: false,
+      reason: "bad-id",
+    });
+    expect(inspectDemoVideoUrl("https://youtu.be/abc")).toEqual({
+      ok: false,
+      reason: "bad-id",
+    });
+  });
+
+  it("tells the teacher to copy the link again when the host was right", () => {
+    const base = {
+      fullName: "Dr. Rao",
+      phone: "9876543210",
+      experience: "8",
+      qualification: "PhD Physics",
+      hourlyRate: "500",
+      hoursPerWeek: "10-20",
+      curricula: ["CBSE"],
+      grades: ["11th"],
+      subjects: ["Science|Physics"],
+      bio: "",
+    };
+    const badId = parseTeacherProfile(
+      fd({ ...base, demoVideoUrl: "https://www.youtube.com/watch?v=abc123" })
+    );
+    expect(!badId.ok && badId.error).toMatch(/11-character video id/);
+    // and must NOT tell them to enter a YouTube link they already entered
+    expect(!badId.ok && badId.error).not.toMatch(/Other hosts/);
+
+    const notYt = parseTeacherProfile(
+      fd({ ...base, demoVideoUrl: "https://vimeo.com/12345678" })
+    );
+    expect(!notYt.ok && notYt.error).toMatch(/Other hosts/);
+  });
+});
+
 describe("parseTutorUpgrade — the signed-in path", () => {
   const base = {
     fullName: "Dr. Rao",

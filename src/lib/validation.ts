@@ -149,17 +149,32 @@ const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
  * parameter that YouTube's own "Share -> Copy link" appends. Rejecting that
  * last one would fail every teacher who followed our instructions exactly.
  */
-export function youTubeVideoId(raw: string): string | null {
+export type DemoVideoRejection = "not-youtube" | "bad-id";
+
+/**
+ * Why a link was refused, or the id if it was accepted.
+ *
+ * The two failures need different words. Production held
+ * "https://www.youtube.com/watch?v=abc123" — a real YouTube host carrying a
+ * six-character id, where every real one is eleven. Telling that teacher to
+ * "enter a YouTube link" is telling them to do what they have already done,
+ * and they would reasonably conclude the form is broken rather than the link.
+ */
+export function inspectDemoVideoUrl(
+  raw: string
+): { ok: true; id: string } | { ok: false; reason: DemoVideoRejection } {
   let url: URL;
   try {
     url = new URL(raw.trim());
   } catch {
-    return null;
+    return { ok: false, reason: "not-youtube" };
   }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return { ok: false, reason: "not-youtube" };
+  }
 
   const host = url.hostname.toLowerCase();
-  if (!YOUTUBE_HOSTS.has(host)) return null;
+  if (!YOUTUBE_HOSTS.has(host)) return { ok: false, reason: "not-youtube" };
 
   const segments = url.pathname.split("/").filter(Boolean);
   let id: string | null = null;
@@ -172,7 +187,14 @@ export function youTubeVideoId(raw: string): string | null {
     id = segments[1] ?? null;
   }
 
-  return id && YOUTUBE_ID.test(id) ? id : null;
+  if (!id || !YOUTUBE_ID.test(id)) return { ok: false, reason: "bad-id" };
+  return { ok: true, id };
+}
+
+/** The id, or null. Thin wrapper over inspectDemoVideoUrl. */
+export function youTubeVideoId(raw: string): string | null {
+  const r = inspectDemoVideoUrl(raw);
+  return r.ok ? r.id : null;
 }
 
 /**
@@ -225,12 +247,14 @@ function parseTeacherProfileFields(fd: FormData): Result<TeacherProfileFields> {
   // is deliberately no longer accepted: a Drive link can be un-shared after
   // an operator approves it, so what was vetted and what a student later sees
   // are not the same artefact.
-  const videoId = youTubeVideoId(str(fd, "demoVideoUrl"));
-  if (videoId === null)
+  const inspected = inspectDemoVideoUrl(str(fd, "demoVideoUrl"));
+  if (!inspected.ok)
     return fail(
-      "Enter a YouTube link for your demo video (youtube.com or youtu.be). Other hosts aren't accepted."
+      inspected.reason === "bad-id"
+        ? "That YouTube link has no video in it. Open the video on YouTube, press Share, then Copy, and paste what you get — the link ends in an 11-character video id."
+        : "Enter a YouTube link for your demo video (youtube.com or youtu.be). Other hosts aren't accepted."
     );
-  const demoVideoUrl = canonicalYouTubeUrl(videoId);
+  const demoVideoUrl = canonicalYouTubeUrl(inspected.id);
 
   const curricula = all(fd, "curricula");
   if (curricula.length === 0) return fail("Select at least one curriculum.");
