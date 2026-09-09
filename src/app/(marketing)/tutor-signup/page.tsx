@@ -22,6 +22,11 @@ export default async function TutorSignUpPage() {
   }
 
   const signedIn = identity !== null;
+  // Role-only half of canBecomeTeacher. The session/subject-count half needs a
+  // query and is enforced by the action, which reports it precisely; this
+  // catches the case knowable from identity alone, before a long form is
+  // filled in.
+  const canConvert = identity?.role === "student" || identity?.role === "teacher";
 
   return (
     <div className="min-h-screen bg-background">
@@ -34,7 +39,30 @@ export default async function TutorSignUpPage() {
             />
           </div>
 
-          {identity?.role === "teacher" ? (
+          {signedIn && !canConvert && identity?.role !== "teacher" ? (
+            // canBecomeTeacher (routes.ts) admits only "student" and
+            // "teacher". An admin filling this form in would be refused by
+            // become_teacher AFTER every field was typed — the same shape of
+            // defect as the dead Suspend button: a surface inviting an action
+            // the machinery behind it will not perform.
+            <div className="mx-auto max-w-md rounded-2xl border border-hair bg-card p-8 text-center">
+              <p className="font-semibold text-foreground">
+                This account cannot become a tutor account.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                You are signed in as {identity?.fullName} ({identity?.role}). To
+                apply as a tutor, sign out and register with a different email.
+              </p>
+              <div className="mt-6">
+                <Link
+                  href="/dashboard"
+                  className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                >
+                  Go to your dashboard
+                </Link>
+              </div>
+            </div>
+          ) : identity?.role === "teacher" ? (
             // Already a tutor. Letting them submit this form would fail at
             // become_teacher anyway — after they had filled in every field.
             <div className="mx-auto max-w-md rounded-2xl border border-hair bg-card p-8 text-center">
