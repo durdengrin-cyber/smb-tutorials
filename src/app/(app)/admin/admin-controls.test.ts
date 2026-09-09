@@ -227,3 +227,26 @@ describe("an admin can actually be reached", () => {
     expect(MIGRATION).toMatch(/failure_count\s*=\s*0/);
   });
 });
+
+// Found by suspending a teacher by hand in the real app and reading what the
+// page then said. The line read "Suspended automatically by a conduct report"
+// for a suspension the admin had applied themselves, with their own reason,
+// seconds earlier. It predated 0025 and assumed the single origin that was
+// true until then.
+describe("the suspension line names the right origin", () => {
+  it("reads suspended_by, not just that a suspension exists", () => {
+    expect(PAGE).toMatch(/suspended_by/);
+    expect(PAGE).toMatch(/suspended\.by \?/);
+  });
+
+  it("keeps the conduct-report wording for the automatic case only", () => {
+    expect(PAGE).toMatch(/Suspended automatically by a conduct report/);
+    expect(PAGE).toMatch(/Suspended by an admin/);
+  });
+
+  // The reason is the admin's own note and the most useful thing on the row —
+  // it is why they suspended, and they will not remember it next week.
+  it("shows the reason back", () => {
+    expect(PAGE).toMatch(/suspended\.reason/);
+  });
+});

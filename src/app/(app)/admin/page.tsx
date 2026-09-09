@@ -73,7 +73,9 @@ export default async function AdminPage() {
     // "cleared" with a Clear button beside them.
     supabase
       .from("teacher_suspensions")
-      .select("teacher_id, suspended_at")
+      // suspended_by and the reason too: since 0025 a suspension has two
+      // possible origins, and the page told the admin the wrong one.
+      .select("teacher_id, suspended_at, suspended_by, suspended_reason")
       .in("teacher_id", teacherIds)
       .is("lifted_at", null),
     // available_teachers gates on THREE things, so this page must too. It
@@ -117,8 +119,15 @@ export default async function AdminPage() {
       .order("requested_at", { ascending: true }),
   ]);
 
-  const suspendedAt = new Map(
-    (openSuspensions ?? []).map((s) => [s.teacher_id, s.suspended_at as string])
+  const suspension = new Map(
+    (openSuspensions ?? []).map((s) => [
+      s.teacher_id,
+      {
+        at: s.suspended_at as string,
+        by: s.suspended_by as string | null,
+        reason: s.suspended_reason as string | null,
+      },
+    ])
   );
   // Already narrowed by the query above to declared, unlapsed leases —
   // available_teachers' own test, made once, in the database.
@@ -246,7 +255,7 @@ export default async function AdminPage() {
 
       <ul className="divide-y divide-border border-y border-border">
         {(teachers ?? []).map((t) => {
-          const suspended = suspendedAt.get(t.id);
+          const suspended = suspension.get(t.id);
           const cleared = t.vetting_state === "cleared";
           const isOnline = online.has(t.id);
           // The exact conjunction available_teachers applies. Anything less
@@ -329,9 +338,22 @@ export default async function AdminPage() {
                 ) : null}
 
                 {suspended ? (
+                  // Two origins since 0025, and telling the admin the wrong
+                  // one is worse than telling them nothing: this line read
+                  // "Suspended automatically by a conduct report" for a
+                  // suspension the admin had just applied by hand, with their
+                  // own reason, seconds earlier.
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Suspended automatically by a conduct report. Reinstating is
-                    the only way back — clearing them again will not do it.
+                    {suspended.by ? (
+                      <>
+                        Suspended by an admin
+                        {suspended.reason ? <> — “{suspended.reason}”</> : null}.
+                      </>
+                    ) : (
+                      <>Suspended automatically by a conduct report.</>
+                    )}{" "}
+                    Reinstating is the only way back — clearing them again will
+                    not do it.
                   </p>
                 ) : null}
               </div>
