@@ -145,6 +145,53 @@ describe("signUpTutor — a signed-in account needs no credentials", () => {
   });
 });
 
+
+// A rejected application must hand back what was typed. Without this every
+// failure path returns { error } alone, React 19 resets the form on action
+// completion, and the teacher retypes fifteen fields.
+describe("signUpTutor — a rejected application is handed back, not erased", () => {
+  it("returns the submitted values alongside a validation error", async () => {
+    state.user = null;
+    const fd = validTutorFormData();
+    fd.set("demoVideoUrl", "https://vimeo.com/123456789");
+
+    const result = await signUpTutor(null, fd);
+
+    expect(result?.error).toMatch(/YouTube/i);
+    expect(result?.values?.fullName).toBe("Google Newcomer");
+    expect(result?.values?.phone).toBe("9876543210");
+    expect(result?.values?.qualification).toBe("PhD in Physics");
+    expect(result?.values?.curricula).toEqual(["CBSE"]);
+    expect(result?.values?.grades).toEqual(["10th"]);
+    expect(result?.values?.subjects).toEqual(["Science|Physics"]);
+    expect(result?.values?.consent).toBe(true);
+    // and the rejected value itself, so they can see what was wrong
+    expect(result?.values?.demoVideoUrl).toBe("https://vimeo.com/123456789");
+  });
+
+  it("never hands the password back", async () => {
+    state.user = null;
+    const fd = validTutorFormData();
+    fd.set("demoVideoUrl", "https://vimeo.com/123456789");
+
+    const result = await signUpTutor(null, fd);
+
+    expect(JSON.stringify(result)).not.toContain("password123");
+  });
+
+  // Not only the validation path: an account-creation failure erases just as
+  // much, and is likelier to be the one a real teacher hits twice.
+  it("returns the values when the upgrade is refused, too", async () => {
+    state.user = { id: "existing-user-id" };
+    state.rpcError = { message: "account has history" };
+
+    const result = await signUpTutor(null, validTutorFormData());
+
+    expect(result?.error).toBeTruthy();
+    expect(result?.values?.fullName).toBe("Google Newcomer");
+  });
+});
+
 beforeEach(() => {
   state.user = { id: "existing-user-id" };
   state.sessionError = null;
@@ -161,7 +208,7 @@ describe("signUpTutor — history-check failure closed", () => {
 
     const result = await signUpTutor(null, validTutorFormData());
 
-    expect(result).toEqual({ error: "Couldn't verify this account. Try again in a moment." });
+    expect(result).toMatchObject({ error: "Couldn't verify this account. Try again in a moment." });
     expect(state.profileUpdateCalls).toHaveLength(0);
   });
 
@@ -170,7 +217,7 @@ describe("signUpTutor — history-check failure closed", () => {
 
     const result = await signUpTutor(null, validTutorFormData());
 
-    expect(result).toEqual({ error: "Couldn't verify this account. Try again in a moment." });
+    expect(result).toMatchObject({ error: "Couldn't verify this account. Try again in a moment." });
     expect(state.profileUpdateCalls).toHaveLength(0);
   });
 });
@@ -209,7 +256,7 @@ describe("signUpTutor — the upgrade goes through become_teacher", () => {
 
     const result = await signUpTutor(null, validTutorFormData());
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       error:
         "This account has already been used for sessions, so it can't be converted to a teacher account. Sign out and register with a different email.",
     });
@@ -220,7 +267,7 @@ describe("signUpTutor — the upgrade goes through become_teacher", () => {
 
     const result = await signUpTutor(null, validTutorFormData());
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       error: "Could not upgrade this account to a teacher account.",
     });
   });

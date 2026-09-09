@@ -9,13 +9,18 @@ import {
   type TeacherProfileFields,
 } from "@/lib/validation";
 import { CONSENT_VERSION } from "@/lib/consent";
-import type { AuthState } from "@/lib/form-state";
+import { echoTutorForm, type AuthState } from "@/lib/form-state";
 import { canBecomeTeacher, type Role } from "@/lib/routes";
 
 export async function signUpTutor(
   _prev: AuthState,
   formData: FormData
 ): Promise<AuthState> {
+  // Built once, up front, and attached to EVERY failure return below. React 19
+  // resets the form when this action completes, so any path that returns
+  // without these hands the teacher a blank fifteen-field application.
+  const values = echoTutorForm(formData);
+  const fail = (error: string): AuthState => ({ error, values });
   // Stamped once, here, so both routes into a teacher account record the same
   // agreement: the client says WHETHER they agreed, the server says WHEN.
   const consentAcceptedAt = new Date().toISOString();
@@ -42,7 +47,7 @@ export async function signUpTutor(
 
   if (existingUser) {
     const parsed = parseTutorUpgrade(formData);
-    if (!parsed.ok) return { error: parsed.error };
+    if (!parsed.ok) return fail(parsed.error);
     v = parsed.value;
 
     // Arrived via Google with teacher intent: handle_new_user() already
@@ -67,7 +72,7 @@ export async function signUpTutor(
     // one thing spec §5.1 says must never happen. Fail closed instead.
     if (sessionRes.error || subjectRes.error) {
       console.error("[tutorSignUp] history check failed", sessionRes.error ?? subjectRes.error);
-      return { error: "Couldn't verify this account. Try again in a moment." };
+      return fail("Couldn't verify this account. Try again in a moment.");
     }
 
     const { data: existing } = await supabase
@@ -84,10 +89,9 @@ export async function signUpTutor(
         subjectCount: subjectRes.count ?? 0,
       })
     ) {
-      return {
-        error:
-          "This account can't be converted to a teacher account. Sign out and register with a different email.",
-      };
+      return fail(
+        "This account can't be converted to a teacher account. Sign out and register with a different email."
+      );
     }
 
     // Through the RPC, not a direct update: migration 0013 makes profiles.role
@@ -110,11 +114,11 @@ export async function signUpTutor(
       // spec §5.1's "must never happen" case — which deserves saying out loud
       // rather than being flattened into a generic failure.
       const hasHistory = /has history/i.test(upgradeError.message ?? "");
-      return {
-        error: hasHistory
+      return fail(
+        hasHistory
           ? "This account has already been used for sessions, so it can't be converted to a teacher account. Sign out and register with a different email."
-          : "Could not upgrade this account to a teacher account.",
-      };
+          : "Could not upgrade this account to a teacher account."
+      );
     }
 
     teacherId = existingUser.id;
@@ -129,11 +133,11 @@ export async function signUpTutor(
     });
     if (consentError) {
       console.error("[tutorSignUp] consent log failed", consentError);
-      return { error: "Could not record your agreement. Try again in a moment." };
+      return fail("Could not record your agreement. Try again in a moment.");
     }
   } else {
     const parsed = parseTutorSignUp(formData);
-    if (!parsed.ok) return { error: parsed.error };
+    if (!parsed.ok) return fail(parsed.error);
     v = parsed.value;
 
     const { data, error } = await supabase.auth.signUp({
@@ -151,7 +155,7 @@ export async function signUpTutor(
         },
       },
     });
-    if (error || !data.user) return { error: error?.message ?? "Sign up failed." };
+    if (error || !data.user) return fail(error?.message ?? "Sign up failed.");
     teacherId = data.user.id;
   }
 
@@ -176,14 +180,14 @@ export async function signUpTutor(
     })
     .eq("id", teacherId);
   if (profileError) {
-    return { error: "Account created but profile save failed — sign in and retry." };
+    return fail("Account created but profile save failed — sign in and retry.");
   }
 
   const { error: subjectsError } = await supabase
     .from("teacher_subjects")
     .insert(v.subjects.map((s) => ({ teacher_id: teacherId, ...s })));
   if (subjectsError) {
-    return { error: "Account created but subjects save failed — sign in and retry." };
+    return fail("Account created but subjects save failed — sign in and retry.");
   }
 
   // Best effort, and deliberately not awaited into the failure path: an

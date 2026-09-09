@@ -16,6 +16,12 @@ const SELECT =
 export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
   const [state, formAction, isPending] = useActionState(signUpTutor, null);
 
+  // React 19 resets an uncontrolled form when its action completes, so without
+  // these a rejected application came back blank — fifteen fields and every
+  // chip, lost to one mistyped character. The action echoes what was typed
+  // (never the password) and it is re-seeded here.
+  const v = state?.values;
+
   return (
     <form
       action={formAction}
@@ -31,6 +37,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
             <Label htmlFor="tutor-fullName">Full Name *</Label>
             <Input
               id="tutor-fullName"
+            defaultValue={v?.fullName ?? ""}
               type="text"
               name="fullName"
               required
@@ -47,6 +54,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
                 <Label htmlFor="tutor-email">Email Address *</Label>
                 <Input
                   id="tutor-email"
+            defaultValue={v?.email ?? ""}
                   type="email"
                   name="email"
                   required
@@ -75,6 +83,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
             <Label htmlFor="tutor-phone">Phone Number *</Label>
             <Input
               id="tutor-phone"
+            defaultValue={v?.phone ?? ""}
               type="tel"
               name="phone"
               required
@@ -85,6 +94,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
             <Label htmlFor="tutor-experience">Years of Experience *</Label>
             <Input
               id="tutor-experience"
+              defaultValue={v?.experience ?? ""}
               type="number"
               name="experience"
               required
@@ -105,6 +115,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
             <Label htmlFor="tutor-qualification">Highest Qualification *</Label>
             <Input
               id="tutor-qualification"
+            defaultValue={v?.qualification ?? ""}
               type="text"
               name="qualification"
               required
@@ -112,12 +123,17 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
             />
           </div>
 
-          <SubjectPicker />
+          <SubjectPicker
+            defaultCurricula={v?.curricula}
+            defaultGrades={v?.grades}
+            defaultSubjects={v?.subjects}
+          />
 
           <div className="space-y-2">
             <Label htmlFor="tutor-specialization">Specialization</Label>
             <Input
               id="tutor-specialization"
+            defaultValue={v?.specialization ?? ""}
               type="text"
               name="specialization"
               placeholder="e.g., Mechanics, Thermodynamics"
@@ -138,7 +154,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
               id="tutor-teachingLevel"
               name="teachingLevel"
               className={SELECT}
-              defaultValue=""
+              defaultValue={v?.teachingLevel ?? ""}
             >
               <option value="">Select level</option>
               <option value="school">School (6th-12th)</option>
@@ -150,6 +166,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
             <Label htmlFor="tutor-hourlyRate">Hourly Rate (₹) *</Label>
             <Input
               id="tutor-hourlyRate"
+              defaultValue={v?.hourlyRate ?? ""}
               type="number"
               name="hourlyRate"
               required
@@ -164,7 +181,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
               name="hoursPerWeek"
               required
               className={SELECT}
-              defaultValue=""
+              defaultValue={v?.hoursPerWeek ?? ""}
             >
               <option value="">Select hours</option>
               <option value="5-10">5-10 hours/week</option>
@@ -190,6 +207,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
 
           <Input
             id="tutor-demoVideoUrl"
+            defaultValue={v?.demoVideoUrl ?? ""}
             type="url"
             name="demoVideoUrl"
             required
@@ -223,6 +241,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
           name="consent"
           value="yes"
           required
+          defaultChecked={v?.consent ?? false}
           className="mt-1 mr-2"
         />
         <span className="text-sm text-muted-foreground">
