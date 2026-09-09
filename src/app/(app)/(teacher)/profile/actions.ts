@@ -75,18 +75,22 @@ export async function updateTeacherProfile(
     .eq("id", identity.userId);
   if (profileError) {
     console.error("[updateTeacherProfile] profile update failed", profileError);
-    // The delete+insert above already committed the NEW subject list, so the
-    // dashboard's cached "You're live for" card is stale even though the rate
-    // and other profile fields didn't change — same reasoning as the insert
-    // failure above, just with subjects that changed rather than vanished.
-    revalidatePath("/dashboard");
-    return {
-      error: "Your subjects saved, but your rate and other details didn't — try again.",
-    };
+    // Through fail(), like every other exit: a bare { error } carries no
+    // values, and React 19 resets the form on completion — so this path threw
+    // away everything the teacher had typed, which is the exact defect the
+    // echo mechanism exists to prevent.
+    //
+    // The message no longer claims the subjects were saved. Since 0027 this
+    // action writes ONE table, so nothing partial happened: the save simply
+    // did not land. There is no /dashboard cache to repair either, because no
+    // subject changed.
+    return fail("Couldn't save your profile — nothing was changed. Try again.");
   }
 
-  // The dashboard's "You're live for" card reads teacher_subjects directly.
   revalidatePath("/profile");
+  // The dashboard shows the rate and the "You're live for" card, so a saved
+  // profile still invalidates it — but only on success, and only because the
+  // PROFILE changed. Subjects are no longer written here at all.
   revalidatePath("/dashboard");
   return null;
 }

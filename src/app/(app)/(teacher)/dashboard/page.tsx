@@ -84,7 +84,22 @@ export default async function DashboardPage() {
   if (suspensionError) {
     console.error("[dashboard] my_suspension read failed", suspensionError);
   }
-  if (suspendedAt) await settleSuspension(identity.userId);
+  // Fail CLOSED, which is what the comment above this read has always demanded
+  // and what the code did not do: the error was logged and then discarded, so
+  // suspendedAt stayed null and a suspended teacher read "Available now" with
+  // a working go-online toggle. Treating an unreadable state as suspended
+  // costs an available teacher one page load; treating it as clear puts a
+  // suspended one back in front of children.
+  //
+  // The vetting read directly above already resolves this way
+  // (`isVettingState(vetting ?? "") ? vetting : "unvetted"`). Only the
+  // suspension read was left failing open.
+  const suspended = suspensionError !== null || suspendedAt !== null;
+
+  // Only on a CONFIRMED suspension. The settle pass cancels and refunds, and
+  // must not be driven by a read that failed — it is idempotent and runs again
+  // from here, from /waiting, and from the report that opened the suspension.
+  if (!suspensionError && suspendedAt) await settleSuspension(identity.userId);
 
   return (
     <div className="min-h-screen bg-background">
@@ -105,7 +120,7 @@ export default async function DashboardPage() {
             hourlyRate={profile?.hourly_rate ?? 0}
             declaredUntil={availability?.declared_until ?? null}
             hasDevice={(deviceCount ?? 0) > 0}
-            suspended={suspendedAt !== null}
+            suspended={suspended}
           />
 
           <Card>

@@ -17,6 +17,15 @@ const state = vi.hoisted(() => ({
 }));
 
 // redirect() ends the happy path by throwing, the way Next's really does.
+// after() defers work until the response is finished, which has no meaning
+// outside a request scope. Run the callback inline so the test still exercises
+// what it schedules, rather than silently skipping it.
+vi.mock("next/server", () => ({
+  after: (fn: () => unknown) => {
+    void fn();
+  },
+}));
+
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
     throw Object.assign(new Error("NEXT_REDIRECT"), { digest: `NEXT_REDIRECT;push;${to};307;` });

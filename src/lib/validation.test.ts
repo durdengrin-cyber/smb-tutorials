@@ -470,13 +470,16 @@ describe("parseTeacherProfile", () => {
     subjects: ["Science|Physics", "Science|Chemistry"],
   };
 
-  it("accepts a full edit and expands subjects the same way signup does", () => {
+  it("accepts a full edit", () => {
     const r = parseTeacherProfile(fd(base));
     expect(r.ok).toBe(true);
     if (r.ok) {
-      expect(r.value.subjects).toHaveLength(4); // 1 curriculum × 2 grades × 2 subjects
       expect(r.value.hourlyRate).toBe(500);
       expect(r.value.bio).toBe("I teach physics with a focus on problem solving.");
+      // Subjects are NOT expanded on this path since 0027: the profile editor
+      // shows them read-only and sends none, so any that arrive are ignored
+      // rather than written. Signup is the caller that expands them.
+      expect(r.value.subjects).toEqual([]);
     }
   });
 
@@ -553,12 +556,21 @@ describe("parseTeacherProfile", () => {
     }
   });
 
-  it("rejects an invalid curriculum", () => {
-    expect(parseTeacherProfile(fd({ ...base, curricula: ["IB"] })).ok).toBe(false);
+  // Curriculum and grade are validated where they are COLLECTED — at signup,
+  // and in a subject-change request. The profile editor collects neither since
+  // 0027, so rejecting a profile save over them would reject every save: the
+  // form sends none at all.
+  it("ignores curricula and grades rather than judging them", () => {
+    expect(parseTeacherProfile(fd({ ...base, curricula: ["IB"] })).ok).toBe(true);
+    expect(parseTeacherProfile(fd({ ...base, grades: [] })).ok).toBe(true);
   });
 
-  it("rejects empty grades", () => {
-    expect(parseTeacherProfile(fd({ ...base, grades: [] })).ok).toBe(false);
+  it("signup still rejects an invalid curriculum, where it IS collected", () => {
+    const signup = {
+      ...base, email: "a@b.com", password: "secret123", consent: "yes",
+      curricula: ["IB"],
+    };
+    expect(parseTutorSignUp(fd(signup)).ok).toBe(false);
   });
 
   // Since 0027 the profile editor does not collect subjects at all — changing
@@ -718,5 +730,58 @@ describe("parseNewPassword", () => {
   it("accepts a valid matching pair", () => {
     const r = parseNewPassword(fd("goodpassword", "goodpassword"));
     expect(r.ok).toBe(true);
+  });
+});
+
+// The fixture that would have caught it.
+//
+// Every other test here hand-builds FormData containing curricula, grades and
+// subjects — a shape the profile form has not sent since 0027 made its picker
+// a read-only list of chips. So a refactor that made the profile path require
+// curricula passed the whole suite while breaking every save in production.
+//
+// This fixture is derived from what profile-form.tsx ACTUALLY renders. If a
+// field is added to that form, add it here; if one is removed, remove it. The
+// point is that it never contains a field the form does not send.
+describe("parseTeacherProfile against the fields the real form submits", () => {
+  const AS_RENDERED = {
+    fullName: "Mr. Azad",
+    phone: "9876543210",
+    experience: "8",
+    qualification: "PhD Physics, IIT Delhi",
+    specialization: "Mechanics",
+    teachingLevel: "school",
+    hourlyRate: "500",
+    hoursPerWeek: "10-20",
+    demoVideoUrl: "https://youtu.be/dQw4w9WgXcQ",
+    bio: "I teach mechanics from first principles.",
+    // and deliberately NOTHING else: no curricula, no grades, no subjects.
+  };
+
+  it("saves a profile that carries no subject fields at all", () => {
+    const r = parseTeacherProfile(fd(AS_RENDERED));
+    expect(r.ok, !r.ok ? `rejected with: ${r.error}` : "").toBe(true);
+  });
+
+  it("does not demand a curriculum the form never asks for", () => {
+    const r = parseTeacherProfile(fd(AS_RENDERED));
+    expect(r.ok ? "" : r.error).not.toMatch(/curriculum/i);
+  });
+
+  it("does not demand a grade the form never asks for", () => {
+    const r = parseTeacherProfile(fd(AS_RENDERED));
+    expect(r.ok ? "" : r.error).not.toMatch(/grade/i);
+  });
+
+  it("returns no subjects, because it was sent none", () => {
+    const r = parseTeacherProfile(fd(AS_RENDERED));
+    expect(r.ok && r.value.subjects).toEqual([]);
+  });
+
+  // Signup is the caller that DOES send them, and must still insist.
+  it("signup still requires the three, since its form sends them", () => {
+    const r = parseTutorSignUp(fd({ ...AS_RENDERED, email: "a@b.com", password: "secret123", consent: "yes" }));
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/subject|curriculum|grade/i);
   });
 });

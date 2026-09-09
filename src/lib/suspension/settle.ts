@@ -100,7 +100,12 @@ export async function settleSuspension(teacherId: string): Promise<boolean> {
       // STAMP update, and refundSession calls the payment provider
       // unconditionally, before that guard is ever consulted (known gap —
       // see the spec).
-      if (!s.payment_ref || !s.amount_paid_paise) {
+      // == null, not falsy: a zero amount is a real, present value. `!0` is
+      // true, so a paid session recorded at 0 paise — a promotion, a test row,
+      // any future free lesson — was reported as "carries no payment
+      // reference" even with its reference present, and left `paid` forever
+      // while the alarm asked for manual action that was never needed.
+      if (s.payment_ref == null || s.amount_paid_paise == null) {
         console.error(
           `[suspension] session ${s.id} is paid but carries no payment reference — ` +
             `needs manual action; not cancelling it blind.`

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createDispatchClient } from "@/lib/supabase/admin";
 import { getIdentity } from "@/lib/auth";
 import { isVettingState } from "@/lib/vetting";
+import { settleSuspension } from "@/lib/suspension/settle";
 
 export async function setVettingState(formData: FormData) {
   // Checked here AND in the RPC. The RPC is the real boundary — this is the
@@ -103,6 +104,22 @@ export async function suspendTeacher(formData: FormData) {
     p_reason: reason,
   });
   if (error) throw new Error(error.message);
+
+  // The cleanup pass, exactly as reportSession runs it after a conduct report.
+  // Opening a suspension is only half of it: without this, the teacher's paid
+  // sessions stay paid and unrefunded and their pending ones stay live, until
+  // the affected student happens to open /waiting or the suspended teacher
+  // happens to open /dashboard. This was the fourth path to open a suspension
+  // and the only one not running it.
+  //
+  // Best effort and caught: the suspension itself has already committed, and
+  // failing this action now would tell the admin the suspension did not happen
+  // when it did. The pass is idempotent and runs again from those pages.
+  try {
+    await settleSuspension(teacherId);
+  } catch (e) {
+    console.error("[suspendTeacher] settle pass failed", e);
+  }
 
   revalidatePath("/admin");
 }

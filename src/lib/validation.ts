@@ -300,15 +300,23 @@ function parseTeacherProfileFields(
     );
   const demoVideoUrl = canonicalYouTubeUrl(inspected.id);
 
-  // requireSubjects is checked BEFORE expanding, so signup's specific
-  // "you won't appear in search" wording survives — expandSubjects has no way
-  // to know which caller it is serving.
-  if (requireSubjects && all(fd, "subjects").length === 0)
-    return fail("Select at least one subject — with none, you won't appear in search.");
+  // The profile editor sends NO curricula, grades or subjects at all — since
+  // 0027 its picker is a read-only list of chips — so it must not go through
+  // expandSubjects, which requires all three. Skipping the subjects check
+  // alone was not enough: expandSubjects rejected the empty curricula first
+  // and made every profile save fail with "Select at least one curriculum."
+  let subjects: SubjectRow[] = [];
+  if (requireSubjects) {
+    // Checked before expanding so signup's specific "you won't appear in
+    // search" wording survives — expandSubjects cannot know which caller it
+    // is serving.
+    if (all(fd, "subjects").length === 0)
+      return fail("Select at least one subject — with none, you won't appear in search.");
 
-  const expanded = expandSubjects(fd);
-  if (!expanded.ok) return expanded;
-  const subjects = expanded.value;
+    const expanded = expandSubjects(fd);
+    if (!expanded.ok) return expanded;
+    subjects = expanded.value;
+  }
 
   return {
     ok: true,

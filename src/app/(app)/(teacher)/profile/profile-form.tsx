@@ -67,6 +67,23 @@ export function ProfileForm(values: ProfileFormValues) {
       onChange={() => setJustSaved(false)}
       className="bg-card rounded-2xl shadow-xl p-8 border border-hair space-y-6"
     >
+      {/* At the top and about the whole form, not tucked under Demo Video.
+          0024 compares the entire profile row minus bookkeeping, so changing
+          the rate, bio, phone, qualification, specialization or teaching level
+          sends a cleared teacher back to the queue exactly as a new video
+          does. A warning under one field would have been read as applying to
+          that field alone. */}
+      <div className="rounded-lg border border-border bg-muted p-4">
+        <p className="text-sm font-semibold text-foreground">
+          Saving any change here sends your profile back for review
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          You will not appear in search until someone has looked at it again.
+          Your rate, your bio, your name — anything on this page. Sessions
+          already booked are unaffected.
+        </p>
+      </div>
+
       <div>
         <h3 className="text-xl font-bold text-foreground mb-4">
           Personal Information
@@ -239,8 +256,7 @@ export function ProfileForm(values: ProfileFormValues) {
           <Label htmlFor="profile-demoVideoUrl">Demo Video Link (YouTube) *</Label>
           <p className="text-sm text-muted-foreground">
             An Unlisted YouTube link — this is what students watch when choosing
-            a tutor. Changing it sends your profile back for review, and you
-            will not appear in search until someone has watched the new one.
+            a tutor.
           </p>
           <Input
             id="profile-demoVideoUrl"

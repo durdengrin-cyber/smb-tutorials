@@ -47,19 +47,25 @@ export default async function AdminPage() {
   // admin check above already gated getting here; this client only reads what
   // that check already authorized.
   const supabase = createDispatchClient();
+  // Teachers first, alone: every query below is scoped to the ids it returns.
+  // An unscoped read of teacher_revet_events would pull a whole-row jsonb diff
+  // for every profile edit any teacher has ever made, on every page load, and
+  // discard most of it in JavaScript.
+  const { data: teachers } = await supabase
+    .from("profiles")
+    .select("id, full_name, phone, demo_video_url, vetting_state, created_at")
+    .eq("role", "teacher")
+    .order("created_at", { ascending: false });
+
+  const teacherIds = (teachers ?? []).map((t) => t.id);
+
   const [
-    { data: teachers },
     { data: openSuspensions },
     { data: availability },
     { data: revetEvents },
     { data: lastVetted },
     { data: subjectRequests },
   ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name, phone, demo_video_url, vetting_state, created_at")
-      .eq("role", "teacher")
-      .order("created_at", { ascending: false }),
     // A teacher is off the roster for EITHER reason, and the operator cannot
     // act correctly without seeing which. Previously this page read only
     // profiles, so a teacher suspended by a conduct report still displayed as
@@ -67,6 +73,7 @@ export default async function AdminPage() {
     supabase
       .from("teacher_suspensions")
       .select("teacher_id, suspended_at")
+      .in("teacher_id", teacherIds)
       .is("lifted_at", null),
     // available_teachers gates on THREE things, so this page must too. It
       // previously read vetting and suspension only, and printed "live" beside
@@ -78,16 +85,27 @@ export default async function AdminPage() {
     supabase
       .from("teacher_availability")
       .select("teacher_id")
+      .in("teacher_id", teacherIds)
       .eq("declared", true)
       .gt("declared_until", new Date().toISOString()),
     // Why each unvetted teacher is back in the queue (0026), and when they
     // were last approved, so only the changes made SINCE that approval are
     // shown. Older diffs are history, not a decision the admin still owes.
+    // Bounded. This table gains a row for every re-vetting profile edit by
+    // every teacher, forever, and `changes` is a whole-row jsonb diff — an
+    // unfiltered select would read all of it on every page load and then throw
+    // most of it away in JavaScript. The teacher filter lets 0026's
+    // (teacher_id, changed_at desc) index actually serve the query.
     supabase
       .from("teacher_revet_events")
       .select("teacher_id, changed_at, changes")
-      .order("changed_at", { ascending: false }),
-    supabase.from("teacher_vetting").select("teacher_id, vetted_at"),
+      .in("teacher_id", teacherIds)
+      .order("changed_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("teacher_vetting")
+      .select("teacher_id, vetted_at")
+      .in("teacher_id", teacherIds),
     // Pending subject changes (0027). Shown ABOVE the roster because each is a
     // teacher waiting on a decision that only an admin can make, where the
     // list below is mostly people needing nothing.

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { notifyAdminsOfApplication } from "@/lib/notifications/dispatch";
 import {
@@ -195,14 +196,25 @@ export async function signUpTutor(
     return fail("Account created but subjects save failed — sign in and retry.");
   }
 
-  // Best effort, and deliberately not awaited into the failure path: an
-  // operator who misses one alert can read /admin, but a teacher who cannot
-  // sign up because a push service was down has lost something real.
-  try {
-    await notifyAdminsOfApplication(teacherId, v.fullName, v.subjects.length);
-  } catch (e) {
-    console.error("[tutor-signup] admin notification failed", e);
-  }
+  // Best effort, and now genuinely off the critical path. It used to be
+  // awaited here — the comment said "not awaited into the failure path",
+  // which was true (errors were caught) but not what dispatch.ts claims about
+  // its caller, and every web-push round trip to every admin device was added
+  // to the applicant's submit latency. A slow or hung push service stalled the
+  // redirect to /setup.
+  //
+  // after() rather than a bare floating promise: this runs on serverless,
+  // where work not tied to the request can be killed the moment the response
+  // is sent. after() is Next's supported way to say "run this once the
+  // response is finished" — verified against the installed version's own docs
+  // (node_modules/next/dist/docs/.../after.md) rather than assumed.
+  after(async () => {
+    try {
+      await notifyAdminsOfApplication(teacherId, v.fullName, v.subjects.length);
+    } catch (e) {
+      console.error("[tutor-signup] admin notification failed", e);
+    }
+  });
 
   redirect("/setup");
 }

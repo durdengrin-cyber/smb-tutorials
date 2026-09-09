@@ -48,6 +48,14 @@ export interface StudentFormValues {
 }
 export type StudentFormState = FormState<StudentFormValues>;
 
+export interface SubjectRequestValues {
+  demoVideoUrl: string;
+  curricula: string[];
+  grades: string[];
+  subjects: string[];
+}
+export type SubjectRequestState = FormState<SubjectRequestValues>;
+
 export interface TeacherProfileValues {
   fullName: string;
   phone: string;
@@ -111,6 +119,15 @@ const PROFILE_TEXT = [
 export function echoTeacherProfile(fd: FormData): TeacherProfileValues {
   return {
     ...texts(fd, PROFILE_TEXT),
+    curricula: list(fd, "curricula"),
+    grades: list(fd, "grades"),
+    subjects: list(fd, "subjects"),
+  };
+}
+
+export function echoSubjectRequest(fd: FormData): SubjectRequestValues {
+  return {
+    demoVideoUrl: text(fd, "demoVideoUrl"),
     curricula: list(fd, "curricula"),
     grades: list(fd, "grades"),
     subjects: list(fd, "subjects"),

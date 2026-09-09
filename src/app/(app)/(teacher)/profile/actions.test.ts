@@ -139,15 +139,17 @@ describe("updateTeacherProfile", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/profile");
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
   });
-
-  it("says which half saved when subjects succeed but the profile update fails", async () => {
+  // There is no longer a "half" to report: since 0027 this action writes one
+  // table, so a failed profile update means nothing was changed. The message
+  // must say that rather than claiming subjects were saved by code that no
+  // longer exists here — and it must carry the values back, or the teacher
+  // loses everything they typed to a transient database error.
+  it("says nothing was changed, and hands the input back", async () => {
     state.profileError = { message: "boom" };
     const result = await updateTeacherProfile(null, validFormData());
-    expect(result?.error).toMatch(/subjects saved/i);
-    // Subjects already committed to their new value here, so the dashboard's
-    // cache is stale even though the rate/profile fields didn't change.
-    expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
-    expect(revalidatePath).not.toHaveBeenCalledWith("/profile");
+    expect(result?.error).toMatch(/nothing was changed/i);
+    expect(result?.error).not.toMatch(/subjects saved/i);
+    expect(result?.values?.fullName).toBeTruthy();
   });
 });
 

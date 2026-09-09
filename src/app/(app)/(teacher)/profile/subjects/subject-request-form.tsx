@@ -20,6 +20,11 @@ export function SubjectRequestForm({
 }) {
   const [state, formAction, isPending] = useActionState(requestSubjectChange, null);
 
+  // What they last asked for wins over what they currently teach — otherwise a
+  // rejected request hands back the existing subjects and the teacher
+  // resubmits a request to change nothing.
+  const v = state?.values;
+
   return (
     <form
       action={formAction}
@@ -29,9 +34,9 @@ export function SubjectRequestForm({
           subject is not a request to re-enter all of them — and so the admin
           sees the whole intended list, not a delta they have to reconstruct. */}
       <SubjectPicker
-        defaultCurricula={defaultCurricula}
-        defaultGrades={defaultGrades}
-        defaultSubjects={defaultSubjects}
+        defaultCurricula={v?.curricula ?? defaultCurricula}
+        defaultGrades={v?.grades ?? defaultGrades}
+        defaultSubjects={v?.subjects ?? defaultSubjects}
       />
 
       <div className="space-y-3">
@@ -48,6 +53,7 @@ export function SubjectRequestForm({
           type="url"
           name="demoVideoUrl"
           required
+          defaultValue={v?.demoVideoUrl ?? ""}
           placeholder="https://youtu.be/..."
         />
         <DemoVideoGuide />
