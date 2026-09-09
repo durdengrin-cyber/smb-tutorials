@@ -39,3 +39,8 @@ its 87 commits are a subset of `feat/teacher-vetting`'s 100.
 `m3-payments` or `cycle-2/durable-availability`, read `feat/teacher-vetting` instead — the
 content is there. Recover any deleted branch with `git branch <name> <tip>` from the table;
 git keeps unreachable objects roughly 90 days before `gc`.
+
+**Update 2026-09-10:** a third branch, `review-base/session-start` (at `7bef05c`), exists on
+local and origin. It is NOT development — it is only a diff base for `/code-review ultra`,
+which refused the branch against `main` as too large (149 files, 18,631 lines, mostly old plan
+documents). Delete it once that review is done; the intended steady state is still two.

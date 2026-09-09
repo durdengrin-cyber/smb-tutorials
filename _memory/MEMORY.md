@@ -6,3 +6,6 @@
 - [Minimise review passes](minimise-review-passes.md) — batch dispatches; review only security-touching code.
 - [Two branches only](branch-layout-two-branches-only.md) — main + feat/teacher-vetting; six deleted 2026-09-09, with recovery SHAs.
 - [Orphaned online-count code](orphaned-online-count-on-backup-branch.md) — the only reason backup/visual-identity-duplicate is kept.
+- [Promises need an enforcer](promises-need-an-enforcer.md) — six pieces of UI copy asserted things no code did; check, then pin both ways.
+- [Browser testing finds what reading cannot](browser-testing-finds-what-reading-cannot.md) — five defects curl, jsdom and 560 green tests all missed.
+- [Verify the stored values, not the shape](verify-the-stored-values-not-the-shape.md) — a host match is not the validator; run the real check.

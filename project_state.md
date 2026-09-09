@@ -1,6 +1,83 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-09)
+## ▶ START HERE (updated 2026-09-10, session close)
+
+**Branch `feat/teacher-vetting` @ `3a55872`, pushed, tree clean. 19 commits this session.
+576 tests pass · tsc 0 · eslint 0 errors · build 0.**
+
+**Seven migrations were APPLIED to production today: `0023`–`0029`.** `supabase migration list`
+shows 29, no drift. Three probes green against production: `probe-vetting` (8/8),
+`probe-revetting` (7/7), `probe-subject-changes` (11/11).
+
+### What changed today, in one line each
+- **`0023`/`0024`** — a cleared teacher who changes ANY profile field returns to `unvetted`.
+  Written as an exclusion list (`to_jsonb(row)` minus bookkeeping) so a column added later
+  re-vets by default. `full_name` compared `lower(btrim(...))`, so a case fix is not a rename.
+- **`0025`** — the admin can suspend by hand, with a required reason. Two provenances in
+  `teacher_suspensions` (conduct report OR admin), a CHECK making an origin-less suspension
+  unrepresentable, and one open suspension per teacher enforced by a partial unique index.
+- **`0026`** — `teacher_revet_events` keeps the diff the trigger already computed, so `/admin`
+  says WHAT changed since you last approved them instead of just "unvetted".
+- **`0027`/`0028`** — subjects are no longer self-service. A change is a REQUEST carrying a new
+  demo video; an admin approves it and that replaces subjects, adopts the video and clears them
+  in one transaction. Direct teacher writes to `teacher_subjects` are revoked;
+  `set_initial_subjects` is signup's one way in. `0028` moved the YouTube and taxonomy rules
+  into SQL after review found them bypassable with the anon key.
+- **`0029`** — an admin can register a push device at all (see the open item below).
+- **App**: rejected forms hand your input back (tutor, student, profile, subject-request — and
+  every `<select>`, which needed a remount key); YouTube-only demo links; the bio finally
+  reaches students; `/admin` shows accurate `live`/`offline`/`suspended` badges.
+
+### ▶ Next, in order
+1. **The push chain is NOT proven, and it is the one loose end.** The VAPID public key is now
+   in the machine-local config (pulled with `vercel env pull --environment=development`; a
+   backup of the previous file sits beside it). Clicking "Turn on notifications" on `/admin`
+   fails with `AbortError: Registration failed - push service error` — **Chrome's push service
+   refusing this profile, not our code** (typically a Chrome not signed into Google, or FCM
+   blocked). A synthetic POST to `/api/devices`, which skips the push service and tests only
+   `0029`'s role check, returned **400 `could not register`**, and the reason is in the dev
+   server log: `[api/devices] register_device failed { ... }`. **Read that line first.**
+   `0029` is confirmed live (the function's role test reads `role in ('teacher','admin')`), so
+   the refusal is something else.
+2. **`/waiting` contradicts the published legal pages.** `waiting-client.tsx:250` tells a parent
+   "sessions may be recorded" at the point of payment, while `/privacy`, `/terms` and the
+   marketing copy all say they never are. **Published legal copy about children's video
+   sessions — the owner's wording, Tier A.** This is the highest-severity open item.
+3. **Test B — a real signup end to end.** Never done. The agent cannot: creating accounts and
+   typing passwords are prohibited. Every other link is verified; nobody has pressed Submit.
+4. **The re-vetting positive path** needs a teacher session: sign in as `Task13 Tutor Verify`,
+   change any profile field, confirm `/admin` shows them `unvetted` WITH the diff.
+5. **Merge decision.** `main` is 119 commits behind, and the schema is now seven migrations
+   ahead of what is deployed. That is safe but widening.
+
+### Known, unfixed, deliberately
+- **Admin server actions throw** instead of returning typed errors; production Next strips the
+  message to a digest, so a refused suspend shows a blank error page. Fixing properly means
+  client components for those forms.
+- **`(stream, subject)` pairing is validated only in TypeScript.** `0028` validates curriculum,
+  grade and stream in SQL; the stream→subject map would need the taxonomy as a table.
+- **`teacher_devices` also holds admin devices** and is misnamed. `push_devices` would be
+  honest; it is referenced in 13 files including applied migrations. Recorded in `0029`.
+- `/signin` still has a dead "Remember me" checkbox.
+- The project still spells itself several ways; `flow-demo.tsx` was aligned to the published
+  legal pages (`smbtutorial.com`) so a mockup was not the thing adding a sixth.
+
+### Temporary branch to delete
+`review-base/session-start` (local and origin) exists only as a diff base for
+`/code-review ultra`, because `main` is too far back for the 8,000-line limit. Delete it once
+the review is done; the intended steady state is two branches.
+
+### The pattern worth remembering
+**Six promises with no enforcer were found in one day** — the Suspend button, "sends your
+profile back for review", "bio shown to students", the forms implying input was safe,
+"converts that account", and "suspended automatically by a conduct report". Each is now pinned
+by a test rather than merely corrected. Four were found by DRIVING THE APP, not reading it;
+one (every profile save failing) was found by an external review after the whole suite passed,
+because every test fixture built a form shape the real form no longer sends.
+
+---
+
+## ▶ START HERE (updated 2026-09-09) — SUPERSEDED
 
 **Branch: `feat/teacher-vetting` @ `7bef05c`, pushed. Tree clean. It now contains every other
 branch's work, `main` included — shipping is one fast-forward, not a merge.**
