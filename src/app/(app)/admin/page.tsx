@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getIdentity } from "@/lib/auth";
 import { createDispatchClient } from "@/lib/supabase/admin";
+import { NotificationSetup } from "@/components/notification-setup";
 import {
   setVettingState,
   reinstateTeacher,
@@ -145,6 +146,16 @@ export default async function AdminPage() {
         Check the ID against the name on the account, watch the demo, then clear them.
         Never save the document.
       </p>
+
+      {/* Mounted here because there was nowhere else. notifyAdminsOfApplication
+          has read teacher_devices for admins since 5b73f86, but register_device
+          refused any role that was not 'teacher' (until 0029) and this
+          component appeared only on two teacher routes, both of which redirect
+          an admin away. The alert has therefore never fired. The card hides
+          itself once a device is registered. */}
+      <div className="mb-10">
+        <NotificationSetup variant="card" />
+      </div>
 
       {(subjectRequests ?? []).length > 0 ? (
         <section className="mb-10">

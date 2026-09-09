@@ -191,3 +191,39 @@ describe("subject change requests", () => {
     expect(MIGRATION).toMatch(/set_config\('app\.allow_vetting_change', 'off', true\)/);
   });
 });
+
+// The admin alert shipped in 5b73f86 and has never fired. Not because nobody
+// turned notifications on — because there was no way to. register_device
+// raised 'only a teacher can register a device', and NotificationSetup was
+// mounted on two teacher-only routes that redirect an admin away. Both halves
+// are pinned, because fixing either alone leaves the feature just as dead.
+describe("an admin can actually be reached", () => {
+  const MIGRATION = readFileSync(
+    join("supabase", "migrations", "0029_admin_can_register_a_device.sql"),
+    "utf8"
+  );
+
+  it("gives the admin somewhere to register a device", () => {
+    expect(PAGE).toMatch(/NotificationSetup/);
+  });
+
+  it("lets an admin past register_device's role check", () => {
+    expect(MIGRATION).toMatch(/role in \('teacher', 'admin'\)/);
+  });
+
+  // Students are still refused: nothing pushes to them, so a row would be
+  // data with no reader.
+  it("still refuses a student", () => {
+    expect(MIGRATION).not.toMatch(/'student'/);
+    expect(MIGRATION).toMatch(/only a teacher or an admin can register a device/);
+  });
+
+  // The rest of register_device is safety-critical and was copied from the
+  // LIVE definition, not rebuilt from an older migration — the mistake
+  // CLAUDE.md records nearly deleting available_teachers' suspension filter.
+  it("preserves the advisory lock and the endpoint-ownership refusal", () => {
+    expect(MIGRATION).toMatch(/pg_advisory_xact_lock\(hashtext\(p_endpoint\)\)/);
+    expect(MIGRATION).toMatch(/endpoint is registered to another account/);
+    expect(MIGRATION).toMatch(/failure_count\s*=\s*0/);
+  });
+});
