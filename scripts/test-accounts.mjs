@@ -221,9 +221,19 @@ async function remove() {
 }
 
 const [cmd, arg] = process.argv.slice(2);
-const commands = { setup, signin: () => signin(arg ?? "student"), status, sql, delete: remove };
+// `signin <role> [baseUrl]` — the base defaults to localhost. Production works
+// because Supabase always permits its own Site URL; an arbitrary Vercel preview
+// hostname does NOT, and is silently swapped for the Site URL instead.
+const baseArg = process.argv[4]; // argv: [node, script, cmd, role, base]
+const commands = {
+  setup,
+  signin: () => signin(arg ?? "student", baseArg ?? "http://localhost:3000"),
+  status,
+  sql,
+  delete: remove,
+};
 if (!commands[cmd]) {
-  console.error(`usage: node scripts/test-accounts.mjs <setup|signin [role]|status|sql|delete>`);
+  console.error(`usage: node scripts/test-accounts.mjs <setup|signin [role] [baseUrl]|status|sql|delete>`);
   process.exit(1);
 }
 await commands[cmd]();
