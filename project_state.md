@@ -74,6 +74,29 @@ account is re-gated: next sign-in lands on `/consent`. That is the intended cons
 the only thing that makes anyone's agreement cover recording. Known side effect, from the comment
 at `sessions/actions.ts:18`: a user cannot file a report until they have re-consented.
 
+### The consent bump is NOT deploy-safe yet — three pre-existing defects it activates
+Found by the Tier A review of `1e5a446`. None is caused by the recording change; all three are
+dormant today and fire the moment `2026-09-10-recording` reaches production, because they are on
+the stale-consent path and nothing has ever taken it. **Fix before this branch merges.**
+
+1. **The consent form blanks the child's name and grade, then overwrites the stored values.**
+   `consent-form.tsx` renders both fields `required` with no `defaultValue`; `consent/page.tsx`
+   never loads the existing ones; `consent/actions.ts:43-47` updates unconditionally. Every
+   existing family retypes them at next sign-in, and a typo silently replaces the name the tutor
+   sees and the grade that drives matching. `Identity` does not carry these fields, so the fix is
+   a small select in `consent/page.tsx` plus two `defaultValue`s.
+2. **A teacher's dashboard keeps saying "Available until …" while every accept fails.**
+   `availability-toggle.tsx:111-118` only acts on `"declaredUntil" in result`, so a stale-consent
+   `renewLease` returning `{error}` is swallowed and the display never corrects. The DB row stays
+   `declared: true`, students still see and pick the teacher, and Accept returns "Request not
+   found." for a request that exists. On deploy day this hits every teacher with an open dashboard.
+3. **`redirect("/consent")` drops the attempted path, and there is no route back into a live
+   session.** `auth.ts:73` redirects bare; `consent/actions.ts:68` then sends the user to
+   `resolveHome(role)`. `/sessions` never links `/call/[sessionId]` or `/waiting/[sessionId]`, so a
+   student who refreshes mid-lesson — or sits on `/waiting` after paying — consents and has no way
+   back into a paid, running call except browser history. `signInRedirect` already does exactly
+   this and is unused here.
+
 ### Known, unfixed, deliberately
 - **Admin server actions throw** instead of returning typed errors; production Next strips the
   message to a digest, so a refused suspend shows a blank error page. Fixing properly means
