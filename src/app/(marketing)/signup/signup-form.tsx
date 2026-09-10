@@ -11,6 +11,7 @@ import { useResubmitKey } from "@/components/use-resubmit-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RecordingNotice } from "@/components/recording-notice";
 
 export function SignUpForm() {
   const [state, formAction, isPending] = useActionState(signUpStudent, null);
@@ -126,6 +127,11 @@ export function SignUpForm() {
             placeholder="Re-enter your password"
           />
         </div>
+
+        {/* Immediately above the tick, not in the column beside the form. A
+            guardian who signed up on 2026-09-10 never saw the ASSURANCES panel
+            and submitted without meeting the recording policy at all. */}
+        <RecordingNotice title="Every session is recorded." />
 
         <div className="flex items-start">
           {/* name="consent" matters: without it this never reaches the server

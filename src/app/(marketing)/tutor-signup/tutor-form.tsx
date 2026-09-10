@@ -6,6 +6,7 @@ import { signUpTutor } from "./actions";
 import { SubjectPicker } from "@/components/subject-picker";
 import { FormError } from "@/components/form-error";
 import { DemoVideoGuide } from "@/components/demo-video-guide";
+import { RecordingNotice } from "@/components/recording-notice";
 import { useResubmitKey } from "@/components/use-resubmit-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -237,6 +238,11 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
       </div>
 
       {/* Terms */}
+      {/* The tutor is the other person in the recording. /terms gained "You Are
+          Recorded Too" on 2026-09-10; this is that clause where they can
+          actually see it, rather than behind a link they may not open. */}
+      <RecordingNotice title="Every session you teach is recorded." />
+
       <div className="flex items-start">
         {/* name="consent" matters: without it this never reaches the server
             and `required` is browser-only decoration. Validated again in

@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { acceptConsent } from "./actions";
 import { FormError } from "@/components/form-error";
 import { PageHeader } from "@/components/page-header";
+import { RecordingNotice } from "@/components/recording-notice";
 import { Button } from "@/components/ui/button";
 import { useResubmitKey } from "@/components/use-resubmit-key";
 import { Input } from "@/components/ui/input";
@@ -54,17 +55,8 @@ export function ConsentForm({
         // The substance of 2026-09-10-recording, on the screen that records
         // agreement to it. A guardian pointing at this page later must find
         // the thing they are said to have agreed to.
-        <div className="mt-6 rounded-lg border border-hair bg-muted/40 p-4">
-          <p className="text-sm font-semibold text-foreground mb-1">
-            What changed: we now record every session.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Every lesson is recorded from the moment the tutor joins. Recordings
-            are stored encrypted and nobody at SMB Tutorials watches one unless
-            a report is filed about that session, or the law requires us to
-            produce it. They are deleted after 30 days. Recording is a condition
-            of using SMB Tutorials &mdash; lessons cannot be taken unrecorded.
-          </p>
+        <div className="mt-6">
+          <RecordingNotice title="What changed: we now record every session." />
         </div>
       )}
 

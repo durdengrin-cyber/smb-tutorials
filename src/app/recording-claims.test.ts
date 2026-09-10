@@ -32,6 +32,9 @@ const SIGNUP = P("(marketing)", "signup", "page.tsx");
 const ABOUT = P("(marketing)", "about", "page.tsx");
 const WAITING = P("(app)", "(student)", "waiting", "[sessionId]", "waiting-client.tsx");
 const CONSENT_FORM = P("(gate)", "consent", "consent-form.tsx");
+const SIGNUP_FORM = P("(marketing)", "signup", "signup-form.tsx");
+const TUTOR_FORM = P("(marketing)", "tutor-signup", "tutor-form.tsx");
+const C = (...p: string[]) => read(join("src", "components", ...p));
 
 // Every one of these is a statement about what WE do. Deliberately not a bare
 // /not record/, which would also match the terms clause forbidding a *user*
@@ -162,6 +165,49 @@ describe("the payment step", () => {
     expect(WAITING, "the pre-guardian wording survived the rewrite").not.toMatch(
       /18 or older/i
     );
+  });
+});
+
+// A guardian signed up on 2026-09-10 and reported never seeing the recording
+// policy before submitting. They were right: the signup page carried it in an
+// ASSURANCES column beside the form, and the consent checkbox only linked to
+// /privacy and /terms. The tick is the moment consent is recorded, so the
+// substance has to be next to the tick — not one column over, and not behind a
+// link.
+describe("every form that takes consent states the policy on the page", () => {
+  const NOTICE = C("recording-notice.tsx");
+
+  it("the notice carries the substance, not just a heading", () => {
+    expect(NOTICE, "no encryption claim").toMatch(/encrypted/i);
+    expect(NOTICE, "no report-gated access rule").toMatch(/unless a report/i);
+    expect(NOTICE, "no retention period").toMatch(/30 days/);
+  });
+
+  for (const [name, src] of Object.entries({
+    "the student signup form": SIGNUP_FORM,
+    "the tutor application form": TUTOR_FORM,
+    "the consent gate": CONSENT_FORM,
+  })) {
+    it(`${name} renders it`, () => {
+      expect(src, `${name} takes consent without showing the policy`).toMatch(
+        /<RecordingNotice/
+      );
+    });
+  }
+
+  // One source of truth. Three hand-written copies of a policy sentence is how
+  // they drift, and drift in THIS sentence is a consent record that misstates
+  // what was agreed to.
+  it("is not duplicated by hand in any form", () => {
+    for (const [name, src] of Object.entries({
+      "the student signup form": SIGNUP_FORM,
+      "the tutor application form": TUTOR_FORM,
+      "the consent gate": CONSENT_FORM,
+    })) {
+      expect(src, `${name} inlines the policy text instead of using the notice`).not.toMatch(
+        /deleted after 30 days/i
+      );
+    }
   });
 });
 
