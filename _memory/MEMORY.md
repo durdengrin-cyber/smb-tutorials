@@ -9,3 +9,4 @@
 - [Promises need an enforcer](promises-need-an-enforcer.md) — six pieces of UI copy asserted things no code did; check, then pin both ways.
 - [Browser testing finds what reading cannot](browser-testing-finds-what-reading-cannot.md) — five defects curl, jsdom and 560 green tests all missed.
 - [Verify the stored values, not the shape](verify-the-stored-values-not-the-shape.md) — a host match is not the validator; run the real check.
+- [Preview OAuth is broken by the Site URL](supabase-site-url-and-preview-oauth.md) — Google sign-in on a preview lands on production; email+password is unaffected.

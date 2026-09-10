@@ -109,6 +109,22 @@ recording change; each was dormant because nothing had ever taken the stale-cons
    from) and the action returns through `safeNext`, which is what stops it being an open
    redirect. The `/consent` self-link guard already in `requireUser` is what makes it loop-free.
 
+### Burner test accounts — IN PRODUCTION, must be deleted before launch
+Created 2026-09-10 with the owner's approval so an agent can test all three roles without the
+owner signing in by hand. `smb-test-student@example.com`, `smb-test-teacher@example.com`,
+`smb-test-admin@example.com` — **one of them is an admin.**
+
+- **No password exists for them anywhere.** Each was created with a random password that was
+  generated, used for nothing and never printed. `node scripts/test-accounts.mjs signin <role>`
+  mints a one-time service-role link instead, so there is no standing credential to leak.
+- They sit on the **superseded** consent version (`2026-09-05-guardian`) on purpose: that is the
+  state every real account is in, and it is what exercises the 2026-09-10 consent-gate fixes.
+- **`setup` must be run by a human.** It escalates one profile to `admin` and sets the teacher to
+  `cleared`; the permission classifier refuses both from the agent, correctly.
+- **The enforcer is `src/lib/test-accounts.test.ts`**, which fails when `SMB_LAUNCH_READY=1` while
+  the script still exists. Verified to fail. "We'll delete them before launch" was not going to be
+  enough — see `_memory/promises-need-an-enforcer.md`.
+
 ### Known, unfixed, deliberately
 - **Admin server actions throw** instead of returning typed errors; production Next strips the
   message to a digest, so a refused suspend shows a blank error page. Fixing properly means
