@@ -47,10 +47,10 @@ export default function TermsPage() {
               <p className="text-muted-foreground mt-3">
                 Contact{" "}
                 <a
-                  href="mailto:support@smbtutorial.com"
+                  href="mailto:support@smbtutorials.com"
                   className="text-primary font-medium underline-offset-4 hover:underline"
                 >
-                  support@smbtutorial.com
+                  support@smbtutorials.com
                 </a>{" "}
                 with questions about a specific session.
               </p>
@@ -316,10 +316,10 @@ export default function TermsPage() {
               </p>
               <p className="text-foreground">
                 <a
-                  href="mailto:support@smbtutorial.com"
+                  href="mailto:support@smbtutorials.com"
                   className="text-primary font-semibold underline-offset-4 hover:underline"
                 >
-                  support@smbtutorial.com
+                  support@smbtutorials.com
                 </a>
               </p>
             </section>

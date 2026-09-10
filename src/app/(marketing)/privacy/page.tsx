@@ -21,10 +21,10 @@ export default function PrivacyPage() {
                 about this policy, or about the data we hold on your family,
                 write to{" "}
                 <a
-                  href="mailto:support@smbtutorial.com"
+                  href="mailto:support@smbtutorials.com"
                   className="text-primary font-medium underline-offset-4 hover:underline"
                 >
-                  support@smbtutorial.com
+                  support@smbtutorials.com
                 </a>
                 .
               </p>
@@ -244,10 +244,10 @@ export default function PrivacyPage() {
               <p className="text-muted-foreground mb-4">
                 Write to{" "}
                 <a
-                  href="mailto:support@smbtutorial.com"
+                  href="mailto:support@smbtutorials.com"
                   className="text-primary font-medium underline-offset-4 hover:underline"
                 >
-                  support@smbtutorial.com
+                  support@smbtutorials.com
                 </a>{" "}
                 to ask us to delete your account. Here is exactly what that
                 does and doesn&apos;t do.
@@ -313,10 +313,10 @@ export default function PrivacyPage() {
                 &quot;Deletion, honestly&quot; says we delete. Do that by
                 contacting{" "}
                 <a
-                  href="mailto:support@smbtutorial.com"
+                  href="mailto:support@smbtutorials.com"
                   className="text-primary font-medium underline-offset-4 hover:underline"
                 >
-                  support@smbtutorial.com
+                  support@smbtutorials.com
                 </a>
                 .
               </p>
@@ -328,10 +328,10 @@ export default function PrivacyPage() {
               </h3>
               <p className="text-foreground">
                 <a
-                  href="mailto:support@smbtutorial.com"
+                  href="mailto:support@smbtutorials.com"
                   className="text-primary font-semibold underline-offset-4 hover:underline"
                 >
-                  support@smbtutorial.com
+                  support@smbtutorials.com
                 </a>
               </p>
             </section>

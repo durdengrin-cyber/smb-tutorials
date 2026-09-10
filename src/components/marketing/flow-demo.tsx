@@ -33,15 +33,16 @@ const STEP_FOR_STOP = [0, 1, 1, 2, 2];
 
 // Real routes: /find is the picker, /teachers is the online list.
 //
-// The host matches the PUBLISHED legal pages (privacy and terms both give
-// support@smbtutorial.com), not because that spelling is settled but because a
-// decorative mockup must not be the thing that introduces a sixth one.
-// CLAUDE.md records that this project spells itself five ways and that one
-// form has to be picked and applied everywhere; until it is, the published
-// documents are the form with the most claim to being authoritative, and a
-// visitor should not read two different domains for the same product in one
-// page load.
-const HOST = "smbtutorial.com";
+// The host matches the PUBLISHED legal pages, which both give
+// support@smbtutorials.com. The spelling IS settled now — the owner chose the
+// plural on 2026-09-10 and it was applied everywhere in src at once, closing
+// the "this project spells itself five ways" item in CLAUDE.md for the domain.
+//
+// Note what that did NOT fix: smbtutorials.com has no A record and no MX, and
+// the singular it replaced had an A record but no MX either. Neither address
+// can receive mail. The legal pages name an unreachable contact until DNS is
+// configured, which is a launch blocker rather than a copy one.
+const HOST = "smbtutorials.com";
 const URL_FOR_STOP = [
   `${HOST}/find`,
   `${HOST}/teachers`,

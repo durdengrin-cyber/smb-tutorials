@@ -31,7 +31,7 @@ export function MarketingFooter() {
           <Link href="/terms" className="hover:text-primary">
             Terms
           </Link>
-          <a href="mailto:support@smbtutorial.com" className="hover:text-primary">
+          <a href="mailto:support@smbtutorials.com" className="hover:text-primary">
             Contact
           </a>
         </div>

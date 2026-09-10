@@ -164,6 +164,43 @@ owner signing in by hand. `smb-test-student@example.com`, `smb-test-teacher@exam
   the script still exists. Verified to fail. "We'll delete them before launch" was not going to be
   enough — see `_memory/promises-need-an-enforcer.md`.
 
+### The contact address on the legal pages cannot receive mail
+Settled 2026-09-10: the domain is **`smbtutorials.com`** (plural), applied everywhere in `src` —
+`/privacy`, `/terms`, the marketing footer and `flow-demo`'s mockup host. That closes the domain
+half of CLAUDE.md's "this project spells itself five ways".
+
+**It did not make the address work.** Checked at the time:
+
+| domain | A | MX |
+|---|---|---|
+| `smbtutorial.com` (the old singular) | 3.33.130.190 (parked) | **none** |
+| `smbtutorials.com` (the new plural) | **none** | **none** |
+
+So `support@smbtutorials.com` bounces, and so did the address it replaced. `/privacy` names it
+four times and `/terms` twice, including as the way to withdraw consent and to ask for a
+recording — both of which the pages promise. **Point the domain and configure MX before launch;
+a published privacy policy whose only contact route is dead is worse than a spelling
+inconsistency.** The same domain still needs pointing at the deployment: it currently serves a
+114-byte redirect to `/lander`.
+
+### The domain is `smbtutorials.com` — bought on the owner's call, not yet configured
+Settled 2026-09-10: **plural**, applied everywhere in `src` at once — `/privacy`, `/terms`, the
+marketing footer, and `flow-demo`'s mockup host. That closes the domain half of CLAUDE.md's
+"this project spells itself five ways". The owner confirmed they are purchasing it.
+
+**Until DNS exists, the published contact address bounces.** Checked at the time of the rename:
+
+| domain | A | MX |
+|---|---|---|
+| `smbtutorial.com` (old singular) | 3.33.130.190 (a parked page) | **none** |
+| `smbtutorials.com` (new plural) | **none** | **none** |
+
+`/privacy` names the address four times and `/terms` twice, including as the way to withdraw
+consent and to request a recording — both of which those pages promise. So this is now a DNS
+task, not a copy one: **point `smbtutorials.com` at the Vercel deployment and configure MX before
+launch.** Note the old singular currently serves a 114-byte redirect to `/lander`, so nothing is
+lost by moving off it.
+
 ### Known, unfixed, deliberately
 - **Admin server actions throw** instead of returning typed errors; production Next strips the
   message to a digest, so a refused suspend shows a blank error page. Fixing properly means

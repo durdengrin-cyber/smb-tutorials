@@ -238,7 +238,13 @@ describe("the consent screen delivers the change it is gating on", () => {
 // CONSENT_VERSION so every account re-agrees; if it is genuinely cosmetic,
 // update the fingerprint in the same commit and say why.
 describe("the published policy and the consent version move together", () => {
-  const POLICY_FINGERPRINT = "ab882f154809e2fd";
+  // Moved 2026-09-10 for a COSMETIC change, deliberately without a
+  // CONSENT_VERSION bump: support@smbtutorial.com -> support@smbtutorials.com,
+  // settling the domain spelling CLAUDE.md records as open. It changes how to
+  // reach us, not what we do with anyone's data, what recording means, how long
+  // it is kept or who may open it — so nobody has to agree again. The test
+  // firing here is it working: the question got asked out loud.
+  const POLICY_FINGERPRINT = "37fc883b4e1c562c";
   const CONSENT_VERSION_AT_FINGERPRINT = "2026-09-10-recording";
 
   const actual = createHash("sha256")
