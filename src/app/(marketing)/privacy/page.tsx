@@ -128,11 +128,15 @@ export default function PrivacyPage() {
               <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li>
                   <strong>Supabase</strong> &mdash; our database and sign-in
-                  provider. Everything described above lives here.
+                  provider. Everything described above lives here except the
+                  session recordings themselves.
                 </li>
                 <li>
                   <strong>Daily.co</strong> &mdash; powers the video call
-                  itself.
+                  itself, and records and stores it. A recording of your
+                  child&apos;s lesson is held by Daily.co under our account, on
+                  servers in the United States, and is deleted on the schedule
+                  set out below. They do not use it for anything of their own.
                 </li>
                 <li>
                   <strong>Razorpay</strong> &mdash; processes payments for
@@ -176,8 +180,19 @@ export default function PrivacyPage() {
                 watches one unless a report is filed about that session, or
                 the law requires us to produce it &mdash; not to check on
                 tutors, not to improve the product, not out of curiosity.
-                Every access to a recording is logged, and the log is kept
-                after the recording itself is gone.
+                Every access to a recording is logged &mdash; who opened it,
+                when, and which report or legal demand justified it &mdash; and
+                that log is kept after the recording itself is gone. It is the
+                only way to answer &quot;who watched my child&apos;s
+                lesson&quot;, so it outlives what it describes.
+              </p>
+              <p className="text-muted-foreground mt-4">
+                You can ask for a copy of a recording of a session you or your
+                child took part in, and a tutor can ask for one of a session
+                they taught, by writing to support. We will not give either of
+                you a recording of a session you were not in. Ask before the 30
+                days are up: once a recording is deleted we cannot produce it,
+                and we do not keep a spare.
               </p>
             </section>
 
@@ -215,8 +230,10 @@ export default function PrivacyPage() {
               <p className="text-muted-foreground mt-4">
                 These are the defaults while an account stays open. Deleting
                 an account moves faster than any of the timers above for your
-                own session and payment records — see &quot;Deletion,
-                honestly&quot; below.
+                own session and payment records — but not for recordings:
+                deleting your account does not delete a recording early, and one
+                made in the last 30 days outlives the account by up to that
+                long. See &quot;Deletion, honestly&quot; below.
               </p>
             </section>
 
@@ -249,6 +266,15 @@ export default function PrivacyPage() {
               </p>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li>
+                  <strong>Recordings, for up to 30 days.</strong> Deleting your
+                  account does not delete recordings of sessions already taken.
+                  They run out their 30 days and are then deleted like any
+                  other, and one with a report against it is kept until that
+                  report is resolved. We state this plainly because someone
+                  deleting an account after something went wrong is exactly the
+                  person who needs to know the video still exists.
+                </li>
+                <li>
                   <strong>Reports.</strong> If a report was filed about a
                   tutoring session, we keep the tutor&apos;s name, the
                   subject, and when the session happened &mdash; even after
@@ -280,7 +306,12 @@ export default function PrivacyPage() {
                 belongs to a parent or legal guardian and not the student:
                 the guardian is the one who agrees to this policy on the
                 family&apos;s behalf. A guardian may withdraw consent at any
-                time by contacting{" "}
+                time &mdash; but because recording is a condition of using SMB
+                Tutorials and no lesson can be taken unrecorded, withdrawing it
+                means closing the account rather than continuing without
+                recording. Tell us and we will close it and delete what
+                &quot;Deletion, honestly&quot; says we delete. Do that by
+                contacting{" "}
                 <a
                   href="mailto:support@smbtutorial.com"
                   className="text-primary font-medium underline-offset-4 hover:underline"

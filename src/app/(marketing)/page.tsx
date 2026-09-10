@@ -3,9 +3,15 @@ import { Button } from "@/components/ui/button";
 import { FlowDemo } from "@/components/marketing/flow-demo";
 
 // Every claim here is something the product actually does, shipped and
-// verifiable — not aspiration. Spec §3: this page addresses the PARENT, about
-// the child's moment. They hold the account, give consent and pay, so they are
-// the only person who can complete the action it asks for.
+// verifiable — not aspiration, with ONE deliberate exception recorded here so
+// the next reader is not misled by the sentence above: the recording card
+// states a policy that ships before public launch and is not built yet. The
+// owner chose present tense knowingly; project_state.md "Recording policy"
+// carries the five things the feature must do to make it true. Nothing else on
+// this page gets that latitude.
+// Spec §3: this page addresses the PARENT, about the child's moment. They hold
+// the account, give consent and pay, so they are the only person who can
+// complete the action it asks for.
 const TRUST = [
   {
     label: "VERIFIED",
@@ -20,7 +26,7 @@ const TRUST = [
   {
     label: "PRIVATE",
     title: "Every lesson is recorded, and nobody watches it",
-    body: "Recordings are encrypted and opened only if you report a problem. Report in one tap and a person reads it the same day — not a queue, not a bot.",
+    body: "Recordings are encrypted, kept 30 days, and opened only if you report a problem or the law demands it. Report in one tap and a person reads it the same day — not a queue, not a bot.",
   },
 ];
 

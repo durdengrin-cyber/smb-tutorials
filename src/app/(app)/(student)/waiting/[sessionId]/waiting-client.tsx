@@ -249,8 +249,7 @@ export function WaitingClient({
             to the CONSENT_VERSION that covers it. */}
         <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
           Every session is recorded for everyone&apos;s safety. By paying, you
-          confirm you&apos;re the student&apos;s parent or guardian, or 18 or
-          older.
+          confirm you&apos;re the student&apos;s parent or legal guardian.
         </p>
         {error && <FormError className="mb-4">{error}</FormError>}
         {/* Cancel belongs here, not only before the teacher answers. M3 spec

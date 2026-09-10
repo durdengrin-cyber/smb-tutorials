@@ -189,6 +189,15 @@ export default function TermsPage() {
                   out above in Tutor Professional Conduct &amp; Penalties.
                 </li>
                 <li>
+                  <strong>You Are Recorded Too:</strong> Every session is
+                  recorded, and that includes your side of the call. The limits
+                  in the Privacy Policy protect you exactly as they protect the
+                  student: recordings are encrypted, deleted after 30 days, and
+                  opened only where a report is filed about that session or the
+                  law requires it. You may ask for a copy of a session you
+                  taught. Teaching on SMB Tutorials means agreeing to this.
+                </li>
+                <li>
                   <strong>Reports Pending Review:</strong> A conduct report
                   filed against your account opens a review and suspends your
                   account. You will not receive or be able to accept new

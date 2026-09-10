@@ -17,7 +17,7 @@ const ASSURANCES = [
   },
   {
     label: "PRIVATE",
-    text: "Every lesson is recorded, encrypted, and opened only if you report a problem. A person reads that report the same day.",
+    text: "Every lesson is recorded, encrypted, and opened only if you report a problem or the law demands it. A person reads that report the same day.",
   },
 ];
 

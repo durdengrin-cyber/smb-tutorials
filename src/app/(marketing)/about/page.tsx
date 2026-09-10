@@ -20,8 +20,8 @@ export default function AboutPage() {
               minute of asking. There is no timetable to fit into and no batch
               of forty. A parent or guardian holds the account; teachers are
               verified against government ID before they meet a child; and
-              every lesson is recorded, so there is a record of what happened
-              if a parent ever needs one.
+              every lesson is recorded and kept for 30 days, so there is a
+              record of what happened if anyone reports a problem.
             </p>
           </section>
 
