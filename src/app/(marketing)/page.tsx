@@ -19,8 +19,8 @@ const TRUST = [
   },
   {
     label: "PRIVATE",
-    title: "Lessons are live, and not recorded",
-    body: "Nothing is stored or replayed. Report a problem in one tap and a person reads it the same day — not a queue, not a bot.",
+    title: "Every lesson is recorded, and nobody watches it",
+    body: "Recordings are encrypted and opened only if you report a problem. Report in one tap and a person reads it the same day — not a queue, not a bot.",
   },
 ];
 

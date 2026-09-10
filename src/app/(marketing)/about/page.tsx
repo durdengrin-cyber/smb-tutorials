@@ -19,8 +19,9 @@ export default function AboutPage() {
               qualified teacher for a one-to-one video lesson, usually within a
               minute of asking. There is no timetable to fit into and no batch
               of forty. A parent or guardian holds the account; teachers are
-              verified against government ID before they meet a child; lessons
-              are live and are not recorded.
+              verified against government ID before they meet a child; and
+              every lesson is recorded, so there is a record of what happened
+              if a parent ever needs one.
             </p>
           </section>
 

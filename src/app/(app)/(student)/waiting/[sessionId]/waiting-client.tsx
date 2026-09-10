@@ -241,13 +241,14 @@ export function WaitingClient({
           Pay <Money paise={amountPaise} /> to start your session.
         </p>
         {/* Said BEFORE the money moves, not in a policy page nobody opens.
-            Deliberately "may be" and not "will be": recording is not built
-            yet, and a payment screen that states something untrue is worse
-            than one that says nothing. When recording ships, this wording is
-            already accurate and the /terms clause forbidding recording
-            (terms/page.tsx) must change in the same commit. */}
+            "Every session is recorded" and not "may be": recording is a
+            condition of use, /privacy and /terms both state it as fact, and a
+            hedge here would be the one place a parent is told something
+            softer than the policy they agreed to. Pinned by
+            src/app/recording-claims.test.ts, which also holds this sentence
+            to the CONSENT_VERSION that covers it. */}
         <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
-          For everyone&apos;s safety, sessions may be recorded. By paying, you
+          Every session is recorded for everyone&apos;s safety. By paying, you
           confirm you&apos;re the student&apos;s parent or guardian, or 18 or
           older.
         </p>

@@ -8,7 +8,7 @@ export default function PrivacyPage() {
           <div className="bg-card rounded-2xl shadow-sm p-6 sm:p-12 border border-hair">
             <PageHeader
               title="Privacy Policy"
-              description="Last updated: September 5, 2026"
+              description="Last updated: September 10, 2026"
             />
 
             <section className="mb-10">
@@ -62,6 +62,11 @@ export default function PrivacyPage() {
                     <strong>Student details:</strong> the student&apos;s first
                     name and grade &mdash; enough for a tutor to know who
                     they&apos;re teaching, nothing more.
+                  </li>
+                  <li>
+                    <strong>Session recordings:</strong> the video and audio of
+                    every lesson, recorded from the moment the tutor joins to
+                    the moment the call ends.
                   </li>
                   <li>
                     <strong>Session records:</strong> the subject, curriculum
@@ -155,13 +160,24 @@ export default function PrivacyPage() {
 
             <section className="mb-10">
               <h2 className="text-2xl font-bold text-foreground mb-4">
-                Sessions are not recorded
+                Every session is recorded
               </h2>
               <p className="text-muted-foreground">
                 A tutoring session is a live video call between the student
-                and the tutor. We do not record it, and we do not store a
-                copy of it anywhere. Nothing said or shown during a session is
-                collected by us.
+                and the tutor, and we record all of it. This is a condition of
+                using SMB Tutorials: there is no way to take a lesson here
+                unrecorded, and that is deliberate. A child is on one end of
+                the call and an adult on the other, and a recording is the
+                only thing that can tell us what actually happened if you ever
+                need to report one.
+              </p>
+              <p className="text-muted-foreground mt-4">
+                Recordings are stored encrypted. Nobody at SMB Tutorials
+                watches one unless a report is filed about that session, or
+                the law requires us to produce it &mdash; not to check on
+                tutors, not to improve the product, not out of curiosity.
+                Every access to a recording is logged, and the log is kept
+                after the recording itself is gone.
               </p>
             </section>
 
@@ -170,6 +186,12 @@ export default function PrivacyPage() {
                 How long we keep things
               </h2>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
+                <li>
+                  <strong>Session recordings:</strong> 30 days, then deleted.
+                  A recording of a session someone has reported is kept until
+                  that report is resolved, however long that takes, and then
+                  deleted with the rest.
+                </li>
                 <li>
                   <strong>Notification delivery logs</strong> (whether a
                   session alert reached a tutor&apos;s device): our policy is

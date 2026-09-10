@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 
 export default function TermsPage() {
@@ -8,7 +9,7 @@ export default function TermsPage() {
           <div className="bg-card rounded-2xl shadow-sm p-6 sm:p-12 border border-hair">
             <PageHeader
               title="Terms & Conditions"
-              description="Last updated: August 28, 2026"
+              description="Last updated: September 10, 2026"
             />
 
             <section className="mb-10">
@@ -240,8 +241,23 @@ export default function TermsPage() {
                 </h3>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
-                    <strong>No Recording Without Consent:</strong> You may not
-                    record, screen-capture, or distribute any portion of a live
+                    <strong>We Record Every Session:</strong> Every session is
+                    recorded by SMB Tutorials, and using the platform means
+                    agreeing to that. Sessions cannot be taken unrecorded.
+                    What we do with a recording &mdash; who may open one, and
+                    how long we keep it &mdash; is set out in the{" "}
+                    <Link
+                      href="/privacy"
+                      className="text-primary underline underline-offset-4"
+                    >
+                      Privacy Policy
+                    </Link>
+                    , and those limits bind us.
+                  </li>
+                  <li>
+                    <strong>You May Not Make Your Own Recording:</strong> Our
+                    recording is not permission for yours. You may not record,
+                    screen-capture, or distribute any portion of a live
                     tutoring session without explicit written permission of the
                     tutor and the platform.
                   </li>

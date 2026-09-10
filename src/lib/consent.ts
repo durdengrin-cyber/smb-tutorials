@@ -5,14 +5,21 @@
 export { GRADES, type Grade, isGrade } from "./taxonomy";
 
 // Bump when the consent wording changes materially, so an old agreement is
-// never silently read as agreement to new terms. "2026-09-05-guardian" is the
-// guardian rewrite: the holder is now the parent or legal guardian, not
+// never silently read as agreement to new terms. "2026-09-05-guardian" was
+// the guardian rewrite: the holder became the parent or legal guardian, not
 // "parent OR 18+".
+//
+// "2026-09-10-recording" is the recording policy. /privacy and /terms now
+// state that every session is recorded and that this is a condition of use —
+// about as material as a change gets on a product used by children, so every
+// existing agreement predates it and every account is sent back to /consent.
+// The pages and this constant are pinned to each other by
+// src/app/recording-claims.test.ts: the claim may not outlive the version.
 //
 // Lives here rather than in validation.ts so this module avoids depending on
 // validation.ts and the parsers: anything can import CONSENT_VERSION without
 // pulling them in.
-export const CONSENT_VERSION = "2026-09-05-guardian";
+export const CONSENT_VERSION = "2026-09-10-recording";
 
 // The one question every entry path asks. A version rather than a boolean,
 // because a material change to the wording is a new agreement and an old one

@@ -39,16 +39,40 @@ shows 29, no drift. Three probes green against production: `probe-vetting` (8/8)
    server log: `[api/devices] register_device failed { ... }`. **Read that line first.**
    `0029` is confirmed live (the function's role test reads `role in ('teacher','admin')`), so
    the refusal is something else.
-2. **`/waiting` contradicts the published legal pages.** `waiting-client.tsx:250` tells a parent
-   "sessions may be recorded" at the point of payment, while `/privacy`, `/terms` and the
-   marketing copy all say they never are. **Published legal copy about children's video
-   sessions — the owner's wording, Tier A.** This is the highest-severity open item.
+2. ~~`/waiting` contradicts the published legal pages.~~ **RESOLVED 2026-09-10** — resolved the
+   other way: every page now states that sessions ARE recorded. See "Recording policy" below.
 3. **Test B — a real signup end to end.** Never done. The agent cannot: creating accounts and
    typing passwords are prohibited. Every other link is verified; nobody has pressed Submit.
 4. **The re-vetting positive path** needs a teacher session: sign in as `Task13 Tutor Verify`,
    change any profile field, confirm `/admin` shows them `unvetted` WITH the diff.
 5. **Merge decision.** `main` is 119 commits behind, and the schema is now seven migrations
    ahead of what is deployed. That is safe but widening.
+
+### Recording policy — published 2026-09-10, feature NOT built
+`/privacy`, `/terms`, `/waiting`, the home page, `/signup` and `/about` now all state that
+**every session is recorded**, that it is a condition of use with no opt-out, and that recordings
+are encrypted, opened only on a report or a legal demand, access-logged, and deleted after 30
+days. The owner chose present tense with no caveat, knowing the capability ships later. The
+previous position — "sessions are not recorded", published in six places — is gone.
+
+**Nothing records anything yet.** The published copy is therefore a specification. These are
+requirements the recording feature must meet, not aspirations:
+
+| Published claim | What must exist before launch |
+|---|---|
+| "Recordings are stored encrypted" | Encryption at rest for the recording store |
+| "Nobody watches one unless a report is filed about that session, or the law requires it" | Read access gated on an open `session_reports` row; no ambient staff read path |
+| "Every access to a recording is logged, and the log is kept after the recording is gone" | An append-only access log that outlives its recording |
+| "30 days, then deleted" | A scheduled delete that actually runs. Note `/privacy` already confesses the 90-day notification-log cleanup was never built — a second unbuilt timer on the same page is a pattern, not an oversight |
+| "Sessions cannot be taken unrecorded" | No opt-out anywhere; a session that fails to start recording must not proceed |
+
+`src/app/recording-claims.test.ts` pins the copy in both directions and ties it to
+`CONSENT_VERSION`. It cannot pin any of the five rows above; only building them can.
+
+**`CONSENT_VERSION` is now `2026-09-10-recording`** (was `2026-09-05-guardian`). Every existing
+account is re-gated: next sign-in lands on `/consent`. That is the intended consequence — it is
+the only thing that makes anyone's agreement cover recording. Known side effect, from the comment
+at `sessions/actions.ts:18`: a user cannot file a report until they have re-consented.
 
 ### Known, unfixed, deliberately
 - **Admin server actions throw** instead of returning typed errors; production Next strips the

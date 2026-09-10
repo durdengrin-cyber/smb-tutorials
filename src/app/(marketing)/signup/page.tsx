@@ -17,7 +17,7 @@ const ASSURANCES = [
   },
   {
     label: "PRIVATE",
-    text: "Lessons are live and never recorded. Report a problem and a person reads it the same day.",
+    text: "Every lesson is recorded, encrypted, and opened only if you report a problem. A person reads that report the same day.",
   },
 ];
 
