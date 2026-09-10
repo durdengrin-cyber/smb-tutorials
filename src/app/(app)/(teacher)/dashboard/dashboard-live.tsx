@@ -26,6 +26,7 @@ export function DashboardLive({
   declaredUntil,
   hasDevice,
   suspended = false,
+  cleared = true,
 }: {
   teacherId: string;
   fullName: string;
@@ -38,6 +39,7 @@ export function DashboardLive({
   // Server-read from my_suspension() in page.tsx. Threaded straight through
   // to the toggle, which is the only sibling that needs it.
   suspended?: boolean;
+  cleared?: boolean;
 }) {
   const [inSession, setInSession] = useState(false);
 
@@ -52,6 +54,7 @@ export function DashboardLive({
         declaredUntil={declaredUntil}
         hasDevice={hasDevice}
         suspended={suspended}
+        cleared={cleared}
       />
     </>
   );

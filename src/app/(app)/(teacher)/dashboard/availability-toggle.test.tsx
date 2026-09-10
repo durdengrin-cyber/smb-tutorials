@@ -224,3 +224,33 @@ describe("AvailabilityToggle", () => {
     expect(screen.getByRole("button")).toBeDisabled();
   });
 });
+
+
+// Registering a real tutor on production showed "Available now" as a live,
+// clickable control directly beneath "Your account is under review" — and after
+// clicking, "Available until 7:28 PM — we'll notify you even with your phone
+// locked." available_teachers gates on 'cleared', so no student could see him
+// and no notification could ever arrive. The server now refuses; this is the
+// half that stops offering it in the first place.
+//
+// Mirrors `suspended`, whose own comment already states the rule: someone who
+// is not visible must not be able to toggle themselves back into a list they
+// are excluded from.
+describe("while the account is under review", () => {
+  it("does not offer Available now", () => {
+    render(<AvailabilityToggle {...props} cleared={false} />);
+    expect(screen.getByRole("button", { name: /available now/i })).toBeDisabled();
+  });
+
+  it("does not claim to be live even if a lease somehow exists", () => {
+    render(
+      <AvailabilityToggle {...props} cleared={false} declaredUntil={futureIso} hasDevice />
+    );
+    expect(screen.queryByText(/Available until/i)).not.toBeInTheDocument();
+  });
+
+  it("a cleared teacher is unaffected", () => {
+    render(<AvailabilityToggle {...props} declaredUntil={futureIso} hasDevice />);
+    expect(screen.getByText(/Available until/i)).toBeInTheDocument();
+  });
+});

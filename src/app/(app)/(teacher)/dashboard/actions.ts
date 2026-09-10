@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { consentGate, type Identity } from "@/lib/auth";
+import { canBePicked, isVettingState } from "@/lib/vetting";
 import { leaseUntilFrom, shouldRenew } from "@/lib/availability";
 import {
   canTransition,
@@ -26,6 +27,34 @@ const RECONSENT: ActionRefusal = {
   error: "Our policies have changed. Agree to them to carry on teaching.",
   needsConsent: true,
 };
+
+
+/**
+ * available_teachers gates on 'cleared', so an unvetted teacher's lease is a
+ * row nobody can act on: no student sees them, no request reaches them, and the
+ * notification the dashboard promises can never arrive. Publishing one anyway
+ * produced a card reading "Available until 7:28 PM" directly beneath "Your
+ * account is under review" — found by registering a real tutor on production.
+ *
+ * Asks canBePicked(), the one place the rule lives, rather than re-stating it.
+ * Suspension is checked separately by its own path; this is the vetting half.
+ */
+async function refusedForReview(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<ActionRefusal | null> {
+  const { data, error } = await supabase.rpc("my_vetting_state");
+  if (error) {
+    console.error("[availability] my_vetting_state read failed", error);
+    return { error: "Couldn't check your account status." };
+  }
+  const state = isVettingState(data ?? "") ? data : "unvetted";
+  return canBePicked(state)
+    ? null
+    : {
+        error:
+          "Your account is still under review, so students cannot see you yet.",
+      };
+}
 
 async function gate(
   signedOut: string
@@ -167,6 +196,9 @@ export async function declareAvailable(): Promise<
   if ("refusal" in g) return g.refusal;
   const identity = g.identity;
 
+  const underReview = await refusedForReview(supabase);
+  if (underReview) return underReview;
+
   const now = new Date();
   const until = leaseUntilFrom(now);
 
@@ -240,6 +272,11 @@ export async function renewLease(): Promise<
   const g = await gate("Sign in first.");
   if ("refusal" in g) return g.refusal;
   const identity = g.identity;
+
+  // Also here, not only in declareAvailable: a teacher sent back for review
+  // while already live must not keep renewing a lease students cannot act on.
+  const underReview = await refusedForReview(supabase);
+  if (underReview) return underReview;
 
   const { data: row, error: readError } = await supabase
     .from("teacher_availability")

@@ -82,3 +82,52 @@ describe("the ID-check claim has something behind it", () => {
     ).not.toMatch(/name="note"[^>]*type="text"/);
   });
 });
+
+
+// The operator decides whether a stranger teaches children, and could see four
+// things about them: name, vetting badge, a demo video link and a WhatsApp
+// link. Everything the teacher actually claimed — what they are qualified in,
+// how long they have taught, what they charge, which subjects they would be
+// listed for — was selected by nobody and rendered nowhere. Raised on
+// 2026-09-10 after approving a real tutor and noticing there was nothing to
+// approve ON.
+//
+// Note there is no resume or CV in this product at all: no upload, no storage,
+// no column anywhere in the schema. What follows is the whole of what exists.
+describe("the operator can see what they are approving", () => {
+  const CLAIMED = [
+    "qualification",
+    "experience_years",
+    "specialization",
+    "teaching_level",
+    "hourly_rate",
+    "hours_per_week",
+    "bio",
+    "email",
+  ];
+
+  it("selects the whole claimed profile, not just a name and a video", () => {
+    // Anchored on the select literal itself. A looser "everything up to the
+    // next )" stopped inside a prose comment that happened to contain
+    // parentheses, and reported a passing select as missing every field.
+    const select =
+      ADMIN_PAGE.match(/from\("profiles"\)[\s\S]*?\.select\("([^"]*)"\)/)?.[1] ?? "";
+    for (const field of CLAIMED) {
+      expect(select, `/admin never selects ${field}`).toContain(field);
+    }
+  });
+
+  it("shows the subjects the teacher would be listed for", () => {
+    expect(ADMIN_PAGE, "/admin never reads teacher_subjects").toMatch(
+      /teacher_subjects/
+    );
+  });
+
+  it("renders them, rather than selecting and dropping them", () => {
+    for (const field of ["qualification", "experience_years", "hourly_rate"]) {
+      expect(ADMIN_PAGE, `${field} is selected but never rendered`).toMatch(
+        new RegExp(`t\\.${field}`)
+      );
+    }
+  });
+});

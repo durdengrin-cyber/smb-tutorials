@@ -22,6 +22,7 @@ const RENEW_INTERVAL_MS = 10 * 60 * 1000;
 export function AvailabilityToggle({
   teacherId, fullName, hourlyRate, inSession = false,
   declaredUntil, hasDevice, channelFailed = false, suspended = false,
+  cleared = true,
 }: {
   teacherId: string;
   fullName: string;
@@ -52,6 +53,14 @@ export function AvailabilityToggle({
   // claim otherwise, and the toggle must not let them undo an exclusion
   // that isn't theirs to lift.
   suspended?: boolean;
+  /**
+   * Whether vetting has cleared this teacher. available_teachers gates on it,
+   * so while false nothing can reach them: no student sees them, no request
+   * arrives, and the notification this card promises cannot fire. Offering the
+   * toggle anyway put "Available until 7:28 PM" directly under "Your account is
+   * under review" — found on production, 2026-09-10.
+   */
+  cleared?: boolean;
 }) {
   // Local override of the server-read prop. Needed because page.tsx is a
   // Server Component — nothing re-fetches it after declareAvailable() or
@@ -293,7 +302,12 @@ export function AvailabilityToggle({
   // showing them to students, so the pill must not claim otherwise.
   const status: TeacherStatus = suspended
     ? "suspended"
-    : !leaseLive
+    : // Same reasoning as suspended: the server already excludes them from
+      // every student's list, so the pill must not claim otherwise. The
+      // vetting banner directly above this card is what explains why.
+      !cleared
+      ? "offline"
+      : !leaseLive
       ? "offline"
       : inSession
         ? "in_session"
@@ -329,7 +343,7 @@ export function AvailabilityToggle({
           // declared live must not be able to renew that declaration, and one
           // who is not must not be able to toggle themselves back into a list
           // they are excluded from.
-          disabled={busy || suspended}
+          disabled={busy || suspended || !cleared}
           variant={leaseLive ? "outline" : "default"}
           size="lg"
         >

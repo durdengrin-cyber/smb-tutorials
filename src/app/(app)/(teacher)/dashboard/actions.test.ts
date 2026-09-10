@@ -11,10 +11,18 @@ const maybeSingle = vi.fn();
 // signed-in-and-allowed teacher it always did; the consent gate itself gets
 // its own tests below.
 let consentVersion: string | null = CONSENT_VERSION;
+// declareAvailable asks my_vetting_state before it will publish a lease.
+// Defaults to cleared so every pre-existing test keeps exercising the teacher
+// it always did.
+let vettingState = "cleared";
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: "t1" } } }) },
+    rpc: async (fn: string) =>
+      fn === "my_vetting_state"
+        ? { data: vettingState, error: null }
+        : { data: null, error: null },
     from: (table: string) => {
       if (table === "profiles") {
         return {
@@ -40,6 +48,7 @@ beforeEach(() => {
   upsert.mockClear();
   maybeSingle.mockReset();
   consentVersion = CONSENT_VERSION;
+  vettingState = "cleared";
 });
 
 describe("declareAvailable", () => {
@@ -229,5 +238,46 @@ describe("the client acts on a consent refusal instead of swallowing it", () => 
         `${name}'s result is not checked for needsConsent`
       ).toMatch(new RegExp(`await ${name}\\([^)]*\\);[\\s\\S]{0,900}?needsConsent`));
     }
+  });
+});
+
+
+// Found by registering a real tutor on production and looking at his dashboard:
+// while "Your account is under review" was displayed directly above it, the
+// toggle still offered "Available now", he could click it, and the card then
+// read "Available until 7:28 PM — we'll notify you even with your phone
+// locked."
+//
+// Not a safety hole — available_teachers gates on 'cleared', so no student
+// could see or pick him, which was confirmed from a student account. It is a
+// control that lies: nothing can reach an unvetted teacher, so the promised
+// notification can never arrive, and a teacher sitting there waiting would
+// reasonably conclude the product is broken.
+//
+// The rule already exists in one place, canBePicked() in lib/vetting.ts. This
+// makes the write path ask it, the same way the suspended path already does.
+describe("an unvetted teacher cannot publish an availability lease", () => {
+  it("declareAvailable refuses while the account is under review", async () => {
+    vettingState = "unvetted";
+    const { declareAvailable } = await import("./actions");
+    const result = await declareAvailable();
+    expect(result).toMatchObject({ error: expect.stringMatching(/review/i) });
+    expect(upsert, "a lease was written for a teacher no student can see").not.toHaveBeenCalled();
+  });
+
+  it("renewLease refuses too, so an existing lease cannot be extended", async () => {
+    vettingState = "unvetted";
+    maybeSingle.mockResolvedValue({
+      data: { declared: true, declared_until: new Date(Date.now() + 3600_000).toISOString() },
+      error: null,
+    });
+    const { renewLease } = await import("./actions");
+    expect(await renewLease()).toMatchObject({ error: expect.stringMatching(/review/i) });
+  });
+
+  it("still lets a cleared teacher go available", async () => {
+    const { declareAvailable } = await import("./actions");
+    expect(await declareAvailable()).toEqual({ declaredUntil: "2026-08-30T14:00:00Z" });
+    expect(upsert).toHaveBeenCalled();
   });
 });

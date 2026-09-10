@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { NotificationSetup } from "@/components/notification-setup";
 import { VettingBanner } from "@/components/vetting-banner";
-import { isVettingState } from "@/lib/vetting";
+import { canBePicked, isVettingState } from "@/lib/vetting";
 
 export default async function DashboardPage() {
   const identity = await requireRole("teacher");
@@ -121,6 +121,10 @@ export default async function DashboardPage() {
             declaredUntil={availability?.declared_until ?? null}
             hasDevice={(deviceCount ?? 0) > 0}
             suspended={suspended}
+            // available_teachers gates on 'cleared', so while this is false
+            // nothing can reach them and the toggle must not offer a state it
+            // cannot deliver. The VettingBanner above says why.
+            cleared={canBePicked(vettingState)}
           />
 
           <Card>

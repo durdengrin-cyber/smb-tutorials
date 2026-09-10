@@ -52,6 +52,22 @@ describe("what the profile editor promises matches what a student sees", () => {
     ).toBe(cardRenders("bio"));
   });
 
+  // The same defect as the bio, in the same file, missed when the bio was
+  // fixed on 2026-09-09. profile-form.tsx tells the teacher an unlisted
+  // YouTube link "is what students watch when choosing a tutor" — and the only
+  // people who could watch it were admins. available_teachers returns just
+  // (teacher_id, has_device), the teachers page never selected the column, and
+  // the card never rendered it. Raised on 2026-09-10 by a real tutor's account.
+  it("promises the demo video only if a student can actually watch it", () => {
+    const promised = /what students watch/i.test(FORM);
+    expect(
+      promised,
+      promised && !cardRenders("demo_video_url")
+        ? "the profile form says students watch the demo video, but teacher-card.tsx never renders teacher.demo_video_url — either render it or correct the copy"
+        : ""
+    ).toBe(cardRenders("demo_video_url"));
+  });
+
   it("still collects a bio, so correcting the copy did not delete the field", () => {
     expect(FORM).toMatch(/name="bio"/);
   });

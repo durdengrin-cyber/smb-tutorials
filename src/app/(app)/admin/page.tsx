@@ -54,7 +54,12 @@ export default async function AdminPage() {
   // discard most of it in JavaScript.
   const { data: teachers } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, demo_video_url, vetting_state, created_at")
+    // The operator decides whether a stranger teaches children. Until
+    // 2026-09-10 this selected a name, a phone, a video link and a state —
+    // nothing the teacher actually claimed about themselves. There is no
+    // resume or CV in this product (no upload, no storage, no column), so
+    // these fields plus the demo video are the whole of what exists to judge.
+    .select("id, full_name, email, phone, demo_video_url, vetting_state, created_at, qualification, experience_years, specialization, teaching_level, hourly_rate, hours_per_week, bio")
     .eq("role", "teacher")
     .order("created_at", { ascending: false });
 
@@ -66,6 +71,7 @@ export default async function AdminPage() {
     { data: revetEvents },
     { data: lastVetted },
     { data: subjectRequests },
+    { data: subjectRows },
   ] = await Promise.all([
     // A teacher is off the roster for EITHER reason, and the operator cannot
     // act correctly without seeing which. Previously this page read only
@@ -117,7 +123,22 @@ export default async function AdminPage() {
       .select("id, teacher_id, requested_at, demo_video_url, subjects")
       .eq("status", "pending")
       .order("requested_at", { ascending: true }),
+    // What each teacher would actually be listed for. The operator was
+    // approving people without being able to see which subjects, curricula and
+    // grades that approval puts them in front of.
+    supabase
+      .from("teacher_subjects")
+      .select("teacher_id, curriculum, grade, stream, subject")
+      .in("teacher_id", teacherIds),
   ]);
+
+  const subjectsByTeacher = new Map<string, string[]>();
+  for (const r of subjectRows ?? []) {
+    const label = `${r.subject} · ${r.curriculum} · ${r.grade}${r.stream ? ` · ${r.stream}` : ""}`;
+    const list = subjectsByTeacher.get(r.teacher_id) ?? [];
+    list.push(label);
+    subjectsByTeacher.set(r.teacher_id, list);
+  }
 
   const suspension = new Map(
     (openSuspensions ?? []).map((s) => [
@@ -289,7 +310,57 @@ export default async function AdminPage() {
                     </span>
                   ) : null}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                {/* Everything the teacher claimed about themselves. The
+                    operator is deciding whether this person teaches children
+                    and previously saw a name, a badge and two links. There is
+                    no resume or CV in this product to show instead — no
+                    upload, no storage, no column — so this is the whole of it,
+                    alongside the demo video. */}
+                <dl className="mt-1 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                  {[
+                    ["Email", t.email],
+                    ["Phone", t.phone],
+                    ["Qualification", t.qualification],
+                    ["Specialization", t.specialization],
+                    [
+                      "Experience",
+                      t.experience_years === null ? null : `${t.experience_years} yrs`,
+                    ],
+                    ["Teaches", t.teaching_level],
+                    ["Rate", t.hourly_rate === null ? null : `₹${t.hourly_rate}/hr`],
+                    ["Hours/week", t.hours_per_week],
+                  ]
+                    .filter(([, v]) => v)
+                    .map(([label, value]) => (
+                      <div key={label as string} className="flex gap-2">
+                        <dt className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+                          {label}
+                        </dt>
+                        <dd className="text-foreground">{value}</dd>
+                      </div>
+                    ))}
+                </dl>
+                {t.bio?.trim() ? (
+                  <p className="mt-2 max-w-[70ch] text-sm text-muted-foreground">
+                    {t.bio.trim()}
+                  </p>
+                ) : null}
+                {(subjectsByTeacher.get(t.id) ?? []).length > 0 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    <span className="font-mono text-[11px] uppercase tracking-wide">
+                      Would be listed for
+                    </span>{" "}
+                    {(subjectsByTeacher.get(t.id) ?? []).join(" · ")}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    <span className="font-mono text-[11px] uppercase tracking-wide">
+                      No subjects
+                    </span>{" "}
+                    — clearing them puts them in front of nobody.
+                  </p>
+                )}
+                <p className="mt-2 text-sm text-muted-foreground">
                   {t.demo_video_url ? (
                     <a href={t.demo_video_url} target="_blank" rel="noopener noreferrer" className="underline">
                       Demo video

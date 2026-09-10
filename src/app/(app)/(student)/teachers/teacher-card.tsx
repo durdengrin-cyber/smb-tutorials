@@ -11,6 +11,7 @@ export interface TeacherCardData {
   experience_years: number | null;
   hourly_rate: number | null;
   bio: string | null;
+  demo_video_url: string | null;
   subject: string;
 }
 
@@ -69,6 +70,22 @@ export function TeacherCard({
             <p className="text-sm text-muted-foreground">{teacher.specialization}</p>
           </div>
         )}
+
+        {/* The teacher is told, on their profile form, that an unlisted
+            YouTube link "is what students watch when choosing a tutor". Until
+            2026-09-10 nobody but an admin could watch it: the column was not
+            selected here and not rendered. Pinned by profile-claims.test.ts,
+            which fails if either half goes away. */}
+        {teacher.demo_video_url ? (
+          <a
+            href={teacher.demo_video_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-block text-sm font-medium text-primary underline underline-offset-4"
+          >
+            Watch their demo lesson
+          </a>
+        ) : null}
 
         <div className="flex items-center justify-between pt-4 border-t border-hair">
           <div>
