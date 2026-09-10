@@ -36,7 +36,12 @@ shows 29, no drift. Three probes green against production: `probe-vetting` (8/8)
    **Proven with real JWTs:** admin -> `P0001 teacher_devices requires a teacher profile`;
    teacher -> `204`. `0030` (written, NOT applied) widens the guard to match, and
    `src/lib/device-registration.test.ts` pins the two role lists together — verified to fail
-   against the migration set without `0030`. **Apply `0030`, then re-test.**
+   against the migration set without `0030`. **`0030` APPLIED 2026-09-10; `migration list` shows
+   30 with no drift.** `scripts/probe-device-registration.mjs` now proves it against production:
+   teacher allowed, admin allowed, **student still refused** — that last one is the assertion
+   that matters, because `teacher_devices`' RLS policy is `auth.uid() = teacher_id`, which a
+   student posting under their own id trivially satisfies. The guard is all that stands there and
+   `0030` widened it.
    The browser half is still unproven: "Turn on notifications" hangs on Chrome's native
    permission prompt, which the extension cannot accept. That needs a human click.
 
