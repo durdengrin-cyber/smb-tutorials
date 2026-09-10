@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getIdentity } from "@/lib/auth";
-import { summariseSubjects, type SubjectRow } from "@/lib/subject-summary";
+import Link from "next/link";
 import { createDispatchClient } from "@/lib/supabase/admin";
 import { NotificationSetup } from "@/components/notification-setup";
 import {
@@ -55,12 +55,13 @@ export default async function AdminPage() {
   // discard most of it in JavaScript.
   const { data: teachers } = await supabase
     .from("profiles")
-    // The operator decides whether a stranger teaches children. Until
-    // 2026-09-10 this selected a name, a phone, a video link and a state —
-    // nothing the teacher actually claimed about themselves. There is no
-    // resume or CV in this product (no upload, no storage, no column), so
-    // these fields plus the demo video are the whole of what exists to judge.
-    .select("id, full_name, email, phone, demo_video_url, vetting_state, created_at, qualification, experience_years, specialization, teaching_level, hourly_rate, hours_per_week, bio")
+    // The operator decides whether a stranger teaches children, and for a long
+    // time could see only a name, a badge and two links. Everything they claim
+    // is now one click away, on the profile page — not inline here, which made
+    // a single row a page tall and buried the decision this list exists for.
+    // Only what the roster renders. The full claimed profile is read by
+    // /admin/teachers/[teacherId], which is where it is shown.
+    .select("id, full_name, phone, demo_video_url, vetting_state, created_at")
     .eq("role", "teacher")
     .order("created_at", { ascending: false });
 
@@ -133,13 +134,13 @@ export default async function AdminPage() {
       .in("teacher_id", teacherIds),
   ]);
 
-  // Grouped by teacher and summarised at render: eight rows for two subjects
-  // across four grades becomes two lines. See lib/subject-summary.ts.
-  const subjectRowsByTeacher = new Map<string, SubjectRow[]>();
+  // Only the COUNT is needed here. The roster shows the full listing nowhere —
+  // that is what /admin/teachers/[id] is for — but zero subjects changes what
+  // the Clear button does, so it earns a badge: clearing a teacher with no
+  // subjects puts them in front of nobody.
+  const subjectCount = new Map<string, number>();
   for (const r of subjectRows ?? []) {
-    const list = subjectRowsByTeacher.get(r.teacher_id) ?? [];
-    list.push(r);
-    subjectRowsByTeacher.set(r.teacher_id, list);
+    subjectCount.set(r.teacher_id, (subjectCount.get(r.teacher_id) ?? 0) + 1);
   }
 
   const suspension = new Map(
@@ -299,6 +300,14 @@ export default async function AdminPage() {
                       suspended
                     </span>
                   ) : null}
+                  {(subjectCount.get(t.id) ?? 0) === 0 ? (
+                    <span
+                      title="Clearing them puts them in front of nobody until they add subjects."
+                      className="ml-2 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+                    >
+                      no subjects
+                    </span>
+                  ) : null}
                   {pickable ? (
                     <span className="ml-2 rounded-sm bg-success/15 px-1.5 py-0.5 font-mono text-xs text-success">
                       live
@@ -312,49 +321,16 @@ export default async function AdminPage() {
                     </span>
                   ) : null}
                 </p>
-                {/* Everything the teacher claimed, on two lines rather than a
-                    label grid. The first version of this put a two-column <dl>
-                    into a narrow column and printed all eight subject
-                    permutations verbatim, which made one teacher a page tall
-                    and buried the decision the operator came here to make. */}
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {[
-                    t.qualification,
-                    t.specialization,
-                    t.experience_years === null ? null : `${t.experience_years} yrs`,
-                    t.teaching_level,
-                    t.hourly_rate === null ? null : `₹${t.hourly_rate}/hr`,
-                    t.hours_per_week ? `${t.hours_per_week} h/wk` : null,
-                  ]
-                    .filter(Boolean)
-                    .join("  ·  ") || "Profile not filled in"}
-                </p>
-                {(() => {
-                  const lines = summariseSubjects(subjectRowsByTeacher.get(t.id) ?? []);
-                  return lines.length > 0 ? (
-                    <p className="mt-1 text-sm text-foreground">
-                      {lines
-                        .map(
-                          (l) =>
-                            `${l.subject} · ${l.curriculum} · ${l.grades}` +
-                            (l.stream ? ` · ${l.stream}` : "")
-                        )
-                        .join("   ·   ")}
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-sm text-destructive">
-                      No subjects — clearing them puts them in front of nobody.
-                    </p>
-                  );
-                })()}
-                {t.bio?.trim() ? (
-                  <p className="mt-1 line-clamp-2 max-w-[80ch] text-sm text-muted-foreground">
-                    {t.bio.trim()}
-                  </p>
-                ) : null}
                 <p className="mt-1 text-sm text-muted-foreground">
-                  <span className="text-muted-foreground/80">{t.email}</span>
-                  {t.phone ? <span className="text-muted-foreground/80">{" · "}{t.phone}</span> : null}
+                  {/* Everything the teacher claims is a click away rather than
+                      inline. The roster answers "who needs a decision"; the
+                      profile answers "should I make it". */}
+                  <Link
+                    href={`/admin/teachers/${t.id}`}
+                    className="font-medium underline"
+                  >
+                    Profile
+                  </Link>
                   {" · "}
                   {t.demo_video_url ? (
                     <a href={t.demo_video_url} target="_blank" rel="noopener noreferrer" className="underline">

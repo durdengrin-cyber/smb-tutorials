@@ -95,6 +95,9 @@ describe("the ID-check claim has something behind it", () => {
 // Note there is no resume or CV in this product at all: no upload, no storage,
 // no column anywhere in the schema. What follows is the whole of what exists.
 describe("the operator can see what they are approving", () => {
+  const DETAIL = read(
+    "src", "app", "(app)", "admin", "teachers", "[teacherId]", "page.tsx"
+  );
   const CLAIMED = [
     "qualification",
     "experience_years",
@@ -106,28 +109,51 @@ describe("the operator can see what they are approving", () => {
     "email",
   ];
 
-  it("selects the whole claimed profile, not just a name and a video", () => {
-    // Anchored on the select literal itself. A looser "everything up to the
-    // next )" stopped inside a prose comment that happened to contain
-    // parentheses, and reported a passing select as missing every field.
-    const select =
-      ADMIN_PAGE.match(/from\("profiles"\)[\s\S]*?\.select\("([^"]*)"\)/)?.[1] ?? "";
-    for (const field of CLAIMED) {
-      expect(select, `/admin never selects ${field}`).toContain(field);
-    }
-  });
-
-  it("shows the subjects the teacher would be listed for", () => {
-    expect(ADMIN_PAGE, "/admin never reads teacher_subjects").toMatch(
-      /teacher_subjects/
+  // Progressive disclosure, not a dump. The first attempt put all of this
+  // inline on the roster, which made one teacher a page tall and buried the
+  // decision the list exists for. The roster answers "who needs a decision";
+  // the profile answers "should I make it".
+  it("the roster links to a full profile", () => {
+    expect(ADMIN_PAGE, "no way to reach a teacher's profile from the roster").toMatch(
+      /href=\{`\/admin\/teachers\/\$\{t\.id\}`\}/
     );
   });
 
-  it("renders them, rather than selecting and dropping them", () => {
-    for (const field of ["qualification", "experience_years", "hourly_rate"]) {
-      expect(ADMIN_PAGE, `${field} is selected but never rendered`).toMatch(
+  it("the roster does not dump the profile inline", () => {
+    for (const field of ["qualification", "hours_per_week", "specialization"]) {
+      expect(ADMIN_PAGE, `${field} is back on the roster`).not.toMatch(
         new RegExp(`t\\.${field}`)
       );
     }
+  });
+
+  it("the profile page selects the whole claimed profile", () => {
+    const select =
+      DETAIL.match(/from\("profiles"\)[\s\S]*?\.select\("([^"]*)"\)/)?.[1] ?? "";
+    for (const field of CLAIMED) {
+      expect(select, `the profile page never selects ${field}`).toContain(field);
+    }
+  });
+
+  it("the profile page shows the subjects the approval puts them in front of", () => {
+    expect(DETAIL).toMatch(/teacher_subjects/);
+    expect(DETAIL, "eight rows would be printed verbatim again").toMatch(
+      /summariseSubjects/
+    );
+  });
+
+  it("the profile page renders what it selects", () => {
+    for (const field of ["qualification", "experience_years", "hourly_rate", "bio"]) {
+      expect(DETAIL, `${field} is selected but never rendered`).toMatch(
+        new RegExp(`teacher\\.${field}`)
+      );
+    }
+  });
+
+  // Same gate as /admin, for the same reason: a non-admin must not learn the
+  // route exists.
+  it("the profile page is admin-only", () => {
+    expect(DETAIL).toMatch(/identity\?\.role !== "admin"/);
+    expect(DETAIL).toMatch(/notFound\(\)/);
   });
 });
