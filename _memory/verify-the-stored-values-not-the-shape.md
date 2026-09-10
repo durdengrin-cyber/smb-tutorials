@@ -12,8 +12,15 @@ The query classified rows by **host** (`ilike '%youtube.com%'`). It never ran th
 The stored values were `https://www.youtube.com/watch?v=abc123` and `https://youtu.be/abc` —
 YouTube hosts with 6- and 3-character ids where every real one is 11. **The new validator
 rejected both**, so either teacher opening `/profile` would have been blocked from saving
-anything — bio, rate, subjects — and one of them, Mr. Azad, is a real tutor with 22 completed
-sessions.
+anything — bio, rate, subjects.
+
+**Corrected 2026-09-10:** an earlier version of this memory called Mr. Azad "a real tutor with 22
+completed sessions". He is not. **There are no real users of this product.** The owner confirmed
+every account is experimental and those sessions were video tests run from that account. The site
+is not published and nothing is live until the owner says so. The lock-out was still a genuine
+bug — it would have blocked a real teacher — but the severity argument built on "a real tutor" was
+built on a fact that was never true, and it was repeated for a whole session before anyone checked
+it. See [[no-real-users-yet]].
 
 The same shape of mistake recurred: a refactor that made `parseTeacherProfile` require
 `curricula` passed all 564 tests, because every fixture hand-built a FormData containing

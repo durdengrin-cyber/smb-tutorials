@@ -9,6 +9,14 @@ live on it.** 18 commits this session. 665 tests · tsc 0 · eslint 0 errors · 
 **`main` is no longer behind.** It was 129 commits back this morning; the vetting work was
 fast-forwarded onto it and every push since has gone to both. Production = `main` = this tip.
 
+### Nothing here is live yet
+The owner confirmed on 2026-09-10 that **every account in the production database is
+experimental** — there are no real users, no real tutors, and no real money. `tutor-check`
+("Mr. Azad") is a test account; its ~22 sessions were video tests. Launch is an explicit decision
+the owner will announce. Deploying to `main` is not launching. See `_memory/no-real-users-yet.md`,
+which also records that an earlier memory asserted the opposite and was used all day to argue
+severity before anyone checked it.
+
 ### Every open item from the last handover is closed
 1. **Push chain — PROVEN END TO END.** A real application put "New teacher application — Igris
    Commander applied to teach 8 subjects" on the operator's screen. Two faults had to clear:
@@ -48,6 +56,27 @@ fast-forwarded onto it and every push since has gone to both. Production = `main
 3. **Delete the burner accounts** when testing is done (`node scripts/test-accounts.mjs delete`).
    The owner asked to keep them for now; `src/lib/test-accounts.test.ts` fails the suite under
    `SMB_LAUNCH_READY=1` while they exist, so this cannot be forgotten.
+4. **Require email confirmation** — turn OFF `mailer_autoconfirm` (Supabase Dashboard →
+   Authentication → Sign In / Providers → Email → "Confirm email"). Dashboard-only; nothing in
+   git records it. **Not safe to flip as the code stands**, in this order:
+   - **Code first.** `signUp()` returns a user but a NULL session once confirmation is required,
+     and neither flow checks for it — `auth/actions.ts:45` destructures only `{ error }` then
+     redirects to `/home`; `tutor-signup/actions.ts:159` checks `error || !data.user` then
+     redirects to `/setup`. Both would send a new account to an authenticated route with no
+     session and bounce it to `/signin` with no explanation. Each needs a "check your email"
+     state.
+   - **Then delivery.** Supabase's built-in SMTP is rate-limited to a handful per hour and is not
+     for production. Resend is already in the stack and needs wiring as custom SMTP, or
+     confirmation mail silently never arrives.
+   - **Then the toggle.** The confirmation link leg already works: `/auth/callback` handles
+     `token_hash` + `type` (added `d864bd0`), subject to the same redirect allow-list as
+     everything else.
+
+   **Why it matters here:** `consent_events.subject_email` is the guardian's email and IS the
+   consent record for a child's account, and today nothing proves it exists. Measured 2026-09-10 —
+   three of thirteen accounts have domains that do not resolve at all, one of them a plain typo
+   (`athleticomadrid.yzz` for `.xyz`). Password reset is the only account recovery and it is
+   useless to an address that cannot receive mail.
 
 ### The pattern that held all day
 **Nine issues found, six of them by the owner USING the product.** Reading found the review

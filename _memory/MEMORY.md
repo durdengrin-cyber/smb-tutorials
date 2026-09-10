@@ -12,3 +12,4 @@
 - [Preview OAuth is broken by the Site URL](supabase-site-url-and-preview-oauth.md) — Google sign-in on a preview lands on production; email+password is unaffected.
 - [Push silence is usually the OS](push-silence-is-usually-the-os.md) — FCM 201 and still nothing? Check macOS and Brave before any code.
 - [Read the whole function before diagnosing](read-the-whole-function-before-diagnosing.md) — two wrong root causes in an hour, both from stopping four lines early.
+- [No real users yet](no-real-users-yet.md) — every production account is experimental; don't inflate severity with imagined users.

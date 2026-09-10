@@ -6,7 +6,7 @@ metadata:
 ---
 
 On 2026-09-10 the push chain appeared completely broken: no notification arrived on any account,
-all day, including a real tutor application that should have alerted the admin. Most of a session
+all day, including a genuine end-to-end tutor application that should have alerted the admin. Most of a session
 went into it. **Two environmental settings, neither observable from inside the app:**
 
 1. **Brave ships with "Use Google services for push messaging" OFF.** `pushManager.subscribe()`
