@@ -60,20 +60,25 @@ const ACCOUNTS = {
       qualification: "M.Sc. Mathematics",
       experience_years: 5,
       specialization: "Algebra",
-      teaching_level: "Secondary",
+      // Both are CHECK-constrained enums, not free text: teaching_level is
+      // school|college|both, and hours_per_week is a bucket string, not a
+      // number. Guessed wrong once; the constraint is the spec.
+      teaching_level: "school",
       hourly_rate: 500,
-      hours_per_week: 10,
+      hours_per_week: "10-20",
       bio: "Burner account for automated testing.",
       demo_video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     },
   },
   admin: {
     // handle_new_user coerces every role that is not "teacher" to "student"
-    // (0001), so admin is unreachable through any signup path by design and
-    // has to be set afterwards.
+    // (0001), so admin is unreachable through any signup path by design. The
+    // role is set by the SQL below, not here: profiles_role_immutable refuses
+    // any role change unless app.allow_role_change is 'on', and PostgREST has
+    // no way to set a session GUC.
     email: `${TEST_ACCOUNT_PREFIX}admin@example.com`,
     metadata: { role: "admin", full_name: "Test Admin" },
-    profile: { role: "admin" },
+    profile: {},
   },
 };
 
@@ -122,10 +127,36 @@ async function setup() {
     if (Object.keys(acct.profile).length) await patchProfile(acct.email, acct.profile);
   }
 
-  // Cleared LAST: 0024 sends a cleared teacher back to unvetted on any profile
-  // change, so clearing before the field writes above would undo itself.
-  await patchProfile(ACCOUNTS.teacher.email, { vetting_state: "cleared" });
   await status();
+  console.log(PRIVILEGED_SQL_NOTE);
+  sql();
+}
+
+// profiles_role_immutable and profiles_vetting_immutable both refuse their
+// column unless a session GUC is set, and PostgREST cannot set one — so these
+// two changes are unreachable over REST by design, not by accident. A DO block
+// runs in a single transaction, which is what makes set_config(..., true) hold
+// for the updates inside it.
+//
+// Cleared LAST: 0024 sends a cleared teacher back to unvetted on any profile
+// change, so clearing before the field writes above would undo itself.
+const PRIVILEGED_SQL_NOTE = `
+Two changes remain and cannot be made over REST — run this yourself:
+
+  supabase db query --linked "$(node scripts/test-accounts.mjs sql)"
+`;
+
+function sql() {
+  console.log(`do $$
+begin
+  perform set_config('app.allow_role_change', 'on', true);
+  update public.profiles set role = 'admin'
+   where email = '${ACCOUNTS.admin.email}';
+
+  perform set_config('app.allow_vetting_change', 'on', true);
+  update public.profiles set vetting_state = 'cleared'
+   where email = '${ACCOUNTS.teacher.email}';
+end $$;`);
 }
 
 async function signin(role, base = "http://localhost:3000") {
@@ -176,9 +207,9 @@ async function remove() {
 }
 
 const [cmd, arg] = process.argv.slice(2);
-const commands = { setup, signin: () => signin(arg ?? "student"), status, delete: remove };
+const commands = { setup, signin: () => signin(arg ?? "student"), status, sql, delete: remove };
 if (!commands[cmd]) {
-  console.error(`usage: node scripts/test-accounts.mjs <setup|signin [role]|status|delete>`);
+  console.error(`usage: node scripts/test-accounts.mjs <setup|signin [role]|status|sql|delete>`);
   process.exit(1);
 }
 await commands[cmd]();
