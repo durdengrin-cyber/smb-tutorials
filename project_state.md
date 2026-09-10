@@ -1,6 +1,62 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-10, session close)
+## ▶ START HERE (updated 2026-09-10 evening, session close)
+
+**`main` and `feat/teacher-vetting` are IDENTICAL and both at `2e5fac1`, pushed. Production is
+live on it.** 18 commits this session. 665 tests · tsc 0 · eslint 0 errors · build 0.
+30 migrations, `migration list` shows no drift.
+
+**`main` is no longer behind.** It was 129 commits back this morning; the vetting work was
+fast-forwarded onto it and every push since has gone to both. Production = `main` = this tip.
+
+### Every open item from the last handover is closed
+1. **Push chain — PROVEN END TO END.** A real application put "New teacher application — Igris
+   Commander applied to teach 8 subjects" on the operator's screen. Two faults had to clear:
+   `0029` had been applied to production and did **nothing** (its role gate was widened while
+   `0009`'s trigger still demanded `role = 'teacher'`) — `0030` fixes it; and **macOS was
+   blocking Brave's notifications**, which silently ate everything. See
+   `_memory/push-silence-is-usually-the-os.md` before ever debugging this again.
+2. **`/waiting` vs the legal pages — resolved the other way.** Every surface now states that
+   sessions ARE recorded. See "Recording policy" below; the five unbuilt mechanisms are the
+   launch gate.
+3. **Test B — DONE by the owner**, verified in the database: `student_signup` consent at the
+   current version, learner details, straight to `/sessions`.
+4. **Re-vetting positive path — PROVEN**, diff and all, and `/admin` renders it.
+
+### What else changed today
+- **Recording policy** rewritten across six surfaces, Tier A reviewed (8 findings fixed), and
+  the notice put ON the three forms that take consent — a guardian had consented without ever
+  seeing it. `CONSENT_VERSION` → `2026-09-10-recording`; `/privacy` and `/terms` are
+  **fingerprinted** so editing either forces "is this material?" to be answered out loud.
+- **Three defects the consent bump would have activated on deploy**, all fixed before it shipped.
+- **The ID check** was promised on three pages and recorded nowhere; Clear now requires an
+  affirmation, refused server-side, stored in `teacher_vetting.note`.
+- **An unvetted teacher could go "Available now"** — refused now, in the action and the UI.
+- **The demo video** teachers are told students watch was rendered by nobody; now on the card.
+- **`/admin`** gained a full profile at `/admin/teachers/[teacherId]`, live refresh, and a
+  notification click that lands on a fresh page.
+- **Domain settled: `smbtutorials.com`** (owner is buying it). See below — it has no DNS yet.
+- **Branches pruned** to `main`, `feat/teacher-vetting`, and the local-only
+  `backup/visual-identity-duplicate`.
+
+### ▶ Next, in order — all three are NON-CODE
+1. **Buy `smbtutorials.com`, point it at Vercel, configure MX.** `/privacy` names
+   `support@smbtutorials.com` four times, including as the way to withdraw consent and to request
+   a recording. It bounces today, and so did the address it replaced.
+2. **Build the five recording mechanisms** — encrypted storage, report-gated access, the access
+   log, the 30-day delete, no-opt-out. Published on production as fact.
+3. **Delete the burner accounts** when testing is done (`node scripts/test-accounts.mjs delete`).
+   The owner asked to keep them for now; `src/lib/test-accounts.test.ts` fails the suite under
+   `SMB_LAUNCH_READY=1` while they exist, so this cannot be forgotten.
+
+### The pattern that held all day
+**Nine issues found, six of them by the owner USING the product.** Reading found the review
+findings and the dead migration; clicking found everything else. See
+`_memory/browser-testing-finds-what-reading-cannot.md`.
+
+---
+
+## ▶ START HERE (updated 2026-09-10 morning) — SUPERSEDED
 
 **Branch `feat/teacher-vetting` @ `3a55872`, pushed, tree clean. 19 commits this session.
 576 tests pass · tsc 0 · eslint 0 errors · build 0.**

@@ -10,3 +10,5 @@
 - [Browser testing finds what reading cannot](browser-testing-finds-what-reading-cannot.md) — five defects curl, jsdom and 560 green tests all missed.
 - [Verify the stored values, not the shape](verify-the-stored-values-not-the-shape.md) — a host match is not the validator; run the real check.
 - [Preview OAuth is broken by the Site URL](supabase-site-url-and-preview-oauth.md) — Google sign-in on a preview lands on production; email+password is unaffected.
+- [Push silence is usually the OS](push-silence-is-usually-the-os.md) — FCM 201 and still nothing? Check macOS and Brave before any code.
+- [Read the whole function before diagnosing](read-the-whole-function-before-diagnosing.md) — two wrong root causes in an hour, both from stopping four lines early.

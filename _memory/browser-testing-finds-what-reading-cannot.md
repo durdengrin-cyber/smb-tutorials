@@ -39,3 +39,27 @@ It also corrected two claims **I had made**:
 - **Wait out CSS transitions before screenshotting.** A 300ms carousel transition photographed
   mid-flight looked exactly like a layout bug, and was nearly reported as one.
 - Related: [[promises-need-an-enforcer]], [[verify-the-stored-values-not-the-shape]]
+
+**2026-09-10 — the ratio, measured again.** Nine issues were found and fixed in one session.
+**Six came from the owner using the product**, not from me reading it:
+
+- the recording policy was beside the signup form, not on it, so a guardian consented without
+  ever meeting it — the single most important thing on that page
+- an unvetted teacher could toggle "Available now" and be told "we'll notify you even with your
+  phone locked", when nothing could reach him
+- the operator approved a stranger to teach children while able to see a name, a badge and two
+  links
+- the demo video teachers are told "students watch" was renderable by nobody but an admin — the
+  same defect as the bio, in the same file, missed when the bio was fixed the day before
+- the admin roster I "fixed" was a page tall per teacher and unusable
+- clicking a notification landed on a page that did not contain the thing it notified about
+
+Reading found the review findings and `0029`'s dead migration. **Clicking found the rest.** The
+pattern is not that reading is useless — it is that reading cannot see a control that lies, a
+promise nobody renders, or a layout that does not work. Those are only visible to someone using
+the thing.
+
+**How to apply:** when a surface is finished, ask the owner to USE it before calling it done, and
+treat what they report as the highest-signal input available. Do not defend the first design —
+[[read-the-whole-function-before-diagnosing]] is what defending it looks like.
+
