@@ -47,3 +47,24 @@ export function vettingMessage(
       };
   }
 }
+
+/**
+ * What teacher_vetting.note records when a teacher is cleared.
+ *
+ * Lives here and not in admin/actions.ts because a "use server" module may
+ * only export async functions.
+ *
+ * A FIXED string, never operator free text. Three published pages promise that
+ * a government ID is checked against the name on the account, and until
+ * 2026-09-10 nothing recorded that it had been — the Clear button sent no note
+ * at all, so every clearance wrote NULL and the claim rested on the operator
+ * remembering. This is the trace.
+ *
+ * It affirms, it does not verify: no code can confirm that a view-once photo on
+ * WhatsApp showed a real ID. And it must stay fixed. A free-text box here is
+ * where an operator eventually types an ID number, which is exactly the
+ * honeypot the child-safety spec refuses to build — the ID is looked at and
+ * deleted, never stored. Keep the proof, not the payload.
+ */
+export const ID_CHECK_NOTE =
+  "Operator affirmed: government ID checked against the name on the account.";

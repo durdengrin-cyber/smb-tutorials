@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createDispatchClient } from "@/lib/supabase/admin";
 import { getIdentity } from "@/lib/auth";
-import { isVettingState } from "@/lib/vetting";
+import { ID_CHECK_NOTE, isVettingState } from "@/lib/vetting";
 import { settleSuspension } from "@/lib/suspension/settle";
 
 export async function setVettingState(formData: FormData) {
@@ -15,9 +15,20 @@ export async function setVettingState(formData: FormData) {
 
   const teacherId = String(formData.get("teacherId") ?? "");
   const state = String(formData.get("state") ?? "");
-  const note = String(formData.get("note") ?? "") || null;
 
   if (!isVettingState(state)) throw new Error(`invalid state: ${state}`);
+
+  // Checked on the server, not just with `required` in the markup. This repo
+  // has already shipped a consent checkbox whose `required` was browser-only
+  // decoration; a control that gates a child-safety claim does not get to
+  // repeat it. Only "yes" counts — presence is not affirmation.
+  let note = String(formData.get("note") ?? "") || null;
+  if (state === "cleared") {
+    if (formData.get("idChecked") !== "yes") {
+      throw new Error("Confirm you checked the ID against the name on the account.");
+    }
+    note = ID_CHECK_NOTE;
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("set_vetting_state", {

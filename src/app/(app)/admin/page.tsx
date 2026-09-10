@@ -388,13 +388,35 @@ export default async function AdminPage() {
                         Send back to review
                       </button>
                     ) : (
-                      <button
-                        name="state"
-                        value="cleared"
-                        className="rounded-sm bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
-                      >
-                        Clear
-                      </button>
+                      <>
+                        {/* The page header tells the operator to check the ID;
+                            until 2026-09-10 nothing asked them to say they had,
+                            and teacher_vetting.note was NULL on every clearance.
+                            Three published pages promise this check happens, so
+                            the affirmation is required — refused server-side
+                            too, because `required` here is browser-only.
+                            A checkbox and not a text box on purpose: free text
+                            beside Clear is where an ID number ends up in the
+                            database, and the ID is meant to be looked at and
+                            deleted, never stored. */}
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            name="idChecked"
+                            value="yes"
+                            required
+                            className="accent-primary"
+                          />
+                          ID checked against the name
+                        </label>
+                        <button
+                          name="state"
+                          value="cleared"
+                          className="rounded-sm bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                        >
+                          Clear
+                        </button>
+                      </>
                     )}
                   </form>
                 )}
