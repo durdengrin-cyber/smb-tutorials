@@ -44,3 +44,15 @@ git keeps unreachable objects roughly 90 days before `gc`.
 local and origin. It is NOT development — it is only a diff base for `/code-review ultra`,
 which refused the branch against `main` as too large (149 files, 18,631 lines, mostly old plan
 documents). Delete it once that review is done; the intended steady state is still two.
+
+**Updated 2026-09-10.** Two more deleted once `main` was fast-forwarded to the vetting work:
+
+| deleted branch | tip | why it was safe |
+|---|---|---|
+| `review-base/session-start` (local + origin) | `7bef05c` | zero commits not in `main`; existed only as a diff base for one review |
+| `backup/teacher-vetting-premigration` (local) | `03b84ee` | 7 commits, but they are the PRE-REBASE originals of the vetting work that `c6c8ab7` rebuilt on the correct base and shipped |
+
+Remaining: `main`, `feat/teacher-vetting` (identical to `main`), and
+`backup/visual-identity-duplicate` — kept for the reason in
+[[orphaned-online-count-on-backup-branch]] and on no remote, so it only exists on this machine.
+

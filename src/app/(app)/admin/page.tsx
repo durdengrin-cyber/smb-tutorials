@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getIdentity } from "@/lib/auth";
+import { summariseSubjects, type SubjectRow } from "@/lib/subject-summary";
 import { createDispatchClient } from "@/lib/supabase/admin";
 import { NotificationSetup } from "@/components/notification-setup";
 import {
@@ -132,12 +133,13 @@ export default async function AdminPage() {
       .in("teacher_id", teacherIds),
   ]);
 
-  const subjectsByTeacher = new Map<string, string[]>();
+  // Grouped by teacher and summarised at render: eight rows for two subjects
+  // across four grades becomes two lines. See lib/subject-summary.ts.
+  const subjectRowsByTeacher = new Map<string, SubjectRow[]>();
   for (const r of subjectRows ?? []) {
-    const label = `${r.subject} · ${r.curriculum} · ${r.grade}${r.stream ? ` · ${r.stream}` : ""}`;
-    const list = subjectsByTeacher.get(r.teacher_id) ?? [];
-    list.push(label);
-    subjectsByTeacher.set(r.teacher_id, list);
+    const list = subjectRowsByTeacher.get(r.teacher_id) ?? [];
+    list.push(r);
+    subjectRowsByTeacher.set(r.teacher_id, list);
   }
 
   const suspension = new Map(
@@ -285,7 +287,7 @@ export default async function AdminPage() {
           const pickable = cleared && !suspended && isOnline;
 
           return (
-            <li key={t.id} className="grid gap-3 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
+            <li key={t.id} className="grid gap-3 py-4 sm:grid-cols-[1fr_auto] sm:items-start">
               <div>
                 <p className="font-semibold">
                   {t.full_name}{" "}
@@ -310,57 +312,50 @@ export default async function AdminPage() {
                     </span>
                   ) : null}
                 </p>
-                {/* Everything the teacher claimed about themselves. The
-                    operator is deciding whether this person teaches children
-                    and previously saw a name, a badge and two links. There is
-                    no resume or CV in this product to show instead — no
-                    upload, no storage, no column — so this is the whole of it,
-                    alongside the demo video. */}
-                <dl className="mt-1 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                {/* Everything the teacher claimed, on two lines rather than a
+                    label grid. The first version of this put a two-column <dl>
+                    into a narrow column and printed all eight subject
+                    permutations verbatim, which made one teacher a page tall
+                    and buried the decision the operator came here to make. */}
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   {[
-                    ["Email", t.email],
-                    ["Phone", t.phone],
-                    ["Qualification", t.qualification],
-                    ["Specialization", t.specialization],
-                    [
-                      "Experience",
-                      t.experience_years === null ? null : `${t.experience_years} yrs`,
-                    ],
-                    ["Teaches", t.teaching_level],
-                    ["Rate", t.hourly_rate === null ? null : `₹${t.hourly_rate}/hr`],
-                    ["Hours/week", t.hours_per_week],
+                    t.qualification,
+                    t.specialization,
+                    t.experience_years === null ? null : `${t.experience_years} yrs`,
+                    t.teaching_level,
+                    t.hourly_rate === null ? null : `₹${t.hourly_rate}/hr`,
+                    t.hours_per_week ? `${t.hours_per_week} h/wk` : null,
                   ]
-                    .filter(([, v]) => v)
-                    .map(([label, value]) => (
-                      <div key={label as string} className="flex gap-2">
-                        <dt className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-                          {label}
-                        </dt>
-                        <dd className="text-foreground">{value}</dd>
-                      </div>
-                    ))}
-                </dl>
+                    .filter(Boolean)
+                    .join("  ·  ") || "Profile not filled in"}
+                </p>
+                {(() => {
+                  const lines = summariseSubjects(subjectRowsByTeacher.get(t.id) ?? []);
+                  return lines.length > 0 ? (
+                    <p className="mt-1 text-sm text-foreground">
+                      {lines
+                        .map(
+                          (l) =>
+                            `${l.subject} · ${l.curriculum} · ${l.grades}` +
+                            (l.stream ? ` · ${l.stream}` : "")
+                        )
+                        .join("   ·   ")}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-sm text-destructive">
+                      No subjects — clearing them puts them in front of nobody.
+                    </p>
+                  );
+                })()}
                 {t.bio?.trim() ? (
-                  <p className="mt-2 max-w-[70ch] text-sm text-muted-foreground">
+                  <p className="mt-1 line-clamp-2 max-w-[80ch] text-sm text-muted-foreground">
                     {t.bio.trim()}
                   </p>
                 ) : null}
-                {(subjectsByTeacher.get(t.id) ?? []).length > 0 ? (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    <span className="font-mono text-[11px] uppercase tracking-wide">
-                      Would be listed for
-                    </span>{" "}
-                    {(subjectsByTeacher.get(t.id) ?? []).join(" · ")}
-                  </p>
-                ) : (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    <span className="font-mono text-[11px] uppercase tracking-wide">
-                      No subjects
-                    </span>{" "}
-                    — clearing them puts them in front of nobody.
-                  </p>
-                )}
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground">
+                  <span className="text-muted-foreground/80">{t.email}</span>
+                  {t.phone ? <span className="text-muted-foreground/80">{" · "}{t.phone}</span> : null}
+                  {" · "}
                   {t.demo_video_url ? (
                     <a href={t.demo_video_url} target="_blank" rel="noopener noreferrer" className="underline">
                       Demo video

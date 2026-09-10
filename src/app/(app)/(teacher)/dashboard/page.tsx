@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { NotificationSetup } from "@/components/notification-setup";
 import { VettingBanner } from "@/components/vetting-banner";
 import { canBePicked, isVettingState } from "@/lib/vetting";
+import { summariseSubjects } from "@/lib/subject-summary";
 
 export default async function DashboardPage() {
   const identity = await requireRole("teacher");
@@ -138,11 +139,14 @@ export default async function DashboardPage() {
                 )}
               </div>
               {subjects && subjects.length > 0 ? (
+                // One badge per listing, not one per grade: two subjects across
+                // four grades is eight rows, and eight near-identical chips
+                // told the teacher nothing the two lines do.
                 <ul className="flex flex-wrap gap-2">
-                  {subjects.map((s) => (
-                    <li key={`${s.curriculum}|${s.grade}|${s.stream}|${s.subject}`}>
+                  {summariseSubjects(subjects).map((l) => (
+                    <li key={`${l.curriculum}|${l.stream}|${l.subject}`}>
                       <Badge variant="secondary">
-                        {s.subject} · {s.curriculum} · {s.grade}
+                        {l.subject} · {l.curriculum} · {l.grades}
                       </Badge>
                     </li>
                   ))}
