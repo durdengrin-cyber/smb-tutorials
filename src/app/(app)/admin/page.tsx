@@ -3,6 +3,7 @@ import { getIdentity } from "@/lib/auth";
 import Link from "next/link";
 import { createDispatchClient } from "@/lib/supabase/admin";
 import { NotificationSetup } from "@/components/notification-setup";
+import { LiveRefresh } from "./live-refresh";
 import {
   setVettingState,
   reinstateTeacher,
@@ -186,6 +187,8 @@ export default async function AdminPage() {
           component appeared only on two teacher routes, both of which redirect
           an admin away. The alert has therefore never fired. The card hides
           itself once a device is registered. */}
+      <LiveRefresh />
+
       <div className="mb-10">
         <NotificationSetup variant="card" />
       </div>

@@ -36,7 +36,17 @@ self.addEventListener("notificationclick", (event) => {
       // second one — two dashboards means two presence entries and a teacher
       // who cannot tell which is live.
       for (const client of list) {
-        if (client.url.includes(target) && "focus" in client) return client.focus();
+        if (client.url.includes(target) && "focus" in client) {
+          // Focus AND navigate. Focusing alone lands the operator on a page
+          // rendered before the thing they were notified about existed — a
+          // teacher applied, the push arrived, the tab came forward, and the
+          // applicant was not on it until a manual reload. navigate() is not
+          // available in every browser, so focus is still the fallback.
+          if ("navigate" in client) {
+            return client.focus().then((c) => (c || client).navigate(target));
+          }
+          return client.focus();
+        }
       }
       return self.clients.openWindow(target);
     })
