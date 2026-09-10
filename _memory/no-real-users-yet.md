@@ -25,8 +25,10 @@ it was written down.
   hypothesis about who exists, and the answer is currently nobody. Argue from the defect.
 - **Merging and deploying are not launching.** The owner has said this directly; treat a
   production deploy as reaching a staging environment that happens to be public, not customers.
-- **A written fact is not a verified one.** This claim survived because it lived in memory and
-  read like evidence. Anything load-bearing about who or what exists is one query away —
-  ask the database, or the owner.
+- **Re-check the narrow class of fact that goes stale: what EXISTS.** Most of what is written in
+  these files is reliable and meant to be trusted — that is the whole point of them, and treating
+  every note as suspect would waste more than it saves. But claims about users, accounts, live
+  data and money change on their own, without anyone editing the file that records them. This one
+  was both stale AND load-bearing for severity, which is the combination worth a query.
 - Related: [[verify-the-stored-values-not-the-shape]],
   [[read-the-whole-function-before-diagnosing]] — the same failure, applied to data and to code.
