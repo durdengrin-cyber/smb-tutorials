@@ -29,7 +29,26 @@ shows 29, no drift. Three probes green against production: `probe-vetting` (8/8)
   reaches students; `/admin` shows accurate `live`/`offline`/`suspended` badges.
 
 ### ▶ Next, in order
-1. ~~The push chain is NOT proven.~~ **DIAGNOSED 2026-09-10 — `0029` shipped with no effect.**
+1. ~~The push chain is NOT proven.~~ **PROVEN END TO END 2026-09-10.** A real tutor application
+   on production put "New teacher application — Igris Commander applied to teach 8 subjects" on
+   the operator's screen: `notifyAdminsOfApplication` -> `applicationPayload` -> VAPID sign ->
+   FCM 201 -> Brave -> our own service worker. Every link, first time in this product's history.
+
+   Two faults had to be cleared, and only one was ours. `0029` shipped with no effect (below);
+   `0030` fixed it. The other was **macOS blocking Brave's notifications entirely** — one OS
+   setting that silently ate a working chain all day, including an application alert that did
+   fire. If notifications ever go quiet again, check System Settings -> Notifications -> the
+   browser BEFORE reading any code: nothing in the app can observe that, and a push accepted by
+   FCM with HTTP 201 still shows nothing.
+
+   Also not a bug, though it was diagnosed as one twice: a push subscription belongs to a BROWSER
+   and a device row to an ACCOUNT, and the endpoint follows whoever signed in last —
+   `register_device` deletes a matching-keys row held by another account, and NotificationSetup
+   re-POSTs the subscription on mount even in the "done" branch that renders nothing. Now pinned
+   by `notification-setup.test.tsx`.
+
+   Original diagnosis of the `0029` half follows.
+   **DIAGNOSED 2026-09-10 — `0029` shipped with no effect.**
    `register_device`'s own gate reads `role in ('teacher','admin')` and is live. Its insert then
    hits `teacher_devices_guard`, the BEFORE INSERT trigger from `0009`, whose function still
    required `role = 'teacher'`. The function permits the admin; the table refuses one layer down.
