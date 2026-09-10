@@ -18,8 +18,23 @@
  */
 export type FormState<V = never> = { error: string; values?: V } | null;
 
-/** Sign-in and the consent gate: nothing worth echoing, and nothing allowed. */
+/** Sign-in: a password is the only thing typed here, and it must not echo. */
 export type AuthState = FormState;
+
+/**
+ * The consent gate USED to have nothing worth echoing — it was reached only by
+ * accounts that had never consented, where both learner fields start empty.
+ * CONSENT_VERSION 2026-09-10-recording sends every existing family back through
+ * it, so a rejected submit now costs a guardian the child's name and grade they
+ * just corrected, and the action overwrites the stored values with whatever the
+ * form sent. No password is typed on this form.
+ */
+export interface ConsentFormValues {
+  learnerFirstName: string;
+  learnerGrade: string;
+  consent: boolean;
+}
+export type ConsentState = FormState<ConsentFormValues>;
 
 export interface TutorFormValues {
   fullName: string;
@@ -107,6 +122,13 @@ const STUDENT_TEXT = ["fullName", "learnerFirstName", "learnerGrade", "email"] a
 export function echoStudentForm(fd: FormData): StudentFormValues {
   return {
     ...texts(fd, STUDENT_TEXT),
+    consent: Boolean(fd.get("consent")),
+  };
+}
+
+export function echoConsentForm(fd: FormData): ConsentFormValues {
+  return {
+    ...texts(fd, ["learnerFirstName", "learnerGrade"] as const),
     consent: Boolean(fd.get("consent")),
   };
 }

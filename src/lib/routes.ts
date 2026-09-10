@@ -21,6 +21,22 @@ export function signInRedirect(pathname: string): string {
   return `/signin?next=${encodeURIComponent(pathname)}`;
 }
 
+/**
+ * The consent gate's equivalent. A CONSENT_VERSION bump interrupts people
+ * mid-task rather than at a door, so where they were going is worth keeping:
+ * /sessions lists history and never links a live call, which left a student
+ * who refreshed during a paid lesson with no route back into it.
+ *
+ * Takes pathname + query so a rejoin parameter survives. Guarded against
+ * /consent itself the way signInRedirect guards /signin — requireUser()
+ * already exempts /consent from the redirect, and this stops a `next` being
+ * built out of a /consent URL if it ever calls through another path.
+ */
+export function consentRedirect(pathname: string): string {
+  if (pathname.split("?")[0] === "/consent") return "/consent";
+  return `/consent?next=${encodeURIComponent(pathname)}`;
+}
+
 // `next` reaches us from a query string, so it is attacker-controlled, and a
 // redirect built from user input is an open redirect.
 //

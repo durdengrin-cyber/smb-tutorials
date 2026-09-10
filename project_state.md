@@ -74,10 +74,9 @@ account is re-gated: next sign-in lands on `/consent`. That is the intended cons
 the only thing that makes anyone's agreement cover recording. Known side effect, from the comment
 at `sessions/actions.ts:18`: a user cannot file a report until they have re-consented.
 
-### The consent bump is NOT deploy-safe yet — three pre-existing defects it activates
-Found by the Tier A review of `1e5a446`. None is caused by the recording change; all three are
-dormant today and fire the moment `2026-09-10-recording` reaches production, because they are on
-the stale-consent path and nothing has ever taken it. **Fix before this branch merges.**
+### The consent bump's three deploy blockers — FIXED 2026-09-10
+Found by the Tier A review of `1e5a446`, all three fixed and pinned. None was caused by the
+recording change; each was dormant because nothing had ever taken the stale-consent path.
 
 1. **The consent form blanks the child's name and grade, then overwrites the stored values.**
    `consent-form.tsx` renders both fields `required` with no `defaultValue`; `consent/page.tsx`
@@ -85,17 +84,30 @@ the stale-consent path and nothing has ever taken it. **Fix before this branch m
    existing family retypes them at next sign-in, and a typo silently replaces the name the tutor
    sees and the grade that drives matching. `Identity` does not carry these fields, so the fix is
    a small select in `consent/page.tsx` plus two `defaultValue`s.
+   **Fixed:** the page reads the stored values and the form defaults to them; `ConsentFormValues`
+   /`echoConsentForm` hand back what was typed on a rejected submit, so correcting the name and
+   forgetting the checkbox no longer restores the old one. `AuthState`'s "nothing worth echoing"
+   was true only while this gate was reached solely by never-consented accounts.
 2. **A teacher's dashboard keeps saying "Available until …" while every accept fails.**
    `availability-toggle.tsx:111-118` only acts on `"declaredUntil" in result`, so a stale-consent
    `renewLease` returning `{error}` is swallowed and the display never corrects. The DB row stays
    `declared: true`, students still see and pick the teacher, and Accept returns "Request not
    found." for a request that exists. On deploy day this hits every teacher with an open dashboard.
+   **Fixed:** `consentGate()` in `lib/auth.ts` distinguishes "signed out" from "owes consent"
+   without disturbing `requireConsentedUser`'s deliberate collapse for the seven call sites that
+   only have to refuse. The five refusable dashboard actions return `needsConsent`, and the client
+   routes to `/consent` on it — a refusal is a destination, not a message. The renew tick also
+   surfaces a plain error instead of dropping it. Proven by render, not by source pin.
 3. **`redirect("/consent")` drops the attempted path, and there is no route back into a live
    session.** `auth.ts:73` redirects bare; `consent/actions.ts:68` then sends the user to
    `resolveHome(role)`. `/sessions` never links `/call/[sessionId]` or `/waiting/[sessionId]`, so a
    student who refreshes mid-lesson — or sits on `/waiting` after paying — consents and has no way
    back into a paid, running call except browser history. `signInRedirect` already does exactly
    this and is unused here.
+   **Fixed:** `consentRedirect()` sits beside `signInRedirect` and carries pathname + query;
+   the form forwards it in a hidden field (a Server Action never sees the URL it was posted
+   from) and the action returns through `safeNext`, which is what stops it being an open
+   redirect. The `/consent` self-link guard already in `requireUser` is what makes it loop-free.
 
 ### Known, unfixed, deliberately
 - **Admin server actions throw** instead of returning typed errors; production Next strips the

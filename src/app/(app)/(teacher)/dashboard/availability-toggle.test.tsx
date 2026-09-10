@@ -2,6 +2,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
+const push = vi.fn();
+// The toggle sends a teacher to /consent when the server reports a consent
+// refusal, so it now holds a router. Nothing in jsdom mounts one.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push }),
+}));
+
 const declareAvailable = vi.fn();
 const undeclareAvailable = vi.fn();
 const renewLease = vi.fn();
@@ -57,6 +64,7 @@ const futureIso = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 const pastIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
 beforeEach(() => {
+  push.mockReset();
   declareAvailable.mockReset();
   undeclareAvailable.mockReset();
   // The tick now ALWAYS returns the authoritative lease, so the default has to
@@ -154,6 +162,35 @@ describe("AvailabilityToggle", () => {
       expect(screen.queryByText(/Available until/i)).not.toBeInTheDocument()
     );
     expect(screen.getByText(/not visible to students/i)).toBeInTheDocument();
+  });
+
+  // CONSENT_VERSION 2026-09-10-recording refuses every renewal at once. This
+  // tick used to test only for declaredUntil, so the refusal was swallowed:
+  // the card went on reading "Available until ...", the declared row stayed
+  // up, students kept picking this teacher, and every Accept then failed with
+  // "Request not found." Reproduced here as the server actually answers.
+  it("sends the teacher to /consent when a policy change refuses the renewal", async () => {
+    renewLease.mockResolvedValue({
+      error: "Our policies have changed. Agree to them to carry on teaching.",
+      needsConsent: true,
+    });
+
+    render(<AvailabilityToggle {...props} declaredUntil={futureIso} hasDevice />);
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/consent"));
+  });
+
+  // A plain error is not a redirect, but it must not vanish either — the
+  // swallow is what made the card lie in the first place.
+  it("surfaces an ordinary renewal error instead of dropping it", async () => {
+    renewLease.mockResolvedValue({ error: "Couldn't check your availability." });
+
+    render(<AvailabilityToggle {...props} declaredUntil={futureIso} hasDevice />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't check your availability/i)).toBeInTheDocument()
+    );
+    expect(push).not.toHaveBeenCalled();
   });
 
   // The other half: a tick must not DEMOTE a teacher who is genuinely live.

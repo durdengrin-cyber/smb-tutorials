@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { requireConsentedUser } from "@/lib/auth";
+import { consentGate, type Identity } from "@/lib/auth";
 import { leaseUntilFrom, shouldRenew } from "@/lib/availability";
 import {
   canTransition,
@@ -14,23 +14,50 @@ import {
   type SessionTimingRow,
 } from "@/lib/session";
 
+/**
+ * A refusal a client can act on. `needsConsent` means the caller IS signed in
+ * and owes agreement to a changed policy — availability-toggle and
+ * incoming-request send them to /consent on it, because nothing else clears
+ * it and the alternative is a dashboard that lies about being reachable.
+ */
+export type ActionRefusal = { error: string; needsConsent?: true };
+
+const RECONSENT: ActionRefusal = {
+  error: "Our policies have changed. Agree to them to carry on teaching.",
+  needsConsent: true,
+};
+
+async function gate(
+  signedOut: string
+): Promise<{ identity: Identity } | { refusal: ActionRefusal }> {
+  const g = await consentGate();
+  if ("identity" in g) return { identity: g.identity };
+  return {
+    refusal: g.refusal === "needs_consent" ? RECONSENT : { error: signedOut },
+  };
+}
+
 async function loadOwnSession(sessionId: string) {
   const supabase = await createClient();
-  // requireConsentedUser(), not a bare getUser(): a Server Action is
-  // resolved by ID and run before any page renders, so requireUser()'s
-  // redirect on /consent never gets a chance to fire for this call.
-  const identity = await requireConsentedUser();
-  if (!identity) return { supabase, identity: null, session: null };
+  // consentGate(), not a bare getUser(): a Server Action is resolved by ID
+  // and run before any page renders, so requireUser()'s redirect on /consent
+  // never gets a chance to fire for this call. The refusal travels out with
+  // the result because collapsing it into a null made acceptSession answer
+  // "Request not found." about a request the teacher was looking at.
+  const g = await gate("Sign in first.");
+  if ("refusal" in g) return { supabase, identity: null, session: null, refusal: g.refusal };
+  const identity = g.identity;
   const { data: session } = await supabase
     .from("sessions")
     .select("id, teacher_id, student_id, status, accept_deadline, payment_deadline, started_at, duration_minutes")
     .eq("id", sessionId)
     .single();
-  return { supabase, identity, session };
+  return { supabase, identity, session, refusal: undefined };
 }
 
-export async function acceptSession(sessionId: string): Promise<{ error: string } | void> {
-  const { supabase, identity, session } = await loadOwnSession(sessionId);
+export async function acceptSession(sessionId: string): Promise<ActionRefusal | void> {
+  const { supabase, identity, session, refusal } = await loadOwnSession(sessionId);
+  if (refusal) return refusal;
   if (!identity || !session) return { error: "Request not found." };
   if (session.teacher_id !== identity.userId) return { error: "Not your request." };
 
@@ -116,8 +143,9 @@ export async function acceptSession(sessionId: string): Promise<{ error: string 
   // No redirect: the teacher waits on the dashboard until the student pays.
 }
 
-export async function declineSession(sessionId: string): Promise<{ error: string } | void> {
-  const { supabase, identity, session } = await loadOwnSession(sessionId);
+export async function declineSession(sessionId: string): Promise<ActionRefusal | void> {
+  const { supabase, identity, session, refusal } = await loadOwnSession(sessionId);
+  if (refusal) return refusal;
   if (!identity || !session) return { error: "Request not found." };
   if (session.teacher_id !== identity.userId) return { error: "Not your request." };
 
@@ -132,11 +160,12 @@ export async function declineSession(sessionId: string): Promise<{ error: string
 // liveness; this carries intent, and it is what a push is authorised
 // against — so it must survive the tab that created it.
 export async function declareAvailable(): Promise<
-  { declaredUntil: string } | { error: string }
+  { declaredUntil: string } | ActionRefusal
 > {
   const supabase = await createClient();
-  const identity = await requireConsentedUser();
-  if (!identity) return { error: "Sign in to go available." };
+  const g = await gate("Sign in to go available.");
+  if ("refusal" in g) return g.refusal;
+  const identity = g.identity;
 
   const now = new Date();
   const until = leaseUntilFrom(now);
@@ -163,11 +192,12 @@ export async function declareAvailable(): Promise<
 }
 
 export async function undeclareAvailable(): Promise<
-  { ok: true } | { error: string }
+  { ok: true } | ActionRefusal
 > {
   const supabase = await createClient();
-  const identity = await requireConsentedUser();
-  if (!identity) return { error: "Sign in first." };
+  const g = await gate("Sign in first.");
+  if ("refusal" in g) return g.refusal;
+  const identity = g.identity;
 
   // declared_until is cleared as well as the flag. Leaving a live lease on a
   // row whose flag is false is a contradiction waiting for a query that
@@ -204,11 +234,12 @@ export async function undeclareAvailable(): Promise<
 // It matters more because devices are first-class (spec §7): going offline on
 // a phone has to correct the laptop, and this tick is the only thing that can.
 export async function renewLease(): Promise<
-  { declaredUntil: string | null } | { error: string }
+  { declaredUntil: string | null } | ActionRefusal
 > {
   const supabase = await createClient();
-  const identity = await requireConsentedUser();
-  if (!identity) return { error: "Sign in first." };
+  const g = await gate("Sign in first.");
+  if ("refusal" in g) return g.refusal;
+  const identity = g.identity;
 
   const { data: row, error: readError } = await supabase
     .from("teacher_availability")

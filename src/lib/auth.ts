@@ -3,7 +3,7 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { resolveHome, signInRedirect, type Role } from "@/lib/routes";
+import { consentRedirect, resolveHome, signInRedirect, type Role } from "@/lib/routes";
 import { needsConsent } from "@/lib/consent";
 
 export interface Identity {
@@ -70,7 +70,10 @@ export async function requireUser(): Promise<Identity> {
   // the question has to be asked. Spec §7 names the OAuth callback; that would
   // close Google alone and leave the next entry path to remember on its own.
   if (needsConsent(identity) && (await currentPathname()) !== "/consent") {
-    redirect("/consent");
+    // Carries where they were going. Sanitised on the way back out by
+    // safeNext in the consent action, not here — this value is our own
+    // header, but it is the consent form that hands it to a redirect.
+    redirect(consentRedirect(await currentPath()));
   }
   return identity;
 }
@@ -107,4 +110,24 @@ export async function requireConsentedUser(): Promise<Identity | null> {
   const identity = await getIdentity();
   if (!identity || needsConsent(identity)) return null;
   return identity;
+}
+
+/**
+ * The same gate, but saying WHICH refusal applied.
+ *
+ * The collapse above is right for a call site that only has to refuse. It is
+ * wrong for one whose answer reaches a client that must then do something
+ * about it: CONSENT_VERSION 2026-09-10-recording put every signed-in teacher
+ * behind the consent gate at once, and "Sign in first." to someone signed in
+ * is both untrue and unactionable — there is nothing on a sign-in page for
+ * them to do. A client receiving `needs_consent` can send them to /consent,
+ * which is the only thing that clears it.
+ */
+export async function consentGate(): Promise<
+  { identity: Identity } | { refusal: "signed_out" | "needs_consent" }
+> {
+  const identity = await getIdentity();
+  if (!identity) return { refusal: "signed_out" };
+  if (needsConsent(identity)) return { refusal: "needs_consent" };
+  return { identity };
 }

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { CONSENT_VERSION } from "@/lib/consent";
 
 const upsert = vi.fn();
@@ -59,7 +61,13 @@ describe("declareAvailable", () => {
   it("refuses a signed-in teacher who has not consented", async () => {
     consentVersion = null;
     const { declareAvailable } = await import("./actions");
-    expect(await declareAvailable()).toEqual({ error: "Sign in to go available." });
+    // The refusal is what matters and is asserted by the upsert guard below.
+    // The MESSAGE changed on 2026-09-10: it used to say "Sign in to go
+    // available." to a teacher who was already signed in, which the client
+    // could do nothing with. It now carries needsConsent so the dashboard can
+    // send them to /consent.
+    const result = await declareAvailable();
+    expect(result).toMatchObject({ needsConsent: true });
     expect(upsert).not.toHaveBeenCalled();
   });
 });
@@ -132,5 +140,94 @@ describe("renewLease", () => {
     const { renewLease } = await import("./actions");
     expect(await renewLease()).toEqual({ declaredUntil: null });
     expect(upsert).not.toHaveBeenCalled();
+  });
+});
+
+// CONSENT_VERSION 2026-09-10-recording is the first bump to land while
+// teachers are holding an open dashboard, and it exposed what the collapse of
+// "signed out" and "owes consent" into one null actually costs a client.
+//
+// The dashboard polls renewLease, and availability-toggle only ever acted on a
+// result containing declaredUntil — so { error } was swallowed, the lease
+// display went on saying "Available until ...", the DB row stayed declared,
+// and students carried on picking a teacher whose every Accept then failed.
+// The message the teacher would have seen if anything had shown it was "Sign
+// in first.", to someone signed in, and Accept said "Request not found." about
+// a request that plainly existed.
+describe("a policy change does not tell a signed-in teacher to sign in", () => {
+  beforeEach(() => {
+    consentVersion = "2026-09-05-guardian"; // stale, not null: signed in, owes consent
+  });
+
+  it("renewLease reports a consent refusal the client can act on", async () => {
+    const { renewLease } = await import("./actions");
+    const result = await renewLease();
+    expect(result).toMatchObject({ needsConsent: true });
+    expect(JSON.stringify(result)).not.toMatch(/sign in/i);
+  });
+
+  it("declareAvailable reports a consent refusal, not a sign-in prompt", async () => {
+    const { declareAvailable } = await import("./actions");
+    const result = await declareAvailable();
+    expect(result).toMatchObject({ needsConsent: true });
+    expect(JSON.stringify(result)).not.toMatch(/sign in/i);
+  });
+
+  it("acceptSession does not claim a real request does not exist", async () => {
+    const { acceptSession } = await import("./actions");
+    const result = await acceptSession("s1");
+    expect(result).toMatchObject({ needsConsent: true });
+    expect(JSON.stringify(result)).not.toMatch(/not found/i);
+  });
+
+  it("still refuses a genuinely signed-out caller with a sign-in message", async () => {
+    consentVersion = null;
+    const { declareAvailable } = await import("./actions");
+    // consent_version null is the never-consented Google path — also a consent
+    // refusal, and also not a reason to say "sign in".
+    expect(await declareAvailable()).toMatchObject({ needsConsent: true });
+  });
+});
+
+// The server half of the fix is only half of it: the defect was that the
+// CLIENT ignored the refusal. availability-toggle's renew tick tested only for
+// declaredUntil, so { error } fell through silently and the dashboard went on
+// claiming "Available until ...". Pinned by source because rendering this
+// component means a realtime channel, a visibility API and a timer, and the
+// assertion is about which branches exist, not about pixels.
+describe("the client acts on a consent refusal instead of swallowing it", () => {
+  const src = (f: string) =>
+    readFileSync(join("src", "app", "(app)", "(teacher)", "dashboard", f), "utf8").replace(
+      /\s+/g,
+      " "
+    );
+
+  it("the renew tick handles needsConsent and no longer drops a plain error", () => {
+    const toggle = src("availability-toggle.tsx");
+    expect(toggle, "the tick ignores a consent refusal").toMatch(
+      /const result = await renewLease\(\);[\s\S]{0,600}?needsConsent/
+    );
+    expect(toggle, "the tick still swallows a plain error").toMatch(
+      /const result = await renewLease\(\);[\s\S]{0,900}?setError\(result\.error\)/
+    );
+  });
+
+  it("every dashboard action that can be refused sends the teacher to /consent", () => {
+    const toggle = src("availability-toggle.tsx");
+    const request = src("incoming-request.tsx");
+    // One destination, reached from each of the five refusable calls.
+    expect(toggle).toMatch(/function toConsent\(\) \{ router\.push\("\/consent"\); \}/);
+    for (const [file, name] of [
+      [toggle, "renewLease"],
+      [toggle, "declareAvailable"],
+      [toggle, "undeclareAvailable"],
+      [request, "acceptSession"],
+      [request, "declineSession"],
+    ] as const) {
+      expect(
+        file,
+        `${name}'s result is not checked for needsConsent`
+      ).toMatch(new RegExp(`await ${name}\\([^)]*\\);[\\s\\S]{0,900}?needsConsent`));
+    }
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { PRESENCE_CHANNEL } from "@/lib/presence";
@@ -65,6 +66,7 @@ export function AvailabilityToggle({
   const [channelHealthy, setChannelHealthy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   const channelRef = useRef<RealtimeChannel | null>(null);
   // Guards the async subscribe() status callback below: an ack can arrive
   // after the component has unmounted, or after channelRef has moved on to a
@@ -110,6 +112,24 @@ export function AvailabilityToggle({
       if (document.visibilityState !== "visible") return;
       const result = await renewLease();
       if (cancelled) return;
+      // A CONSENT_VERSION bump refuses every renewal at once. This tick used
+      // to test only for declaredUntil, so the refusal was swallowed: the
+      // display went on saying "Available until ...", the declared row stayed
+      // up, students kept picking this teacher, and every Accept then failed
+      // with "Request not found." — the exact failure the reconcile below
+      // exists to prevent, arriving through the one branch that ignored it.
+      if ("needsConsent" in result && result.needsConsent) {
+        // router.push directly rather than toConsent(): this effect owns a
+        // mount-only interval, and a per-render function in its dependency
+        // array would tear down and rebuild the timer on every render. The
+        // router object is stable.
+        router.push("/consent");
+        return;
+      }
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
       // Reconcile in BOTH directions. A null here means the server says this
       // teacher is not declared — because they went offline on another device,
       // or the row was cleared — and adopting it is what stops this dashboard
@@ -122,7 +142,7 @@ export function AvailabilityToggle({
       cancelled = true;
       clearInterval(id);
     };
-  }, []);
+  }, [router]);
 
   // Presence follows the DECLARATION now, not a click. Opens the channel the
   // instant the lease is live (covering both an explicit "Available now" and
@@ -215,11 +235,24 @@ export function AvailabilityToggle({
     }
   }, [inSession, channelHealthy, teacherId, fullName, hourlyRate]);
 
+  // A consent refusal is not an error to display — it is a destination. The
+  // teacher is signed in and the only thing that clears it is agreeing to the
+  // changed policy, so send them there. Everything else this component could
+  // do (show a message, keep polling) leaves them listed as reachable while
+  // every accept fails.
+  function toConsent() {
+    router.push("/consent");
+  }
+
   async function goOnline() {
     setBusy(true);
     setError(null);
     const result = await declareAvailable();
     setBusy(false);
+    if ("needsConsent" in result && result.needsConsent) {
+      toConsent();
+      return;
+    }
     if ("error" in result) {
       setError(result.error);
       return;
@@ -234,6 +267,10 @@ export function AvailabilityToggle({
     setError(null);
     const result = await undeclareAvailable();
     setBusy(false);
+    if ("needsConsent" in result && result.needsConsent) {
+      toConsent();
+      return;
+    }
     if ("error" in result) {
       setError(result.error);
       return;

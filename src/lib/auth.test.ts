@@ -42,12 +42,17 @@ describe("requireUser consent gate", () => {
   // The live hole: Google sign-in mints an account with no consent at all.
   it("sends an account with no consent to /consent", async () => {
     state.profile = { id: "u1", role: "student", full_name: "Asha", consent_version: null };
-    await expect(requireUser()).rejects.toMatchObject({ to: "/consent" });
+    // state.pathname is /sessions; the gate now carries it through.
+    await expect(requireUser()).rejects.toMatchObject({
+      to: "/consent?next=%2Fsessions",
+    });
   });
 
   it("sends an account on a superseded version to /consent", async () => {
     state.profile = { id: "u1", role: "student", full_name: "Asha", consent_version: "2026-09-04" };
-    await expect(requireUser()).rejects.toMatchObject({ to: "/consent" });
+    await expect(requireUser()).rejects.toMatchObject({
+      to: "/consent?next=%2Fsessions",
+    });
   });
 
   it("lets a consented account through", async () => {
@@ -66,6 +71,26 @@ describe("requireUser consent gate", () => {
   // value against "/consent" is query-sensitive: a linked
   // "/consent?next=..." would fail the exemption and reopen the loop this
   // test above just closed.
+  // A CONSENT_VERSION bump interrupts people mid-task, and the bare redirect
+  // threw away where they were going. /sessions never links a live call, so a
+  // student who refreshed during a paid lesson — or sat on /waiting after
+  // paying — consented and had no route back into it but browser history.
+  it("carries the attempted path through to /consent", async () => {
+    state.profile = { id: "u1", role: "student", full_name: "Asha", consent_version: "2026-09-05-guardian" };
+    state.pathname = "/waiting/abc-123";
+    await expect(requireUser()).rejects.toMatchObject({
+      to: "/consent?next=%2Fwaiting%2Fabc-123",
+    });
+  });
+
+  it("keeps the query string of the attempted path", async () => {
+    state.profile = { id: "u1", role: "student", full_name: "Asha", consent_version: null };
+    state.pathname = "/call/s1?rejoin=1";
+    await expect(requireUser()).rejects.toMatchObject({
+      to: "/consent?next=%2Fcall%2Fs1%3Frejoin%3D1",
+    });
+  });
+
   it("does not redirect /consent to itself when a query string is present", async () => {
     state.profile = { id: "u1", role: "student", full_name: "Asha", consent_version: null };
     state.pathname = "/consent?next=%2Fsessions";

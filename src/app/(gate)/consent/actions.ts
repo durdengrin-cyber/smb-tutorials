@@ -4,21 +4,29 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { CONSENT_VERSION, isGrade } from "@/lib/consent";
-import { resolveHome } from "@/lib/routes";
-import type { AuthState } from "@/lib/form-state";
+import { resolveHome, safeNext } from "@/lib/routes";
+import { echoConsentForm, type ConsentState } from "@/lib/form-state";
 
 export async function acceptConsent(
-  _prev: AuthState,
+  _prev: ConsentState,
   formData: FormData
-): Promise<AuthState> {
+): Promise<ConsentState> {
   const identity = await requireUser();
+
+  // Echoed back on every failure: React 19 resets the form when this action
+  // completes. Before 2026-09-10-recording this gate was reached only by
+  // accounts with nothing stored, so a blank retry cost nothing. It is now the
+  // screen every existing family passes through, and a guardian who corrects
+  // the child's name and forgets the checkbox must not get the old name back.
+  const values = echoConsentForm(formData);
+  const fail = (error: string): ConsentState => ({ error, values });
 
   // Presence isn't enough: `formData.get` returns whatever the request sent
   // under that name, and only the literal value the checkbox submits is
   // consent. Anything else reaching here is not a browser honouring
   // `required` — it's the check being defeated.
   if (formData.get("consent") !== "yes") {
-    return { error: "Please confirm you are the student's parent or legal guardian." };
+    return fail("Please confirm you are the student's parent or legal guardian.");
   }
 
   const supabase = await createClient();
@@ -37,14 +45,14 @@ export async function acceptConsent(
   if (identity.role === "student") {
     const learnerFirstName = (formData.get("learnerFirstName") ?? "").toString().trim();
     const learnerGrade = (formData.get("learnerGrade") ?? "").toString().trim();
-    if (!learnerFirstName) return { error: "Enter the student's first name." };
-    if (!isGrade(learnerGrade)) return { error: "Select the student's grade." };
+    if (!learnerFirstName) return fail("Enter the student's first name.");
+    if (!isGrade(learnerGrade)) return fail("Select the student's grade.");
 
     const { error } = await supabase
       .from("profiles")
       .update({ learner_first_name: learnerFirstName, learner_grade: learnerGrade })
       .eq("id", identity.userId);
-    if (error) return { error: "Could not save the student's details. Try again." };
+    if (error) return fail("Could not save the student's details. Try again.");
   }
 
   // A profile with no prior consent_version at all has never agreed to
@@ -62,8 +70,11 @@ export async function acceptConsent(
   });
   if (consentError) {
     console.error("[acceptConsent] consent log failed", consentError);
-    return { error: "Could not record your agreement. Try again in a moment." };
+    return fail("Could not record your agreement. Try again in a moment.");
   }
 
-  redirect(resolveHome(identity.role));
+  // Back to whatever the gate interrupted, or home if it interrupted nothing.
+  // safeNext rejects anything that leaves this origin: `next` came off a query
+  // string, so a redirect built from it is an open redirect otherwise.
+  redirect(safeNext(formData.get("next"), resolveHome(identity.role)));
 }

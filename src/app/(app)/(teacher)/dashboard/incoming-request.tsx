@@ -300,6 +300,13 @@ export function IncomingRequest({
       // payment" state happens when the realtime UPDATE above lands, not
       // here.
       const result = await acceptSession(id);
+      // A policy change refuses this before it ever reaches the session row.
+      // Showing the message would strand the teacher on a request they cannot
+      // accept; /consent is the only thing that clears it.
+      if (result?.needsConsent) {
+        router.push("/consent");
+        return;
+      }
       if (result?.error) setError(result.error);
     } catch (e) {
       // acceptSession returns {error} for the failures it anticipates, but a
@@ -318,6 +325,10 @@ export function IncomingRequest({
     setError(null);
     try {
       const result = await declineSession(id);
+      if (result?.needsConsent) {
+        router.push("/consent");
+        return;
+      }
       if (result?.error) {
         setError(result.error);
         return;
