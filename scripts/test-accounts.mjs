@@ -56,7 +56,10 @@ const ACCOUNTS = {
     // A completable profile: the editor rejects a save missing any required
     // field, and a change to ANY field is what 0024 re-vets on.
     profile: {
-      phone: "+919999900001",
+      // Ten digits, no country code: the profile form rejects "+91..." with
+      // "Enter a 10-digit phone number." and the save cannot complete. Seeded
+      // wrong first time and found by driving the form.
+      phone: "9999900001",
       qualification: "M.Sc. Mathematics",
       experience_years: 5,
       specialization: "Algebra",
@@ -175,6 +178,17 @@ async function signin(role, base = "http://localhost:3000") {
     }),
   });
   const j = await r.json();
+  // Prefer the hashed token over action_link. action_link points at Supabase's
+  // /auth/v1/verify, which on success returns the session in a URL FRAGMENT —
+  // and a fragment never reaches the server, so our /auth/callback sees neither
+  // ?code nor ?token_hash and bounces to /signin?error=oauth. Going straight to
+  // our own callback with token_hash uses the verifyOtp branch, which is the
+  // path the app actually supports. Found by driving it, 2026-09-10.
+  const hashed = j.properties?.hashed_token ?? j.hashed_token;
+  if (hashed) {
+    console.log(`${base}/auth/callback?token_hash=${hashed}&type=magiclink`);
+    return;
+  }
   const link = j.action_link ?? j.properties?.action_link;
   if (!link) throw new Error(`generate_link: ${r.status} ${JSON.stringify(j).slice(0, 200)}`);
   // One-time and short-lived. The target origin must be in Supabase's redirect

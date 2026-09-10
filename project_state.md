@@ -29,7 +29,19 @@ shows 29, no drift. Three probes green against production: `probe-vetting` (8/8)
   reaches students; `/admin` shows accurate `live`/`offline`/`suspended` badges.
 
 ### ▶ Next, in order
-1. **The push chain is NOT proven, and it is the one loose end.** The VAPID public key is now
+1. ~~The push chain is NOT proven.~~ **DIAGNOSED 2026-09-10 — `0029` shipped with no effect.**
+   `register_device`'s own gate reads `role in ('teacher','admin')` and is live. Its insert then
+   hits `teacher_devices_guard`, the BEFORE INSERT trigger from `0009`, whose function still
+   required `role = 'teacher'`. The function permits the admin; the table refuses one layer down.
+   **Proven with real JWTs:** admin -> `P0001 teacher_devices requires a teacher profile`;
+   teacher -> `204`. `0030` (written, NOT applied) widens the guard to match, and
+   `src/lib/device-registration.test.ts` pins the two role lists together — verified to fail
+   against the migration set without `0030`. **Apply `0030`, then re-test.**
+   The browser half is still unproven: "Turn on notifications" hangs on Chrome's native
+   permission prompt, which the extension cannot accept. That needs a human click.
+
+   Original note follows.
+   **The push chain is NOT proven, and it is the one loose end.** The VAPID public key is now
    in the machine-local config (pulled with `vercel env pull --environment=development`; a
    backup of the previous file sits beside it). Clicking "Turn on notifications" on `/admin`
    fails with `AbortError: Registration failed - push service error` — **Chrome's push service
@@ -43,8 +55,11 @@ shows 29, no drift. Three probes green against production: `probe-vetting` (8/8)
    other way: every page now states that sessions ARE recorded. See "Recording policy" below.
 3. **Test B — a real signup end to end.** Never done. The agent cannot: creating accounts and
    typing passwords are prohibited. Every other link is verified; nobody has pressed Submit.
-4. **The re-vetting positive path** needs a teacher session: sign in as `Task13 Tutor Verify`,
-   change any profile field, confirm `/admin` shows them `unvetted` WITH the diff.
+4. ~~The re-vetting positive path~~ **PROVEN 2026-09-10** with `smb-test-teacher`, by driving
+   the app: changed the hourly rate on `/profile`, save succeeded, `vetting_state` went
+   `cleared` -> `unvetted` on its own, `teacher_revet_events` recorded
+   `{phone: {...}, hourly_rate: {from: 500, to: 650}}`, and `/admin` rendered it under
+   "CHANGED SINCE YOU APPROVED THEM". The profile banner's promise is true.
 5. **Merge decision.** `main` is 119 commits behind, and the schema is now seven migrations
    ahead of what is deployed. That is safe but widening.
 
