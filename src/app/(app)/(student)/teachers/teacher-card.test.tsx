@@ -103,10 +103,21 @@ describe("the price", () => {
   // SESSION_DURATION_MINUTES long, so amountPaiseFor returns hourly_rate.
   // What the card never said is how long the lesson lasts, which is the
   // thing the parent is actually buying.
-  it("states the session length alongside the rate", () => {
+  // Rendered TWICE on purpose, and this pins the pairing. Below lg the price
+  // sits beside the name, because the decision column does not exist there;
+  // from lg up it sits in that column. Only one is ever in the accessibility
+  // tree — the other is display:none, which removes it — so a screen reader
+  // hears it once. jsdom has no breakpoints, so the classes are the only way
+  // to assert which is which.
+  it("states the rate and session length once per breakpoint", () => {
     card();
-    expect(screen.getByText("₹500")).toBeInTheDocument();
-    expect(screen.getByText(/for a 1-hour session/i)).toBeInTheDocument();
+    const prices = screen.getAllByText("₹500");
+    expect(prices).toHaveLength(2);
+    expect(prices.some((p) => p.className.includes("lg:hidden"))).toBe(true);
+    expect(prices.some((p) => p.className.includes("hidden"))).toBe(true);
+
+    const units = screen.getAllByText(/for a 1-hour session/i);
+    expect(units).toHaveLength(2);
   });
 
   // Derived, not typed. If the session length ever changes, this copy moves
@@ -117,7 +128,55 @@ describe("the price", () => {
 
   it("shows a dash rather than a broken price when no rate is set", () => {
     card({ hourly_rate: null });
-    expect(screen.getByText("₹—")).toBeInTheDocument();
+    expect(screen.getAllByText("₹—")).toHaveLength(2);
+  });
+});
+
+describe("the phone card opens in place", () => {
+  // Item 39. At 500x763 the card with a video measured 659px — 86% of the
+  // screen for one teacher — so below lg it became a summary: 4rem thumbnail
+  // beside the name, price promoted up, bio and specialization withheld. That
+  // is only honest if the withheld part comes back, which is what this is.
+  it("offers a way in, and says whether it is open", () => {
+    card();
+    const toggle = screen.getByRole("button", { name: /more about priya/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(
+      screen.getByRole("button", { name: /^less$/i })
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
+  // The control is worse than useless when it reveals nothing, so a teacher
+  // with no bio and no specialization does not get one.
+  it("offers nothing to open when there is nothing behind it", () => {
+    card({ bio: null, specialization: null });
+    expect(screen.queryByRole("button", { name: /more about/i })).toBeNull();
+  });
+
+  // "Start now" is a button inside this card. A tap handler on the card body
+  // would nest interactive elements, which is invalid and breaks keyboard and
+  // screen-reader navigation — so the tap target is an explicit control. This
+  // is the guard on that decision.
+  it("nests no interactive element inside another", () => {
+    const { container } = card();
+    for (const b of container.querySelectorAll("button")) {
+      expect(
+        b.querySelector("button, a, input, select, textarea"),
+        "a control contains another control"
+      ).toBeNull();
+    }
+  });
+
+  // Pinned on classes because jsdom has no breakpoints: the toggle must leave
+  // the tab order entirely from lg up, where everything it reveals is already
+  // on screen. hidden/lg:hidden is display:none, which removes it from the
+  // accessibility tree; opacity or visibility would not.
+  it("is gone from desktop entirely, not merely invisible", () => {
+    card();
+    expect(
+      screen.getByRole("button", { name: /more about priya/i }).className
+    ).toContain("lg:hidden");
   });
 });
 
