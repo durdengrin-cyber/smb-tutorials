@@ -71,6 +71,34 @@ export function outcomeMessage(
   }
 }
 
+/**
+ * Move one requested teacher to the front, leaving every other position alone.
+ *
+ * Exported so it can be tested against real code rather than against a copy of
+ * the rule written inside the test — a test that restates the logic it is
+ * checking passes whether or not the component does anything.
+ *
+ * The order it preserves is a safety property, not a preference. deriveRoster
+ * ranks live-presence teachers above push-only ones and deliberately refuses
+ * to LABEL the two, because a visible second tier would stop push-only
+ * teachers being picked at all (spec §6.2). Pinning a teacher the parent asked
+ * for by name is a statement about that one person and says nothing about
+ * anybody else, which is why it may jump the queue.
+ *
+ * An id that matches nothing returns the list untouched: `id` arrives from a
+ * query string and is only ever compared against ids already fetched for this
+ * page, so a junk or hostile value is inert. Nothing is looked up by it.
+ */
+export function pinFirst<T extends { id: string }>(
+  list: T[],
+  id: string | undefined
+): T[] {
+  if (!id) return list;
+  const found = list.find((t) => t.id === id);
+  if (!found) return list;
+  return [found, ...list.filter((t) => t.id !== id)];
+}
+
 export function OnlineList({
   eligible,
   subject,
@@ -80,6 +108,7 @@ export function OnlineList({
   outcome,
   teacherName,
   refundAmountPaise,
+  againTeacherId,
 }: {
   eligible: TeacherCardData[];
   subject: string;
@@ -89,6 +118,7 @@ export function OnlineList({
   outcome?: string;
   teacherName?: string;
   refundAmountPaise?: number;
+  againTeacherId?: string;
 }) {
   const [roster, setRoster] = useState<OnlineTeacher[]>([]);
   // The push-only tier: a snapshot from available_teachers, not a stream —
@@ -198,7 +228,32 @@ export function OnlineList({
     };
   }, [curriculum, grade, stream, subject]);
 
-  const online = deriveRoster(eligible, available, roster);
+  const derived = deriveRoster(eligible, available, roster);
+
+  // "Book X again" pins that teacher to the front — WITHOUT disturbing the
+  // order deriveRoster produced for everyone else. That order is a safety
+  // property, not a preference: it ranks live-presence teachers above
+  // push-only ones and deliberately refuses to label the two, because a
+  // visible second tier would stop push-only teachers being picked at all
+  // (spec §6.2). Moving one requested teacher to the front is the parent's
+  // explicit choice about one person; it says nothing about anybody else.
+  const online = pinFirst(derived, againTeacherId);
+  const again = againTeacherId
+    ? derived.some((t) => t.id === againTeacherId)
+    : false;
+
+  // Asked for by name and not in the roster. The distinction matters: still in
+  // `eligible` means they teach this subject and are simply not online, which
+  // is worth saying. Absent from `eligible` means they no longer teach it —
+  // or are suspended, since available_teachers filters those — and the honest
+  // line is the same either way. It must NOT name a reason: outcomeMessage
+  // already establishes that a student never learns a report exists, because
+  // that is a disclosure about a third party's complaint.
+  const againMissing =
+    againTeacherId && !again
+      ? eligible.find((t) => t.id === againTeacherId)?.full_name ?? null
+      : null;
+  const againUnavailable = Boolean(againTeacherId) && !again;
   // requestSession validates the taxonomy, so starting from an unfiltered list
   // can only ever return "Pick a subject before starting." Say so up front
   // instead of letting the click fail.
@@ -226,6 +281,25 @@ export function OnlineList({
   // whether or not anyone happens to be online right now — and an empty
   // roster is the likeliest state right after a timeout.
   const banner = outcomeMessage(outcome, teacherName, refundAmountPaise);
+
+  // Only once the roster has actually been read. Before that an empty derived
+  // list means "we don't know yet", and telling a parent their teacher is
+  // unavailable when we have not checked is the same defect the empty state
+  // below already guards against.
+  const againBanner = againUnavailable && rosterLoaded && (
+    <div className="mb-6 rounded-xl border border-border bg-muted px-4 py-3 text-foreground">
+      {againMissing ? (
+        <>
+          <b>{againMissing.split(" ")[0]}</b> isn&apos;t available right now.
+          Teachers appear here only while they&apos;re online and ready to
+          start immediately.
+        </>
+      ) : (
+        <>That teacher isn&apos;t available right now.</>
+      )}
+      {online.length > 0 ? " These teachers are free now." : ""}
+    </div>
+  );
 
   // Was: a full replacement of the list with a "Couldn't check who's online"
   // card. That was correct when presence was the only signal a teacher was
@@ -263,6 +337,7 @@ export function OnlineList({
             {banner}
           </div>
         )}
+        {againBanner}
         {/* Only claim nobody is online once we have actually been told so.
             Until the first successful roster read, an empty derived list means
             "we don't know yet" — asserting otherwise sends a student away from
@@ -304,6 +379,7 @@ export function OnlineList({
           {banner}
         </div>
       )}
+        {againBanner}
       {error && <FormError className="mb-4">{error}</FormError>}
       {!canStart && (
         <div className="mb-6 rounded-xl border border-border bg-muted px-4 py-3 text-foreground">

@@ -159,6 +159,12 @@ export default async function TeachersPage({
               outcome={one(params.outcome) || undefined}
               teacherName={one(params.teacher) || undefined}
               refundAmountPaise={parsePositiveInt(one(params.amount))}
+              // "Book X again", arriving from a row in /sessions. Passed
+              // through unvalidated on purpose: it is only ever compared
+              // against ids already in `eligible`, so a junk or hostile value
+              // matches nothing and the list renders exactly as it would
+              // without it. Nothing is looked up by it.
+              againTeacherId={one(params.again) || undefined}
             />
           )}
 

@@ -42,7 +42,10 @@ export default async function SessionsPage() {
   const { data, error } = await supabase
     .from("sessions")
     .select(
-      "id, subject, curriculum, grade, created_at, started_at, amount_paid_paise, refund_ref, cancellation_reason, teacher:profiles!sessions_teacher_id_fkey (full_name)"
+      // teacher_id and stream are here for "Book again": /teachers filters on
+      // curriculum/grade/stream/subject, and stream was the one criterion this
+      // page never needed until a row became a way back to the same teacher.
+      "id, subject, curriculum, grade, stream, teacher_id, created_at, started_at, amount_paid_paise, refund_ref, cancellation_reason, teacher:profiles!sessions_teacher_id_fkey (full_name)"
     )
     .eq("student_id", identity.userId)
     .or("amount_paid_paise.not.is.null,refund_ref.not.is.null")
@@ -121,7 +124,40 @@ export default async function SessionsPage() {
                               </span>
                             )}
                           </p>
-                          <div className="mt-4">
+                          {/* EVERY listed row gets this, whatever the status.
+                              Why a lesson did not happen is not ours to read:
+                              a payment that failed, a parent who changed their
+                              mind and a teacher who declined all look the same
+                              from here, and in each case wanting that same
+                              teacher again is the parent's call. (Rows that
+                              never touched money are not on this page at all,
+                              so "every row" is every row a parent can see.)
+
+                              An explicit control rather than the whole card
+                              being a link: ReportButton is a button inside
+                              this row, and nesting interactive elements is
+                              invalid and breaks keyboard and screen-reader
+                              navigation. Same reason the teacher card uses an
+                              explicit disclosure instead of a tappable body.
+
+                              Carries the subject and the rest of the criteria,
+                              so the list arrives filtered the way it was the
+                              first time. It is a query string, so the parent
+                              can still change any of it on /teachers. */}
+                          <div className="mt-4 flex flex-wrap items-center gap-3">
+                            <Button asChild variant="outline" size="sm">
+                              <Link
+                                href={`/teachers?${new URLSearchParams({
+                                  curriculum: s.curriculum ?? "",
+                                  grade: s.grade ?? "",
+                                  stream: s.stream ?? "",
+                                  subject: s.subject ?? "",
+                                  again: s.teacher_id ?? "",
+                                })}`}
+                              >
+                                Book {teacherName.split(" ")[0]} again
+                              </Link>
+                            </Button>
                             <ReportButton sessionId={s.id} />
                           </div>
                         </CardContent>
