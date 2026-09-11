@@ -13,3 +13,5 @@
 - [Push silence is usually the OS](push-silence-is-usually-the-os.md) — FCM 201 and still nothing? Check macOS and Brave before any code.
 - [Read the whole function before diagnosing](read-the-whole-function-before-diagnosing.md) — two wrong root causes in an hour, both from stopping four lines early.
 - [No real users yet](no-real-users-yet.md) — every production account is experimental; don't inflate severity with imagined users.
+- [localhost is blocked, use 127.0.0.1](localhost-is-blocked-use-127-0-0-1.md) — the extension allows the loopback IP, not the hostname; different origins, so no shared session.
+- [Preply design-pass backlog](preply-design-pass-backlog.md) — 45 items in a shared Artifact, not the repo; tick state syncs across both machines.

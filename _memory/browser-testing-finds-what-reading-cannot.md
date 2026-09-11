@@ -63,3 +63,34 @@ the thing.
 treat what they report as the highest-signal input available. Do not defend the first design —
 [[read-the-whole-function-before-diagnosing]] is what defending it looks like.
 
+
+**2026-09-11 — the same lesson, twice more, and both times the tests were green.**
+
+*Three defects that 685 passing tests could not see.* Rebuilding the teacher card, every test
+passed while the component was visibly broken, because **jsdom has no layout engine**:
+
+- with no demo video the media column was still declared, so a teacher who never uploaded one
+  had their facts squeezed into an empty 11rem track
+- the play button used `bg-background/90` — a theme-flipping token — directly on an arbitrary
+  video frame, so in dark theme it was a dark circle on a dark thumbnail. `globals.css` already
+  documents this hazard for `--stage`
+- `hqdefault.jpg` is 480x360 and bakes letterbox bars into every 16:9 video, which
+  `object-cover` then cropped into the card as two dead bands
+
+None is subtle on screen. All three were invisible to the suite. The first was caught by
+self-review; the other two only by rendering it.
+
+*Four wrong findings from reading instead of looking.* A competitive audit produced a written
+list asserting that our code of conduct, refund policy and tutor no-show rule "exist nowhere".
+**All three are published on `/terms`** — five numbered conduct categories with explicit
+penalties, a six-case refund policy, and a student code of conduct. Opening the page corrected
+in minutes what reading the repo had got wrong with confidence. A fifth item claimed the price
+label was a defect; `SESSION_DURATION_MINUTES = 60` settled it in thirty seconds.
+
+**How to apply:**
+- **A green suite is necessary and not sufficient for anything with a layout.** Before calling a
+  component done, render it — a throwaway preview route with fixtures is enough when the real
+  surface is auth-gated, and takes minutes.
+- **Before writing that something does not exist, open the page.** "I did not find it in the
+  repo" is not "it is not there", and the difference is expensive once it is written down.
+- Related: [[localhost-is-blocked-use-127-0-0-1]]
