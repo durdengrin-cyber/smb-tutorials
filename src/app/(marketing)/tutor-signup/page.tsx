@@ -83,12 +83,47 @@ export default async function TutorSignUpPage() {
     <div className="min-h-screen bg-background">
       <main className="px-8 py-12">
         <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8">
             <PageHeader
               title="Join as a Tutor"
               description="Start teaching and making a difference today"
             />
           </div>
+
+          {/* What happens after Submit, said BEFORE fifteen fields rather than
+              in a line under the button nobody reads until they have already
+              decided. That a human reads every application is a reason a good
+              teacher applies and a reason a bad one does not, so it belongs
+              where the decision is made.
+
+              Numbered because this genuinely is a sequence — the steps happen
+              in this order and the applicant is waiting on step 2. No
+              duration: see the note in tutor-form.tsx. */}
+          <ol className="mb-12 grid gap-px border border-border bg-border sm:grid-cols-3">
+            {[
+              ["Apply", "Your details, your subjects, and a demo video."],
+              [
+                "We check your ID",
+                "A person matches it to the name on your account.",
+              ],
+              [
+                "You go live",
+                "Students can pick you as soon as the check clears.",
+              ],
+            ].map(([title, body], i) => (
+              <li key={title} className="bg-background p-5">
+                <span className="mb-2 block font-mono text-[11px] tracking-wider text-primary">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <h2 className="mb-1 text-sm font-semibold tracking-tight text-foreground">
+                  {title}
+                </h2>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {body}
+                </p>
+              </li>
+            ))}
+          </ol>
 
           {signedIn && !canConvert && identity?.role !== "teacher" ? (
             // canBecomeTeacher (routes.ts) admits only "student" and

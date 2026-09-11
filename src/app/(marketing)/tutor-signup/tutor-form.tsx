@@ -308,9 +308,22 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
         )}
       </Button>
 
+      {/* This said "Our team will review your application and contact you
+          within 2-3 business days." Nothing contacts an applicant, and no
+          mechanism holds anyone to 2-3 days — there is one operator and no
+          SLA. A cleared teacher simply becomes visible to students.
+
+          Deliberately names no duration. A number here is a promise with no
+          enforcer, which is exactly how the sentence it replaced went wrong.
+          What it points at instead is checkable: VettingBanner renders
+          vettingMessage("unvetted") on the dashboard and stops once the state
+          is "cleared", so "your dashboard will say so" is a claim with
+          something behind it. entity-name and profile-claims exist for the
+          same reason — tutor-signup-claims.test.ts now guards this one. */}
       <p className="text-sm text-muted-foreground text-center">
-        Our team will review your application and contact you within 2-3
-        business days.
+        A person checks your ID against the name on your account before you can
+        teach. Once that&apos;s done you go live and students can pick you — we
+        won&apos;t email you about it, your dashboard will say so.
       </p>
     </form>
   );
