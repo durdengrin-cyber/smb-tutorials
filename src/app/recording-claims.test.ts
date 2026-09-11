@@ -244,7 +244,23 @@ describe("the published policy and the consent version move together", () => {
   // reach us, not what we do with anyone's data, what recording means, how long
   // it is kept or who may open it — so nobody has to agree again. The test
   // firing here is it working: the question got asked out loud.
-  const POLICY_FINGERPRINT = "37fc883b4e1c562c";
+  //
+  // Moved again 2026-09-11, also COSMETIC, also without a bump: two instances
+  // of "SMB Tutorial" -> "SMB Tutorials" in /terms. Both sat in the sentences
+  // that bind tutors ("all tutors at SMB Tutorial are held to a high
+  // standard", "By creating a tutor account and accepting sessions on SMB
+  // Tutorial, you agree...") and both were invisible to a plain grep because
+  // JSX had wrapped them mid-name. entity-name.test.ts now guards this.
+  //
+  // Cosmetic, and the reasoning is worth keeping because the opposite call
+  // looks more cautious and is not. No obligation, right or party changes: the
+  // two spellings name the same platform, defined by the site the clause sits
+  // on, and no other entity bears either name. Bumping would make every
+  // existing guardian re-agree over a missing "s" — and on a product about
+  // children, teaching people to click through a meaningless re-consent is how
+  // the next one that IS material gets clicked through too. The mechanism is
+  // worth more unspent.
+  const POLICY_FINGERPRINT = "7dc711d13ef86ca8";
   const CONSENT_VERSION_AT_FINGERPRINT = "2026-09-10-recording";
 
   const actual = createHash("sha256")

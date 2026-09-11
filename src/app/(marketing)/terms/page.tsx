@@ -63,7 +63,7 @@ export default function TermsPage() {
 
               <p className="text-muted-foreground mb-4">
                 To maintain the integrity of our marketplace, all tutors at SMB
-                Tutorial are held to a high standard of professional
+                Tutorials are held to a high standard of professional
                 accountability.
               </p>
 
@@ -175,7 +175,7 @@ export default function TermsPage() {
               </h2>
               <p className="text-muted-foreground mb-4">
                 By creating a tutor account and accepting sessions on SMB
-                Tutorial, you agree to the following as binding conditions of
+                Tutorials, you agree to the following as binding conditions of
                 teaching on the platform.
               </p>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
