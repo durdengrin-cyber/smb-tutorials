@@ -4,7 +4,20 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // DEV ONLY, and it has no effect on any build or deployment: Next 16 refuses
+  // to serve its own /_next/static dev chunks across origins, and it counts
+  // 127.0.0.1 as a different origin from localhost. Browsing the dev server by
+  // IP therefore loads the HTML, loads nothing else, and the app never
+  // hydrates — every button is inert, with NOTHING in the browser console,
+  // because the refusal is logged server-side to
+  // .next/dev/logs/next-development.log.
+  //
+  // That cost an hour on 2026-09-11. It looked exactly like a hydration bug in
+  // our own code, and it is not ours at all: the same commit hydrates fine on
+  // production and fine on localhost. It only reproduces by IP, which is the
+  // one way the Claude browser extension can reach this server — it allows
+  // 127.0.0.1 and refuses localhost.
+  allowedDevOrigins: ["127.0.0.1"],
 };
 
 // Source map upload is what turns a minified production stack trace into a

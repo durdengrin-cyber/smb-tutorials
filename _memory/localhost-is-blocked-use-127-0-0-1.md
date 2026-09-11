@@ -1,6 +1,6 @@
 ---
 name: localhost-is-blocked-use-127-0-0-1
-description: The Chrome extension refuses http://localhost:3000 but allows http://127.0.0.1:3000 — the same dev server, a different host string.
+description: The extension allows 127.0.0.1:3000 and refuses localhost:3000 — and Next 16 will not hydrate over the IP unless allowedDevOrigins names it.
 metadata:
   type: project
 ---
@@ -11,6 +11,21 @@ by site permission and treats the two as different origins; only the loopback IP
 
 Found 2026-09-11 after concluding the dev server was simply unreachable and telling the owner the
 only options were to grant a permission or sign in on production. Neither was necessary.
+
+**THE TRAP, and it cost an hour the same day.** Next 16 also counts `127.0.0.1` as a different
+origin from `localhost`, and **refuses to serve its own `/_next/static` dev chunks across
+origins**. Browsing by IP therefore renders the HTML and hydrates NOTHING: every button inert,
+every toggle dead, `aria-expanded` frozen — and **nothing whatsoever in the browser console**,
+because the refusal is logged server-side. It reads exactly like a hydration bug in your own
+code, and it is not yours: the same commit hydrates fine on production and fine on `localhost`.
+
+`next.config.ts` now carries `allowedDevOrigins: ["127.0.0.1"]`, which fixes it — dev only, no
+effect on any build. **It needs a dev-server restart to take effect.** If inert-UI symptoms ever
+return, check that entry survived before suspecting anything else.
+
+**Read `.next/dev/logs/next-development.log`.** That is where the dev server puts what the
+browser console never shows — the cross-origin refusal above was sitting in it the whole time.
+Grep it before theorising: `grep -iE "error|⨯|Blocked" .next/dev/logs/next-development.log`.
 
 **How to apply:**
 - Reach for `127.0.0.1:3000`, not `localhost:3000`, whenever driving the dev server in the
