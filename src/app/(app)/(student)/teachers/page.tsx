@@ -96,20 +96,36 @@ export default async function TeachersPage({
 
   const { data, error } = await query.returns<TeacherRow[]>();
 
-  const teachers: TeacherCardData[] = (data ?? []).map((t) => ({
-    id: t.id,
-    full_name: t.full_name,
-    qualification: t.qualification,
-    specialization: t.specialization,
-    experience_years: t.experience_years,
-    hourly_rate: t.hourly_rate,
-    bio: t.bio,
-    demo_video_url: t.demo_video_url,
-    subject:
-      (isSubjectOf(stream, subject) && subject) ||
-      t.teacher_subjects[0]?.subject ||
-      "",
-  }));
+  const teachers: TeacherCardData[] = (data ?? []).map((t) => {
+    // The row the student's own search matched, where they gave one. The
+    // query already inner-joins teacher_subjects on every criterion supplied,
+    // so any returned row satisfies them — but a teacher who teaches six
+    // combinations has six rows, and [0] is whichever Postgres returned
+    // first. Picking the matching row is what stops a card saying "12th ·
+    // ICSE" to a student who searched 10th CBSE.
+    const matched =
+      t.teacher_subjects.find(
+        (s) =>
+          (!isCurriculum(curriculum) || s.curriculum === curriculum) &&
+          (!isGrade(grade) || s.grade === grade) &&
+          (!isSubjectOf(stream, subject) || s.subject === subject)
+      ) ?? t.teacher_subjects[0];
+
+    return {
+      id: t.id,
+      full_name: t.full_name,
+      qualification: t.qualification,
+      specialization: t.specialization,
+      experience_years: t.experience_years,
+      hourly_rate: t.hourly_rate,
+      bio: t.bio,
+      demo_video_url: t.demo_video_url,
+      subject:
+        (isSubjectOf(stream, subject) && subject) || matched?.subject || "",
+      curriculum: matched?.curriculum ?? "",
+      grade: matched?.grade ?? "",
+    };
+  });
 
   const criteria = [subject, curriculum, grade].filter(Boolean).join(" • ");
 
