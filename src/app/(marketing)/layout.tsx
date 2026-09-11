@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { getIdentity } from "@/lib/auth";
 import { MarketingHeader } from "@/components/marketing-header";
 import { MarketingFooter } from "@/components/marketing-footer";
@@ -16,10 +17,20 @@ export default async function MarketingLayout({
   // It has to be caught HERE: an error.tsx does not wrap the layout.js of its
   // own segment, so a throw from this file would bubble past (marketing)/error.tsx
   // to global-error.tsx and replace /, /signin, /signup and /terms at once.
+  //
+  // unstable_rethrow FIRST, before the log. getIdentity reads cookies, and at
+  // build time Next probes these routes for static generation — cookies()
+  // raises DynamicServerError, which is control flow, not a failure. Next's
+  // own docs say the error cookies() throws "should not be caught by the
+  // developer". Swallowing it printed "identity lookup failed" nine times in
+  // a clean build, and a warning that cries wolf every time is how the real
+  // Supabase outage this line exists to surface gets scrolled past. The catch
+  // below is for genuine query failures only.
   let signedIn = false;
   try {
     signedIn = (await getIdentity()) !== null;
   } catch (e) {
+    unstable_rethrow(e);
     console.error("[MarketingLayout] identity lookup failed; rendering signed-out", e);
   }
 
