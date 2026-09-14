@@ -260,7 +260,31 @@ describe("the published policy and the consent version move together", () => {
   // children, teaching people to click through a meaningless re-consent is how
   // the next one that IS material gets clicked through too. The mechanism is
   // worth more unspent.
-  const POLICY_FINGERPRINT = "7dc711d13ef86ca8";
+  // Moved a third time 2026-09-14, COSMETIC, again without a bump: thirteen
+  // headings in /terms lowercased to the house sentence case — the five h2
+  // sections and the eight numbered h3 subheadings under them — plus the one
+  // in-body cross-reference that names a section ("...set out above in Tutor
+  // professional conduct & penalties"). Part of a site-wide sweep that found
+  // the product split 50/21 between sentence case and Title Case.
+  //
+  // The subheadings were nearly missed: a first pass did the h2s only, which
+  // left /terms internally inconsistent — sentence-case sections above
+  // Title Case subsections — and that is worse than the state it started in.
+  // They escaped the survey because they begin with a digit ("1. Attendance")
+  // and the scan only collected headings starting with a letter.
+  //
+  // This one is easier to call than the two above, and it was checked rather
+  // than assumed: /privacy was not touched at all, and /terms is byte-for-byte
+  // identical to its previous version when both are lowercased — so nothing
+  // but capitalisation moved. No clause, obligation, right, party, retention
+  // period or contact detail changed. The cross-reference was updated in the
+  // same commit precisely so it keeps pointing at a heading that exists.
+  //
+  // Bumping here would make every existing guardian re-agree over letter
+  // case, which is the erosion the note above warns about: teach people to
+  // click through a meaningless re-consent and the next material one gets
+  // clicked through too.
+  const POLICY_FINGERPRINT = "4865443f9936452f";
   const CONSENT_VERSION_AT_FINGERPRINT = "2026-09-10-recording";
 
   const actual = createHash("sha256")

@@ -14,7 +14,7 @@ export default function TermsPage() {
 
             <section className="mb-10">
               <h2 className="text-2xl font-bold text-foreground mb-4">
-                Refund Policy
+                Refund policy
               </h2>
               <p className="text-muted-foreground mb-3">
                 Our no-show and refund policy is as follows:
@@ -58,7 +58,7 @@ export default function TermsPage() {
 
             <section className="mb-10">
               <h2 className="text-2xl font-bold text-foreground mb-4">
-                Tutor Professional Conduct &amp; Penalties
+                Tutor professional conduct &amp; penalties
               </h2>
 
               <p className="text-muted-foreground mb-4">
@@ -69,7 +69,7 @@ export default function TermsPage() {
 
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-foreground mb-3">
-                  1. Attendance &amp; Reliability
+                  1. Attendance &amp; reliability
                 </h3>
                 <p className="text-muted-foreground mb-3">
                   Tutors are expected to be present and punctual for all
@@ -92,7 +92,7 @@ export default function TermsPage() {
 
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-foreground mb-3">
-                  2. Platform Circumvention
+                  2. Platform circumvention
                 </h3>
                 <p className="text-muted-foreground mb-3">
                   Attempting to take a student &quot;off-platform&quot; to avoid
@@ -112,7 +112,7 @@ export default function TermsPage() {
 
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-foreground mb-3">
-                  3. Content &amp; Quality Violations
+                  3. Content &amp; quality violations
                 </h3>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
@@ -129,7 +129,7 @@ export default function TermsPage() {
 
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-foreground mb-3">
-                  4. Conduct &amp; Harassment
+                  4. Conduct &amp; harassment
                 </h3>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
@@ -147,8 +147,8 @@ export default function TermsPage() {
 
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-foreground mb-3">
-                  5. Live Booking &amp; Acceptance (&quot;Instant Connect&quot;
-                  Rule)
+                  5. Live booking &amp; acceptance (&quot;Instant Connect&quot;
+                  rule)
                 </h3>
                 <p className="text-muted-foreground mb-3">
                   Tutors who toggle their status to &quot;Live / Available
@@ -171,7 +171,7 @@ export default function TermsPage() {
 
             <section id="tutor-agreement" className="mb-10">
               <h2 className="text-2xl font-bold text-foreground mb-4">
-                Tutor Agreement
+                Tutor agreement
               </h2>
               <p className="text-muted-foreground mb-4">
                 By creating a tutor account and accepting sessions on SMB
@@ -186,7 +186,7 @@ export default function TermsPage() {
                 </li>
                 <li>
                   <strong>Conduct:</strong> You agree to the conduct rules set
-                  out above in Tutor Professional Conduct &amp; Penalties.
+                  out above in Tutor professional conduct &amp; penalties.
                 </li>
                 <li>
                   <strong>You Are Recorded Too:</strong> Every session is
@@ -210,7 +210,7 @@ export default function TermsPage() {
 
             <section className="mb-10">
               <h2 className="text-2xl font-bold text-foreground mb-4">
-                Student Code of Conduct &amp; Safety Policy
+                Student code of conduct &amp; safety policy
               </h2>
 
               <p className="text-muted-foreground mb-4">
@@ -221,7 +221,7 @@ export default function TermsPage() {
 
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-foreground mb-3">
-                  1. Professionalism &amp; Respect
+                  1. Professionalism &amp; respect
                 </h3>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
@@ -246,7 +246,7 @@ export default function TermsPage() {
 
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-foreground mb-3">
-                  2. Live Session Integrity
+                  2. Live session integrity
                 </h3>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
@@ -286,7 +286,7 @@ export default function TermsPage() {
 
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-foreground mb-3">
-                  3. Academic Integrity
+                  3. Academic integrity
                 </h3>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>
@@ -308,7 +308,7 @@ export default function TermsPage() {
 
             <section className="bg-muted rounded-xl p-6 mt-8">
               <h3 className="text-lg font-bold text-foreground mb-2">
-                Questions About Our Policies?
+                Questions about our policies?
               </h3>
               <p className="text-muted-foreground mb-3">
                 If you have any questions about these terms and conditions,

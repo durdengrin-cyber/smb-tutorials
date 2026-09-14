@@ -86,7 +86,7 @@ export function ProfileForm(values: ProfileFormValues) {
 
       <div>
         <h3 className="text-xl font-bold text-foreground mb-4">
-          Personal Information
+          Personal information
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -126,7 +126,7 @@ export function ProfileForm(values: ProfileFormValues) {
 
       <div>
         <h3 className="text-xl font-bold text-foreground mb-4">
-          Education &amp; Qualifications
+          Education &amp; qualifications
         </h3>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -195,7 +195,7 @@ export function ProfileForm(values: ProfileFormValues) {
 
       <div>
         <h3 className="text-xl font-bold text-foreground mb-4">
-          Teaching Preferences
+          Teaching preferences
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -251,7 +251,7 @@ export function ProfileForm(values: ProfileFormValues) {
       </div>
 
       <div>
-        <h3 className="text-xl font-bold text-foreground mb-4">Demo Video</h3>
+        <h3 className="text-xl font-bold text-foreground mb-4">Demo video</h3>
         <div className="space-y-2">
           <Label htmlFor="profile-demoVideoUrl">Demo Video Link (YouTube) *</Label>
           <p className="text-sm text-muted-foreground">

@@ -85,7 +85,7 @@ export default async function TutorSignUpPage() {
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-8">
             <PageHeader
-              title="Join as a Tutor"
+              title="Join as a tutor"
               description="Start teaching and making a difference today"
             />
           </div>

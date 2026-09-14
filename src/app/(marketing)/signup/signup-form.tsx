@@ -30,7 +30,7 @@ export function SignUpForm() {
         <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
           <span className="text-primary-foreground font-bold text-2xl">SMB</span>
         </div>
-        <PageHeader as="h1" title="Create Account" description="Start your learning journey" />
+        <PageHeader as="h1" title="Create account" description="Start your learning journey" />
       </div>
 
       <GoogleButton label="Sign up with Google" />
@@ -160,7 +160,7 @@ export function SignUpForm() {
         {state?.error && <FormError>{state.error}</FormError>}
 
         <Button type="submit" disabled={isPending} className="w-full h-11">
-          {isPending ? "Creating account…" : "Create Account"}
+          {isPending ? "Creating account…" : "Create account"}
         </Button>
       </form>
 
@@ -171,7 +171,7 @@ export function SignUpForm() {
             href="/signin"
             className="text-primary font-semibold underline-offset-4 hover:underline"
           >
-            Sign In
+            Sign in
           </Link>
         </p>
       </div>

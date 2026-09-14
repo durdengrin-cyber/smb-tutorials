@@ -58,7 +58,7 @@ export default function SignUpPage() {
               href="/signin"
               className="inline-flex items-center gap-2 font-medium text-primary hover:underline"
             >
-              ← Back to Sign In
+              ← Back to sign in
             </Link>
           </div>
 

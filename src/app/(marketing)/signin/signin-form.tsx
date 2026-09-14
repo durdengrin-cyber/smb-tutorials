@@ -25,7 +25,7 @@ export function SignInForm({
         <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
           <span className="text-primary-foreground font-bold text-2xl">SMB</span>
         </div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Sign In</h1>
+        <h1 className="text-3xl font-bold text-foreground mb-2">Sign in</h1>
         <p className="text-muted-foreground">Access your account</p>
       </div>
 
@@ -79,7 +79,7 @@ export function SignInForm({
         {error && <FormError>{error}</FormError>}
 
         <Button type="submit" disabled={isPending} className="w-full h-11">
-          {isPending ? "Signing in…" : "Sign In"}
+          {isPending ? "Signing in…" : "Sign in"}
         </Button>
       </form>
 

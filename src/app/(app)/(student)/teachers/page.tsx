@@ -134,7 +134,7 @@ export default async function TeachersPage({
       <div className="px-4 py-8 sm:px-8 sm:py-12">
         <div className="max-w-6xl mx-auto">
           <PageHeader
-            title="Available Teachers"
+            title="Available teachers"
             description={
               criteria ? `Showing teachers for ${criteria}` : "Showing all teachers"
             }

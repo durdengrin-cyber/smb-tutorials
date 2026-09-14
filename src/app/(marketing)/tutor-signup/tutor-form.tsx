@@ -34,7 +34,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
       {/* Personal Information */}
       <div>
         <h3 className="text-xl font-bold text-foreground mb-4">
-          Personal Information
+          Personal information
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -112,7 +112,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
       {/* Education & Qualifications */}
       <div>
         <h3 className="text-xl font-bold text-foreground mb-4">
-          Education &amp; Qualifications
+          Education &amp; qualifications
         </h3>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -149,7 +149,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
       {/* Teaching Preferences */}
       <div>
         <h3 className="text-xl font-bold text-foreground mb-4">
-          Teaching Preferences
+          Teaching preferences
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -202,7 +202,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
 
       {/* Demo Video */}
       <div>
-        <h3 className="text-xl font-bold text-foreground mb-4">Demo Video</h3>
+        <h3 className="text-xl font-bold text-foreground mb-4">Demo video</h3>
         <div className="space-y-3">
           <Label htmlFor="tutor-demoVideoUrl">Demo Video Link (YouTube) *</Label>
           <p className="text-sm text-muted-foreground mb-3">
@@ -268,7 +268,7 @@ export function TutorForm({ signedIn = false }: { signedIn?: boolean }) {
             href="/terms#tutor-agreement"
             className="text-primary underline underline-offset-4"
           >
-            Tutor Agreement
+            Tutor agreement
           </Link>
           , and{" "}
           <Link

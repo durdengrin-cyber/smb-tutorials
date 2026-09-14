@@ -58,7 +58,7 @@ export default function FindPage() {
       <div className="relative z-10 flex items-center justify-center px-4 py-8 sm:px-8 sm:py-12">
         <div className="max-w-2xl w-full">
           <PageHeader
-            title="Tell Us What You Need"
+            title="Tell us what you need"
             description="We'll find the perfect teacher for you"
           />
 
@@ -159,7 +159,7 @@ export default function FindPage() {
                 className="h-auto w-full py-4 animate-fadeIn"
                 onClick={findTeachers}
               >
-                Find Available Teachers →
+                Find available teachers →
               </Button>
             )}
             </CardContent>
