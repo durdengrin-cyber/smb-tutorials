@@ -19,11 +19,17 @@ The owner asked for it and chose the value; `#8f5f2b` bronze → **`#186a63`** o
   beside the token, because the honest reading of the diff without it is "somebody changed one
   theme and forgot the other".
 - **The icons were already teal and nobody had noticed.** `icon-192.png`, `icon-512.png` and the
-  maskable icon are a solid `#0d9488`, and the manifest's `theme_color` matched them. The 09-05
+  maskable icon were a solid `#0d9488`, and the manifest's `theme_color` matched them. The 09-05
   bronze cycle changed the CSS and never touched the PWA assets — so for nine days the installed
-  icon and browser chrome were teal while every button inside was bronze. `theme_color` is now
-  `#186a63`. **The three PNGs are still `#0d9488` and no longer match. Regenerating them is an
-  open asset job.**
+  icon and browser chrome were teal while every button inside was bronze. **Closed on 2026-09-14
+  (`ad1d68c`), and closed at the root rather than by recolouring**: `scripts/generate-icons.mjs`
+  reads `:root --primary` and writes all four artefacts that carry the brand colour — the three
+  PNGs and `theme_color` — so no half of the job can be done alone again. The 09-05 design is
+  reproduced, not redrawn (radius, cap height and wordmark width measured off the old PNGs and
+  matched within a pixel); the wordmark is now centred, where it sat 7px right of centre.
+  `src/lib/pwa-icons.test.ts` decodes the committed PNGs and fails if their ground colour leaves
+  the token — verified by reverting one icon and watching it fail. **Changing `--primary` is now
+  two steps: edit the token, run the script, commit the PNGs.**
 - **The light neutrals were pink, not warm** (`a2ce9f1`). `--secondary`, `--muted`, `--accent`,
   `--border`, `--input`, `--hair` and the two sidebar mirrors all had blue above green. Invisible
   beside bronze — pink and bronze are neighbours — and it read as dirt beside teal, its
@@ -117,9 +123,16 @@ answerable. Estimated 5-7 sessions; Phase 5 is blocked on a student login.
 Then a choice of build: **exam targets Phase 1**, or the **Preply backlog**, which needs a browser
 session with a real student account before its unverified items mean anything.
 
-**Two jobs the theme change opened**, neither urgent: regenerate the three PNG icons off `#0d9488`
-so they match the UI, and decide whether `--muted-foreground` stops being aubergine. And
-**`main` needs the teal merged into it** once the product screens have been looked at.
+**Where those jobs stand.** The icons are done (`ad1d68c`, above). `main` has the teal — it was
+fast-forwarded and pushed on 2026-09-14, ahead of the browser check, on the owner's call.
+Still open: decide whether `--muted-foreground` stops being aubergine.
+
+**New, found while regenerating the icons: `src/app/favicon.ico` is the Next.js starter default.**
+A black circle and a white triangle, untouched since 24 Aug — every browser tab has shown Next's
+logo, never an SMB mark, and it never matched either the bronze or the teal cycle. It is NOT a
+regeneration job like the PNGs were: "SMB" is illegible at 16px, so the tab icon needs a mark that
+survives that size (a single `S`, or a glyph) and that is a design decision, not a colour swap.
+`scripts/generate-icons.mjs` says so in its header and deliberately does not touch the file.
 
 ---
 
