@@ -92,19 +92,28 @@ body {
      cycle, so light theme now agrees with them instead of contradicting. */
   --primary: #186a63;
   --primary-foreground: #fbf8f5;
-  --secondary: #efe9ea;
+  /* Warm greys with the mauve taken out. They were pink — blue above green
+     in every one of them — which was invisible beside bronze, its neighbour,
+     and read as dirt beside teal, its near-complement. Same lightness, same
+     warmth, no pink. If these ever look flat, warm them; do not cool them:
+     the warm ground is the only thing still tying this theme to the dark one
+     now that the accent hue differs. --muted-foreground is deliberately NOT
+     in this group — it is the loudest mauve and also the aubergine the dark
+     theme is built from, so changing it is an identity decision, not a
+     cleanup. */
+  --secondary: #efeae4;
   --secondary-foreground: #2e1f33;
-  --muted: #efe9ea;
+  --muted: #efeae4;
   --muted-foreground: #6f5c75;
-  --accent: #efe9ea;
+  --accent: #efeae4;
   --accent-foreground: #2e1f33;
   --destructive: #a33232;
   --destructive-foreground: #fbf8f5;
   --success: #2f6b46;
   --success-foreground: #fbf8f5;
-  --border: #e3d9dd;
-  --hair: #ece4e6;
-  --input: #e3d9dd;
+  --border: #e3dbd3;
+  --hair: #ece5de;
+  --input: #e3dbd3;
   --ring: #186a63;
   --chart-1: #186a63;
   --chart-2: #6f5c75;
@@ -128,9 +137,9 @@ body {
   --sidebar-foreground: #2e1f33;
   --sidebar-primary: #186a63;
   --sidebar-primary-foreground: #fbf8f5;
-  --sidebar-accent: #efe9ea;
+  --sidebar-accent: #efeae4;
   --sidebar-accent-foreground: #2e1f33;
-  --sidebar-border: #e3d9dd;
+  --sidebar-border: #e3dbd3;
   --sidebar-ring: #186a63;
 }
 
