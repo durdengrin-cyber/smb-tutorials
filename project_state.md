@@ -1,16 +1,71 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-14, session close)
+## ▶ START HERE (updated 2026-09-15, session close)
 
-**The branches are TOGETHER again.** Both `main` and `feat/teacher-vetting` are at `1857fbb`,
-pushed. The teal theme was fast-forwarded onto `main` on 2026-09-14 and **is deploying to
-production** — the owner chose to ship it without the browser check the block below asks for, so
-`/teachers` and `/home` are live with teal that nobody has looked at. Working tree clean,
-30 migrations, hook reports repo and production agree.
-`713 tests pass · 5 skipped · tsc 0 · eslint 0 errors · build clean`, re-run on the merged tree
-2026-09-14.
+**Both `main` and `feat/teacher-vetting` are at the same commit, pushed.** Working tree clean,
+30 migrations, repo and production agree.
+`752 tests pass · 5 skipped · tsc 0 · eslint 0 errors · build clean`, 2026-09-15.
 
-### The light theme is teal now, and main has it
+### Every route was opened in a browser — 23 of 23 — and that found seven defects
+The 09-14 session shipped teal without looking at the product screens. This one looked at all of
+them, signed in as student, teacher and admin, light and dark, desktop and 400px. **Five of the
+seven defects were invisible to the 713 tests that were passing**, because jsdom computes no
+layout and loads no iframes. All seven are fixed, pushed, and guarded.
+
+**`/teachers` was broken four ways at once** (`e1cb8ae`) — nobody had ever opened it with a
+teacher actually online:
+- **The primary call to action was clipped at EVERY desktop width.** The list wrapped the card in
+  `lg:grid-cols-3` (a 299-368px cell) while the card's `lg` template is a full-width 471px row
+  with `overflow-hidden`. 103-172px of the decision column — the price and "Start now" — was cut
+  off from 1024px up, and `max-w-6xl` meant three cards never fit at any width. Live since the
+  card was rebuilt as a row on 09-11; the grid predated that by a fortnight.
+- **The specialization row lost its icon** — `lg:block` flattened `Fact`'s grid.
+- **The demo video played at 176px on desktop and 64x64 on a phone.** Now an overlay at
+  744x419 / 444x250, true 16:9. The lazy-load privacy property is kept AND enforced.
+- **That overlay then trapped the keyboard** (this one was self-inflicted): Radix focused the
+  iframe, so Escape went to youtube.com and the dialog could not be closed. Opening focus now
+  goes to the close button.
+
+**The admin was asked to enable alerts they never receive** (`d837f51`). `NotificationSetup` was
+teacher copy reused verbatim on `/admin`; admins are sent "New teacher application", never a
+session request. `audience` is now a REQUIRED prop so the compiler asks every caller.
+
+**"Nothing is charged until Mr. accepts."** Four places did `full_name.split(" ")[0]` and a
+teacher stored as "Mr. Azad" became "Mr." — including "Book Mr. again" on `/sessions`.
+`src/lib/names.ts` strips leading honorifics on the way out; nothing needs migrating.
+
+**The product spelled its headings two ways** (`99deba7`), 50 sentence case to 21 Title Case, the
+split running inside single pages. 33 strings swept; sentence case is now the rule, 77-0.
+`/terms` needed the `POLICY_FINGERPRINT` guard answered — verified byte-identical ignoring case,
+so COSMETIC, and `CONSENT_VERSION` deliberately NOT bumped.
+
+### Payments are Razorpay. Two authoritative files said Stripe until today
+`CLAUDE.md`'s locked-stack line and `2026-08-24-smb-tutorials-design.md` — the doc CLAUDE.md
+names as source of truth — both said **Stripe Checkout**, three weeks after Razorpay was chosen
+(2026-08-27, recorded in `2026-08-26-m3-payments-design.md`) and long after the adapter shipped.
+There is no Stripe dependency in `package.json` and never has been. Both corrected 2026-09-15.
+**Marketplace payouts are still named "Stripe Connect" in the specs on purpose** — no Razorpay
+equivalent has been evaluated, so that item is undecided, not merely unnamed.
+
+### The full payment path was exercised end to end, in test mode
+Request → accept → pay → call → complete, against the real Razorpay integration. Session
+`6ea7b119…` is `completed`, ₹5000, no refund needed — **test-mode keys, no real money**.
+`reconcile-payments.mjs` reports ALL INVARIANTS HOLD. Do not delete that row; it is the only
+end-to-end evidence the flow works. Be aware it is ₹5000 where every other row is ₹500, so it
+skews the oracle's earnings line and the teacher dashboard's pending-payout figure.
+
+### Still open, in the order they will bite
+1. **`smbtutorials.com` does not exist** — no A, no MX, no NS, confirmed 2026-09-14.
+   `support@smbtutorials.com` is published 8 times across `/privacy`, `/terms` and the footer.
+   A launch blocker on published legal copy, and it needs a domain, not a code change.
+2. **`src/app/favicon.ico` is still the Next.js starter default** — a black circle and white
+   triangle, untouched since 24 Aug. Needs a mark that survives 16px, which "SMB" does not, so it
+   is a design decision. `scripts/generate-icons.mjs` deliberately does not touch it.
+3. **`/about` is a placeholder** — a heading and one paragraph, none of the site's own vocabulary.
+4. Form labels are still Title Case throughout ("Full Name *"). Left alone deliberately: that is
+   an internally consistent convention of its own, unlike the headings.
+
+### Before this session: the light theme went teal, and main has it
 The owner asked for it and chose the value; `#8f5f2b` bronze → **`#186a63`** on five tokens
 (`--primary`, `--ring`, `--chart-1`, `--sidebar-primary`, `--sidebar-ring`), light theme only.
 

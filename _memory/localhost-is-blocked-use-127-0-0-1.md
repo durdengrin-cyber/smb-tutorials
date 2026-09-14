@@ -33,6 +33,15 @@ Grep it before theorising: `grep -iE "error|⨯|Blocked" .next/dev/logs/next-dev
 - **They are different origins to the browser, not just to the extension.** A session cookie set
   on `smb-tutorials.vercel.app` — or on `localhost` — does not exist on `127.0.0.1`. Anything
   auth-gated still needs a sign-in on that exact origin, and the agent cannot type passwords.
+- **It also hijacks the payment return, and that one looks like a product bug.** The Razorpay
+  `callback_url` is built from `NEXT_PUBLIC_SITE_URL` via `src/lib/site-url.ts`, which locally
+  resolves to `localhost:3000`. Pay while browsing on `127.0.0.1` and the provider returns you to
+  the OTHER origin, where the session cookie does not exist — so a successful payment dumps you on
+  `/signin`. Seen 2026-09-15 and diagnosed as a checkout-return fault for a minute before the
+  origin split explained it. **The app is behaving correctly**: it redirects to
+  `/signin?next=…` with the full destination and the `razorpay_*` params preserved, and loading
+  `/waiting/<id>` on `127.0.0.1` walks straight through to `/call`. Nothing to fix — production
+  has one host. Recover by re-opening the same session id on the origin you were signed in on.
 - For an auth-gated component, a **throwaway preview route** rendering it against fixtures beats
   arranging a session: make it, screenshot it, delete it in the same turn. That is what caught
   two of the three card defects in [[browser-testing-finds-what-reading-cannot]].
