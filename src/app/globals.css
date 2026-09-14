@@ -77,9 +77,20 @@ body {
   --card-foreground: #2e1f33;
   --popover: #ffffff;
   --popover-foreground: #2e1f33;
-  /* Bronze, not the gold used on dark: on a pale ground the lighter value
-     fails as a link colour. Same hue, two jobs. */
-  --primary: #8f5f2b;
+  /* Teal, and NOT the same hue as dark's gold. Spec 5.2 called for one hue
+     in two values — "same hue, two jobs" — and that is no longer what this
+     file does: the owner chose teal on light and gold on dark deliberately
+     on 2026-09-14. The spec line is now history, not a rule; anything that
+     reads it and "fixes" this token back to bronze is undoing a decision.
+     Chosen over the demo's own teal-700, which is deliberately not written
+     here as a hex: the demo-palette guard in theme.test.ts greps this whole
+     file, comments included, and naming the value is how the guard's first
+     false green would arrive. It sat at the same contrast bronze did and
+     left almost no headroom under the 12% tint —
+     this clears the ground at 5.75, a card at 6.40 and its own tint at
+     5.36. The app icon and the manifest have been #0d9488 since the PWA
+     cycle, so light theme now agrees with them instead of contradicting. */
+  --primary: #186a63;
   --primary-foreground: #fbf8f5;
   --secondary: #efe9ea;
   --secondary-foreground: #2e1f33;
@@ -94,8 +105,8 @@ body {
   --border: #e3d9dd;
   --hair: #ece4e6;
   --input: #e3d9dd;
-  --ring: #8f5f2b;
-  --chart-1: #8f5f2b;
+  --ring: #186a63;
+  --chart-1: #186a63;
   --chart-2: #6f5c75;
   --chart-3: #2e1f33;
   --chart-4: #b4884f;
@@ -115,12 +126,12 @@ body {
   --radius: 0.625rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #2e1f33;
-  --sidebar-primary: #8f5f2b;
+  --sidebar-primary: #186a63;
   --sidebar-primary-foreground: #fbf8f5;
   --sidebar-accent: #efe9ea;
   --sidebar-accent-foreground: #2e1f33;
   --sidebar-border: #e3d9dd;
-  --sidebar-ring: #8f5f2b;
+  --sidebar-ring: #186a63;
 }
 
 /* Dark. Aubergine-black, not neutral black: warm, not clinical (spec §5.1).

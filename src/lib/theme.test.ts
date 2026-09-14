@@ -35,12 +35,16 @@ describe("the token system", () => {
   });
 
   // The brand accent belongs on --primary. shadcn's --accent is a subtle hover
-  // surface; putting gold there turns every hover state gold and leaves the
-  // buttons grey. Pin it so a later edit cannot quietly swap them.
+  // surface; putting the brand colour there turns every hover state teal and
+  // leaves the buttons grey. Pin it so a later edit cannot quietly swap them.
+  //
+  // The value is teal as of 2026-09-14 and was bronze (#8f5f2b) before it.
+  // Light and dark no longer share a hue, which is a decision and not drift —
+  // globals.css records why beside the token.
   it("keeps the brand accent on --primary, not --accent", () => {
     const root = css.match(/:root \{([\s\S]*?)\n\}/)?.[1] ?? "";
-    expect(root).toMatch(/--primary:\s*#8f5f2b/);
-    expect(root).not.toMatch(/--accent:\s*#8f5f2b/);
+    expect(root).toMatch(/--primary:\s*#186a63/);
+    expect(root).not.toMatch(/--accent:\s*#186a63/);
   });
 });
 
