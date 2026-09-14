@@ -1,13 +1,46 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-14)
+## ▶ START HERE (updated 2026-09-14, session close)
 
-**Both branches at the same tip, pushed. Working tree clean.**
-`713 tests pass · 5 skipped · tsc 0`, run 2026-09-14. 30 migrations, and the session-start
-hook reports repo and production agree. **`eslint` and `npm run build` were NOT run this
-session** — nothing but docs has changed since 09-11, when they last passed.
+**The branches have DIVERGED, deliberately.** `feat/teacher-vetting` is at `a2ce9f1`, pushed.
+**`main` is at `9e325cd` and two commits behind** — the light theme went teal and has not been
+deployed. Working tree clean, 30 migrations, hook reports repo and production agree.
+`713 tests pass · 5 skipped · tsc 0 · eslint 0 errors · build clean`, run 2026-09-14.
 
-### The 09-11 session was never handed over — this block covers it retroactively
+### The light theme is teal now, and main does not have it yet
+The owner asked for it and chose the value; `#8f5f2b` bronze → **`#186a63`** on five tokens
+(`--primary`, `--ring`, `--chart-1`, `--sidebar-primary`, `--sidebar-ring`), light theme only.
+
+- **Dark keeps its gold `#d9a05b`, deliberately.** Spec §5.2's *"same hue, two jobs"* is now
+  **history, not a rule** — light and dark no longer share a hue. The reasoning is in a comment
+  beside the token, because the honest reading of the diff without it is "somebody changed one
+  theme and forgot the other".
+- **The icons were already teal and nobody had noticed.** `icon-192.png`, `icon-512.png` and the
+  maskable icon are a solid `#0d9488`, and the manifest's `theme_color` matched them. The 09-05
+  bronze cycle changed the CSS and never touched the PWA assets — so for nine days the installed
+  icon and browser chrome were teal while every button inside was bronze. `theme_color` is now
+  `#186a63`. **The three PNGs are still `#0d9488` and no longer match. Regenerating them is an
+  open asset job.**
+- **The light neutrals were pink, not warm** (`a2ce9f1`). `--secondary`, `--muted`, `--accent`,
+  `--border`, `--input`, `--hair` and the two sidebar mirrors all had blue above green. Invisible
+  beside bronze — pink and bronze are neighbours — and it read as dirt beside teal, its
+  near-complement. Same lightness, same warmth, mauve removed.
+- **The ground stays warm `#f6f2ee` on purpose.** Cool ink on warm paper is what makes the teal
+  read as chosen, and the warm ground is the last thing tying light to dark now the accent hue
+  differs. "Make the neutrals match the accent" is the obvious-looking change that undoes this;
+  the token comment says so.
+- **`--muted-foreground` is still the mauve `#6f5c75`** — the loudest of them, left alone. It is
+  the aubergine the dark theme is built from, so it is an identity decision, not a cleanup, and
+  it has not been made.
+
+**What has NOT been seen: `/teachers` and `/home`.** The Chrome extension was not connected this
+session; the marketing surface and `/tutor-signup` were checked by eye on the dev server and the
+product screens were not. They need a student login — the same blocker as the Preply items. Merge
+this to `main` only after somebody has looked at a card and a badge.
+
+### Before that, the 09-11 session had never been handed over — covered below
+
+#### What shipped on 09-11
 Six code commits landed on 2026-09-11 and the START HERE block below was never updated for them,
 so a session opening this file on 09-12 or 09-13 would have read a state three days stale. What
 shipped:
@@ -79,6 +112,10 @@ answerable. Estimated 5-7 sessions; Phase 5 is blocked on a student login.
 
 Then a choice of build: **exam targets Phase 1**, or the **Preply backlog**, which needs a browser
 session with a real student account before its unverified items mean anything.
+
+**Two jobs the theme change opened**, neither urgent: regenerate the three PNG icons off `#0d9488`
+so they match the UI, and decide whether `--muted-foreground` stops being aubergine. And
+**`main` needs the teal merged into it** once the product screens have been looked at.
 
 ---
 
