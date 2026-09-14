@@ -88,8 +88,15 @@ body {
      false green would arrive. It sat at the same contrast bronze did and
      left almost no headroom under the 12% tint —
      this clears the ground at 5.75, a card at 6.40 and its own tint at
-     5.36. The app icon and the manifest have been #0d9488 since the PWA
-     cycle, so light theme now agrees with them instead of contradicting. */
+     5.36.
+     CHANGING THIS TOKEN IS TWO STEPS. The app icons and the manifest's
+     theme_color are generated FROM it — run `node scripts/generate-icons.mjs`
+     and commit the PNGs it rewrites. The 09-05 cycle did only the first
+     step, and the installed icon and browser chrome contradicted every
+     button in the app for nine days before anyone noticed. pwa-icons.test.ts
+     decodes the committed PNGs and fails if they drift from this line
+     again, so a skipped regeneration is now a red suite, not a surprise on
+     somebody's home screen. */
   --primary: #186a63;
   --primary-foreground: #fbf8f5;
   /* Warm greys with the mauve taken out. They were pink — blue above green
