@@ -40,13 +40,74 @@ describe("the demo video", () => {
 
   // Nothing from youtube.com is fetched until a parent asks for it: the
   // thumbnail comes from ytimg and the player is only inserted on click.
+  //
+  // Queried against the whole document, not the render container. Since
+  // 2026-09-14 the player opens in a Dialog, and Radix portals dialog content
+  // to document.body — so a container-scoped query finds nothing after the
+  // click and the assertion silently reads `undefined`. The property under
+  // test is unchanged and is in fact what makes the overlay safe: Radix mounts
+  // DialogContent only while open, so the iframe still does not exist until
+  // the press.
   it("does not embed a player until the thumbnail is clicked", () => {
-    const { container } = card();
-    expect(container.querySelector("iframe")).toBeNull();
+    card();
+    expect(document.querySelector("iframe")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /play/i }));
-    const frame = container.querySelector("iframe");
-    expect(frame?.getAttribute("src")).toContain(
+    const frame = document.querySelector("iframe");
+    expect(frame, "no player was mounted after the click").not.toBeNull();
+    expect(frame!.getAttribute("src")).toContain(
       "youtube-nocookie.com/embed/dQw4w9WgXcQ"
+    );
+  });
+
+  // The whole point of the change: the player is no longer confined to the
+  // thumbnail's slot in the card. If someone puts it back inline, the iframe
+  // lands inside the card again and this fails.
+  it("plays in an overlay rather than inside the card", () => {
+    const { container } = card();
+    fireEvent.click(screen.getByRole("button", { name: /play/i }));
+
+    expect(container.querySelector("iframe")).toBeNull();
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector("iframe")).not.toBeNull();
+    expect(
+      screen.getByRole("heading", { name: /demo lesson/i })
+    ).toBeInTheDocument();
+  });
+
+  // Escape closes it and the player is torn down with the dialog, so a parent
+  // who backs out is not left with audio playing from a card they have
+  // scrolled past.
+  //
+  // This test is weaker than it looks and must not be trusted on its own.
+  // jsdom neither loads iframes nor models their focus, so a keyDown
+  // dispatched at the dialog node closes it here regardless of what a browser
+  // does. It passed while Escape was in fact completely broken — see the next
+  // test, which is the one with teeth.
+  it("unmounts the player when the overlay closes", () => {
+    card();
+    fireEvent.click(screen.getByRole("button", { name: /play/i }));
+    expect(document.querySelector("iframe")).not.toBeNull();
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(document.querySelector("iframe")).toBeNull();
+  });
+
+  // The guard for a defect found in a real browser on 2026-09-14: Radix opens
+  // a dialog by focusing its first tabbable child, which here was the player.
+  // Focus inside a cross-origin iframe sends every keystroke to youtube.com,
+  // so Escape never reached this document and the overlay could not be closed
+  // from the keyboard from the moment it opened.
+  //
+  // Asserting focus is NOT the iframe, rather than asserting Escape works,
+  // because that is the part jsdom can actually see — and it is the precise
+  // condition that made the browser behaviour wrong.
+  it("does not hand opening focus to the player", () => {
+    card();
+    fireEvent.click(screen.getByRole("button", { name: /play/i }));
+
+    expect(document.activeElement?.tagName).not.toBe("IFRAME");
+    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(
+      true
     );
   });
 

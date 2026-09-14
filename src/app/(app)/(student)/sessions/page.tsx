@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { firstName } from "@/lib/names";
 import { moneyTouched } from "@/lib/student-sessions";
 import { Money } from "@/components/money";
 import { EmptyState } from "@/components/empty-state";
@@ -155,7 +156,7 @@ export default async function SessionsPage() {
                                   again: s.teacher_id ?? "",
                                 })}`}
                               >
-                                Book {teacherName.split(" ")[0]} again
+                                Book {firstName(teacherName)} again
                               </Link>
                             </Button>
                             <ReportButton sessionId={s.id} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   BookOpen,
   ChevronDown,
@@ -10,7 +10,15 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { SESSION_DURATION_MINUTES } from "@/lib/session";
+import { firstName } from "@/lib/names";
 import { youTubeVideoId } from "@/lib/validation";
 
 export interface TeacherCardData {
@@ -57,33 +65,33 @@ function sessionLength(): string {
  * The thumbnail is served from ytimg and the player is inserted only once a
  * parent presses it, so opening the teachers list does not announce itself to
  * youtube.com for every teacher on screen. The embed host is
- * youtube-nocookie.com for the same reason.
+ * youtube-nocookie.com for the same reason. An overlay keeps that property
+ * exactly: Radix only mounts DialogContent while it is open, so the iframe
+ * still does not exist until the press.
+ *
+ * It plays in an overlay rather than in the thumbnail's own footprint, which
+ * is what it did until 2026-09-14. In place, the player inherited the media
+ * column: 176px wide on every desktop, and below sm the container was
+ * `size-16` — a 64x64 box, smaller than YouTube's own play control, let alone
+ * its scrubber and title bar. The profile form tells teachers this unlisted
+ * link "is what students watch when choosing a tutor" and
+ * profile-claims.test.ts enforces that promise; a parent judging a stranger
+ * for their child cannot do it at 64px. The overlay fixes both breakpoints at
+ * once instead of tuning two that are each too small.
  */
 function DemoVideo({ id, name }: { id: string; name: string }) {
   const [playing, setPlaying] = useState(false);
-
-  if (playing) {
-    return (
-      <div className="relative size-16 bg-stage sm:aspect-auto sm:size-auto sm:h-full sm:w-full">
-        <iframe
-          className="absolute inset-0 h-full w-full"
-          src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
-          title={`${name}'s demo lesson`}
-          allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
+  const content = useRef<HTMLDivElement>(null);
 
   return (
-    <button
-      type="button"
-      onClick={() => setPlaying(true)}
-      aria-label={`Play ${name}'s demo lesson`}
-      className="group relative block size-16 overflow-hidden bg-stage sm:aspect-auto sm:size-auto sm:h-full sm:w-full"
-    >
-      {/* mqdefault (320x180), not hqdefault (480x360): hqdefault bakes black
+    <Dialog open={playing} onOpenChange={setPlaying}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Play ${name}'s demo lesson`}
+          className="group relative block size-16 overflow-hidden bg-stage sm:aspect-auto sm:size-auto sm:h-full sm:w-full"
+        >
+          {/* mqdefault (320x180), not hqdefault (480x360): hqdefault bakes black
           letterbox bars into a 4:3 frame for every 16:9 video, and object-cover
           then crops those bars into the card as two dead bands. Caught by
           looking at it — the bars are invisible to jsdom. mqdefault is a true
@@ -94,28 +102,82 @@ function DemoVideo({ id, name }: { id: string; name: string }) {
           billed optimisation pass for a file we never resize. The LCP argument
           the lint rule makes does not apply — these sit below the fold in a
           list and are lazy-loaded. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`https://i.ytimg.com/vi/${id}/mqdefault.jpg`}
-        alt={`${name}'s demo lesson`}
-        loading="lazy"
-        className="h-full w-full object-cover"
-      />
-      {/* A scrim in --stage, not a themed surface. This sits on top of an
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://i.ytimg.com/vi/${id}/mqdefault.jpg`}
+            alt={`${name}'s demo lesson`}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+          {/* A scrim in --stage, not a themed surface. This sits on top of an
           arbitrary video frame, and globals.css is explicit that a
           theme-flipping token on that kind of ground resolves against the
           wrong palette and can land at 1-2:1. --stage is the one colour the
           product deliberately holds fixed in both themes, which is exactly
           what a wash over imagery needs. */}
-      <span className="absolute inset-0 bg-stage/35 transition-colors group-hover:bg-stage/20" />
-      <span className="absolute inset-0 grid place-content-center">
-        {/* Gold, not white-on-dark: primary reads against any frame a teacher
+          <span className="absolute inset-0 bg-stage/35 transition-colors group-hover:bg-stage/20" />
+          <span className="absolute inset-0 grid place-content-center">
+            {/* Gold, not white-on-dark: primary reads against any frame a teacher
             uploads, in either theme, and says "this is the thing to press". */}
-        <span className="grid size-7 place-content-center rounded-full bg-primary shadow-lg transition-transform group-hover:scale-110 sm:size-12">
-          <span className="ml-0.5 border-y-[5px] border-l-[8px] border-y-transparent border-l-primary-foreground sm:ml-1 sm:border-y-[9px] sm:border-l-[15px]" />
-        </span>
-      </span>
-    </button>
+            <span className="grid size-7 place-content-center rounded-full bg-primary shadow-lg transition-transform group-hover:scale-110 sm:size-12">
+              <span className="ml-0.5 border-y-[5px] border-l-[8px] border-y-transparent border-l-primary-foreground sm:ml-1 sm:border-y-[9px] sm:border-l-[15px]" />
+            </span>
+          </span>
+        </button>
+      </DialogTrigger>
+
+      {/* Wider than the default sm:max-w-sm, which is 384px and would have
+          reproduced the problem this replaces. aspect-video rather than a
+          fixed height so the frame is 16:9 at every width — the thumbnail is
+          object-cover and crops, but a letterboxed player is not something to
+          crop. */}
+      <DialogContent
+        ref={content}
+        className="p-3 sm:max-w-3xl"
+        // Radix opens a dialog by focusing its first tabbable child. Here that
+        // is the player, and focus inside a CROSS-ORIGIN iframe means every
+        // keystroke is delivered to youtube.com and never reaches this
+        // document — so Escape did not close the overlay at all, from the
+        // moment it opened. Verified in a browser on 2026-09-14:
+        // document.activeElement was the IFRAME immediately on open, and
+        // Escape did nothing.
+        //
+        // No test in this project could have caught it. jsdom does not load
+        // iframes or model their focus, so a keyDown dispatched at the dialog
+        // node closes it there whatever the browser does — a green test for a
+        // dialog a keyboard user cannot shut. The honest assertion is the one
+        // below in teacher-card.test.tsx: the thing focused on open must not
+        // be the player.
+        //
+        // Focusing the close button keeps focus inside the dialog, so the
+        // focus trap still works, and leaves Escape working right up until a
+        // parent deliberately clicks into the video — which is as far as any
+        // parent document can get with a cross-origin embed.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          content.current
+            ?.querySelector<HTMLElement>("[data-slot='dialog-close']")
+            ?.focus();
+        }}
+      >
+        <DialogHeader>
+          {/* Radix requires a title for the dialog to be announced. Visible
+              rather than sr-only: it names whose lesson this is, and it gives
+              the close button a ground to sit on instead of floating over an
+              arbitrary video frame. */}
+          <DialogTitle>{name}&apos;s demo lesson</DialogTitle>
+        </DialogHeader>
+        <div className="aspect-video w-full overflow-hidden rounded-lg bg-stage">
+          <iframe
+            className="h-full w-full"
+            src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
+            title={`${name}'s demo lesson`}
+            allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -181,7 +243,9 @@ export function TeacherCard({
   const bio = teacher.bio?.trim() ?? "";
   const clamped = bio.length > BIO_CLAMP_CHARS;
 
-  const taughtFor = [teacher.grade, teacher.curriculum].filter(Boolean).join(" · ");
+  const taughtFor = [teacher.grade, teacher.curriculum]
+    .filter(Boolean)
+    .join(" · ");
   const credential = [
     teacher.qualification,
     teacher.experience_years !== null
@@ -191,7 +255,9 @@ export function TeacherCard({
     .filter(Boolean)
     .join(" · ");
 
-  const firstName = teacher.full_name.trim().split(/\s+/)[0] || teacher.full_name;
+  // Honorifics stripped: a teacher registered as "Mr. Azad" rendered as
+  // "More about Mr." here and "until Mr. accepts" beside the price.
+  const addressAs = firstName(teacher.full_name);
 
   // Only offer to open the card when there is something behind it. A teacher
   // with no bio and no specialization has nothing more to show, and a control
@@ -200,7 +266,18 @@ export function TeacherCard({
 
   // Hidden on a closed phone card, always present from lg up — where the
   // three-column layout has room for all of it and no toggle is rendered.
+  //
+  // TWO variants, because the two things this hides are laid out differently.
+  // The bio is a block. Fact is a GRID — a 1rem icon column beside the text —
+  // and Tailwind emits `block`/`lg:block` after the base `grid` utility, so a
+  // single shared class silently flattened that grid and dropped the icon onto
+  // its own line above the words. It was wrong in both states (plain `block`
+  // when the phone card is open, `lg:block` on desktop) and nobody saw it for
+  // three days, because the decision column beside it was clipped and the
+  // whole card was being read as broken anyway. jsdom has no layout, so
+  // teacher-card.test.tsx could assert both classes and stay green.
   const detailCls = open ? "block" : "hidden lg:block";
+  const detailFactCls = open ? "grid" : "hidden lg:grid";
 
   return (
     <Card
@@ -261,7 +338,7 @@ export function TeacherCard({
               subject, board, price and face. Both come back on tap, so this
               is a summary rather than a truncation. */}
           {teacher.specialization ? (
-            <Fact icon={Sparkles} className={detailCls}>
+            <Fact icon={Sparkles} className={detailFactCls}>
               {teacher.specialization}
               <span className="text-muted-foreground">
                 {" "}
@@ -312,7 +389,7 @@ export function TeacherCard({
             videoId ? "col-span-2" : ""
           }`}
         >
-          {open ? "Less" : `More about ${firstName}`}
+          {open ? "Less" : `More about ${addressAs}`}
           <ChevronDown
             aria-hidden
             className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
@@ -349,7 +426,7 @@ export function TeacherCard({
         {/* The promise belongs where the money is about to be committed, not
             only on the landing page the parent left ten minutes ago. */}
         <p className="mt-2.5 text-[11px] leading-snug text-muted-foreground">
-          Nothing is charged until {teacher.full_name.split(" ")[0]} accepts.
+          Nothing is charged until {addressAs} accepts.
         </p>
       </div>
     </Card>

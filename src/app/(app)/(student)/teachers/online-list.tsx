@@ -9,6 +9,7 @@ import {
   type OnlineTeacher,
 } from "@/lib/presence";
 import { deriveRoster, type AvailableRow } from "@/lib/roster";
+import { firstName } from "@/lib/names";
 import { TeacherCard, type TeacherCardData } from "./teacher-card";
 import { requestSession } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -290,7 +291,7 @@ export function OnlineList({
     <div className="mb-6 rounded-xl border border-border bg-muted px-4 py-3 text-foreground">
       {againMissing ? (
         <>
-          <b>{againMissing.split(" ")[0]}</b> isn&apos;t available right now.
+          <b>{firstName(againMissing)}</b> isn&apos;t available right now.
           Teachers appear here only while they&apos;re online and ready to
           start immediately.
         </>
@@ -337,7 +338,7 @@ export function OnlineList({
             {banner}
           </div>
         )}
-        {againBanner}
+      {againBanner}
         {/* Only claim nobody is online once we have actually been told so.
             Until the first successful roster read, an empty derived list means
             "we don't know yet" — asserting otherwise sends a student away from
@@ -379,7 +380,7 @@ export function OnlineList({
           {banner}
         </div>
       )}
-        {againBanner}
+      {againBanner}
       {error && <FormError className="mb-4">{error}</FormError>}
       {!canStart && (
         <div className="mb-6 rounded-xl border border-border bg-muted px-4 py-3 text-foreground">
@@ -390,7 +391,24 @@ export function OnlineList({
           to start a session — these teachers are online now.
         </div>
       )}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* One card per row, deliberately NOT a multi-column grid. The card's
+          lg template is a full-width ROW — 11rem of media, the facts, then an
+          11rem decision column carrying the price and "Start now" — and Card
+          sets overflow-hidden. A 3-up grid handed it a 299-368px cell for
+          471px of columns, so 103-172px of that decision column was clipped
+          at EVERY desktop width: the primary call to action was cut in half
+          from the day the card was rebuilt as a row (9138673, 2026-09-11)
+          until somebody opened the page and looked. This grid predated that
+          rebuild by a fortnight and was never revisited.
+
+          Nothing could catch it. teacher-card.test.tsx asserts the card
+          declares lg:grid-cols-[11rem_1fr_11rem] and passes; the list
+          rendered fine on its own; the two only break in combination, and
+          jsdom has no layout to see the overflow. list-layout.test.tsx pins
+          this line for that reason. The card owns all of its own responsive
+          behaviour — three templates, phone through desktop — so the list's
+          only job is to stack. */}
+      <div className="grid gap-6">
         {online.map((teacher) => (
           <TeacherCard
             key={teacher.id}
