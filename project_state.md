@@ -1,6 +1,88 @@
 # SMB Tutorials — Project State
 
-## ▶ START HERE (updated 2026-09-10 evening, session close)
+## ▶ START HERE (updated 2026-09-14)
+
+**Both branches at the same tip, pushed. Working tree clean.**
+`713 tests pass · 5 skipped · tsc 0`, run 2026-09-14. 30 migrations, and the session-start
+hook reports repo and production agree. **`eslint` and `npm run build` were NOT run this
+session** — nothing but docs has changed since 09-11, when they last passed.
+
+### The 09-11 session was never handed over — this block covers it retroactively
+Six code commits landed on 2026-09-11 and the START HERE block below was never updated for them,
+so a session opening this file on 09-12 or 09-13 would have read a state three days stale. What
+shipped:
+
+- **The teacher card was rebuilt twice** (`9138673`, then `816862c`). First the demo video was
+  made to lead — thumbnail + play control, nothing fetched from youtube.com until pressed,
+  `youtube-nocookie.com` for the player. Then it was cut down: measured at 500x763 a card with a
+  video was **659px in a 763px viewport** — 0.9 cards per screen. Below `lg` it is now a 240px
+  summary, 3.2 per screen.
+- **A root `not-found.tsx`** (`61fbe66`). Four already existed, one per route group, and none
+  caught a URL matching no group at all — that fell through to Next's built-in black default,
+  confirmed by opening `/no-such-page-here` on production. This one brings its own chrome because
+  it renders inside `RootLayout`, which supplies a `<body>` and nothing else.
+- **`unstable_rethrow` in the marketing layout** (`bfd9ae9`). `getIdentity` reads cookies; at
+  build time Next probes for static generation, `cookies()` raises `DynamicServerError`, and the
+  catch reported "identity lookup failed" **nine times in a clean build** with nothing wrong. The
+  warning that cries wolf every build is how the real Supabase outage gets scrolled past.
+- **One entity name in `/terms`** (`0c6676d`). Two instances of "SMB Tutorial", both in the
+  sentences that create the obligation. `entity-name.test.ts` now pins it. **The five-way spelling
+  problem in CLAUDE.md is closed for published legal copy**; `/privacy` was already clean.
+- **`allowedDevOrigins`** (`a374101`). Next 16 counts `127.0.0.1` as a different origin from
+  `localhost` and refuses its own dev chunks across it — the app renders and never hydrates. Not
+  our bug, but `127.0.0.1` is the only way the browser extension can reach a dev server. Dev-only;
+  changes no build.
+- **The tutor-signup promise** (`cf93076`). "Our team will review your application and contact you
+  within 2-3 business days" — neither half true. Nothing contacts an applicant, and there is one
+  operator and no SLA.
+- **Book the same teacher again** (`9e4b6df`), from the session row that remembers them.
+
+### The design pass, and where it lives
+The 09-11 work was a pass benchmarked against **preply.com**. The backlog is **45 items in a
+private Artifact, not in this repo** — tick state is in its shared database so both machines see
+the same progress. URL and status: `_memory/preply-design-pass-backlog.md`. Ten items are ticked.
+
+**Items 1-9, 20, 21, 39 and 42 have never been seen against the real `/teachers`** — only against
+fixtures. `_memory/browser-testing-finds-what-reading-cannot.md` records why that matters: on
+09-11, **685 tests passed while the teacher card was visibly broken three ways**, because jsdom
+has no layout engine. The same file records four audit findings that were simply wrong — a
+competitive audit asserted our code of conduct, refund policy and no-show rule "exist nowhere"
+and all three are published on `/terms`.
+
+### Exam targets — designed, not built
+`docs/superpowers/specs/2026-09-11-exam-targets-design.md`. A teacher declares, per subject they
+already teach, that they prep for **JEE** or **NEET**; a parent filters the online list by it.
+Phase 0 (taxonomy) is settled: boards are implicit and not a value, and an empty exam set means
+"teaches the syllabus, claims no exam prep". Schema is a **child table**, `teacher_subject_exams`,
+not a widened primary key — no backfill, `teacher_subjects` untouched, `0027`/`0028`'s revocations
+intact.
+
+**The one breaking change:** `available_teachers` is `(text,text,text,text)` with grants naming
+that signature, so `p_exam` cannot be added with a default — the function must be dropped and
+recreated, and `online-list.tsx` must ship in the same deploy.
+
+**Written into the spec deliberately:** no parent has asked for this. It is the owner's read of
+the market, not anything in our data. `sessions.exam` exists so "did anyone use it?" is
+answerable. Estimated 5-7 sessions; Phase 5 is blocked on a student login.
+
+### ▶ Next, in order — the three launch items are unchanged and still non-code
+1. **Buy `smbtutorials.com`, point it at Vercel, configure MX.** `/privacy` names
+   `support@smbtutorials.com` four times, including as the way to withdraw consent and request a
+   recording. It bounces today.
+2. **Build the five recording mechanisms** — encrypted storage, report-gated access, the access
+   log, the 30-day delete, no-opt-out. Published on production as fact.
+3. **Require email confirmation** — code first (both signup flows redirect to authenticated routes
+   on a NULL session), then Resend as custom SMTP, then the dashboard toggle. Detail in the block
+   below.
+4. **Delete the burner accounts** when testing is done. `src/lib/test-accounts.test.ts` fails
+   under `SMB_LAUNCH_READY=1` while they exist, so it cannot be forgotten.
+
+Then a choice of build: **exam targets Phase 1**, or the **Preply backlog**, which needs a browser
+session with a real student account before its unverified items mean anything.
+
+---
+
+## ▶ START HERE (updated 2026-09-10 evening, session close) — SUPERSEDED
 
 **`main` and `feat/teacher-vetting` are IDENTICAL and both at `2e5fac1`, pushed. Production is
 live on it.** 18 commits this session. 665 tests · tsc 0 · eslint 0 errors · build 0.
