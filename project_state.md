@@ -2,12 +2,15 @@
 
 ## ▶ START HERE (updated 2026-09-14, session close)
 
-**The branches have DIVERGED, deliberately.** `feat/teacher-vetting` is at `a2ce9f1`, pushed.
-**`main` is at `9e325cd` and two commits behind** — the light theme went teal and has not been
-deployed. Working tree clean, 30 migrations, hook reports repo and production agree.
-`713 tests pass · 5 skipped · tsc 0 · eslint 0 errors · build clean`, run 2026-09-14.
+**The branches are TOGETHER again.** Both `main` and `feat/teacher-vetting` are at `1857fbb`,
+pushed. The teal theme was fast-forwarded onto `main` on 2026-09-14 and **is deploying to
+production** — the owner chose to ship it without the browser check the block below asks for, so
+`/teachers` and `/home` are live with teal that nobody has looked at. Working tree clean,
+30 migrations, hook reports repo and production agree.
+`713 tests pass · 5 skipped · tsc 0 · eslint 0 errors · build clean`, re-run on the merged tree
+2026-09-14.
 
-### The light theme is teal now, and main does not have it yet
+### The light theme is teal now, and main has it
 The owner asked for it and chose the value; `#8f5f2b` bronze → **`#186a63`** on five tokens
 (`--primary`, `--ring`, `--chart-1`, `--sidebar-primary`, `--sidebar-ring`), light theme only.
 
@@ -33,10 +36,11 @@ The owner asked for it and chose the value; `#8f5f2b` bronze → **`#186a63`** o
   the aubergine the dark theme is built from, so it is an identity decision, not a cleanup, and
   it has not been made.
 
-**What has NOT been seen: `/teachers` and `/home`.** The Chrome extension was not connected this
-session; the marketing surface and `/tutor-signup` were checked by eye on the dev server and the
-product screens were not. They need a student login — the same blocker as the Preply items. Merge
-this to `main` only after somebody has looked at a card and a badge.
+**What has NOT been seen: `/teachers` and `/home`.** The Chrome extension was not connected;
+the marketing surface and `/tutor-signup` were checked by eye on the dev server and the product
+screens were not. They need a student login — the same blocker as the Preply items. **This shipped
+anyway**: the merge went ahead on the owner's call, so the check is now a production spot-check,
+not a gate. Look at a teacher card and a badge on the deployed site.
 
 ### Before that, the 09-11 session had never been handed over — covered below
 
