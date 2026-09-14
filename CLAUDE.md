@@ -60,7 +60,13 @@ the positioning — is open. The name itself is settled.
 consistently. Pick one form and apply it everywhere.
 
 ## Stack (locked — see spec before changing)
-- Next.js (App Router) on Vercel · Supabase (Postgres + Auth + realtime) · Daily.co (video) · Stripe Checkout · Resend · Tailwind + shadcn/ui.
+- Next.js (App Router) on Vercel · Supabase (Postgres + Auth + realtime) · Daily.co (video) · **Razorpay** (Payment Links) · Resend · Tailwind + shadcn/ui.
+- **Payments are Razorpay, not Stripe.** Chosen 2026-08-27 after research and recorded in
+  `docs/superpowers/specs/2026-08-26-m3-payments-design.md` — domestic INR and UPI were the
+  deciding factor, not price. This line said Stripe Checkout until 2026-09-15, three weeks
+  after the decision and long after the adapter shipped; there is no Stripe dependency in
+  `package.json` and never has been. The one `stripe-signature` header read in the webhook
+  is a deliberate deadfall so a future provider swap cannot silently read an absent header.
 - Serverless only — no always-on server/VPS to run.
 
 ## Database migrations — use the CLI, never paste
@@ -172,7 +178,10 @@ unbounded "review this" spends most of its budget reading.
 
 ## Scope discipline
 - Product = 3 tiers: instant pick (primary) → request offline teacher (fallback) → scheduled (add-on later). Core loop: pick subject → online-now list → pick → teacher accepts → pay → video call.
-- Deferred, do not build without a decision: scheduled tier, Stripe Connect, search/ranking, chat.
+- Deferred, do not build without a decision: scheduled tier, marketplace payouts, search/ranking,
+  chat. Payouts are manual today. The specs still call that deferred item "Stripe Connect"
+  because it was written before the provider decision and no Razorpay equivalent has been
+  chosen — so the mechanism is genuinely undecided, not merely unnamed.
 - Pre-launch policy items still open: no-show/refund policy, trust & safety (minors) escalation path.
 
 <!-- BEGIN:nextjs-agent-rules -->

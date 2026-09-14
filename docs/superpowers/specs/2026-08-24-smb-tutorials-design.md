@@ -38,7 +38,7 @@ An existing **Create React App demo** (`/Users/Tyler/Downloads/SMB-Tutorial-main
 | Database | **Supabase (Postgres)** | Profiles, subject taxonomy, sessions/requests, with row-level security |
 | **Real-time presence** | **Supabase Realtime (Presence)** | Which teachers are **online/available now**; live-updates the instant list and delivers incoming requests |
 | Video | **Daily.co** | WebRTC video; signaling + STUN + TURN handled by the service |
-| Payments | **Stripe Checkout** (MVP) → **Stripe Connect** (later) | Collect payment on teacher-accept; marketplace payouts deferred |
+| Payments | **Razorpay Payment Links** (chosen 2026-08-27) → marketplace payouts (later, undecided) | Collect payment on teacher-accept; payouts manual. **Superseded Stripe Checkout**, which this row named until 2026-09-15 — the decision and its reasoning are in `2026-08-26-m3-payments-design.md` §"Provider chosen" |
 | Transactional email/notifications | **Resend** | Request notifications, receipts, scheduled reminders |
 | Styling | **Tailwind CSS + shadcn/ui** | Fast UI; shadcn is copy-paste, not a runtime dependency |
 
@@ -87,7 +87,7 @@ RLS: anyone can read teacher `profiles` + `teacher_subjects`; a user can read/wr
 2. App shows **teachers online now** for that subject (live via presence).
 3. Student **picks a teacher** → a `session` is created (`type=instant`, `status=pending`); the teacher receives the incoming request in real time.
 4. Teacher **accepts within the window** (`status=accepted`). On timeout, `status=timed_out` and the student returns to the list.
-5. Student **pays** via Stripe Checkout (`status=paid`). *(Payment after accept avoids refunds for declined/timed-out requests.)*
+5. Student **pays** via a Razorpay Payment Link (`status=paid`). *(Payment after accept avoids refunds for declined/timed-out requests.)*
 6. A serverless function creates a **Daily room**, stores `daily_room_url`, `status=active`; both join the call.
 7. On end, `status=completed`.
 
@@ -98,13 +98,13 @@ RLS: anyone can read teacher `profiles` + `teacher_subjects`; a user can read/wr
 - **M0 — Deploy skeleton + video spike.** *(Plan already written.)* Next.js → GitHub → Vercel auto-deploy; wire Daily.co; get **two browsers into a video call**. Model-agnostic; de-risks the hardest part first.
 - **M1 — Auth, profiles, taxonomy, onboarding.** Supabase Auth (email + Google) with `student`/`teacher` roles. Subject taxonomy seeded. Teacher onboarding form (the demo's `tutor-signup` fields) → `profiles` + `teacher_subjects`. Student can browse the teacher list.
 - **M2 — Presence + instant pick (core loop).** Teacher "available now" toggle publishing presence; student subject-select → live online list → pick → teacher accept/timeout handshake → **Daily room** on accept. Payment stubbed here. *(Detailed design, incl. the in-call and dashboard screens §13 deferred: `2026-08-25-m2-presence-instant-pick-design.md`.)*
-- **M3 — Payments.** Insert **Stripe Checkout** between accept and room creation. Teachers paid manually until volume justifies Stripe Connect.
+- **M3 — Payments.** Insert a **Razorpay Payment Link** between accept and room creation. Teachers paid manually until volume justifies a marketplace-payout mechanism (undecided).
 - **M4 — Request fallback.** Request a specific **offline** teacher → Resend notification → teacher accepts later → connect.
 
 ## 11. Explicitly deferred (YAGNI for MVP)
 
 - **Scheduled tier** — the future-time add-on; build after instant + request work. When built, adopt **Cal.com** (embeddable, open source) before a custom calendar.
-- **Stripe Connect** — teacher KYC, payout timing, platform-fee logic; a 2–4 week project. Use Checkout + manual payouts first.
+- **Marketplace payouts** — teacher KYC, payout timing, platform-fee logic; a 2–4 week project. Pay teachers by hand first. Named **Stripe Connect** here and in the M3 spec because both predate the move to Razorpay; no Razorpay equivalent has been evaluated, so the mechanism is undecided rather than merely renamed.
 - **Search / ranking** — plain filtered list (by subject) until volume warrants search/sorting.
 - **Rich chat** — video-only for MVP.
 
@@ -112,7 +112,7 @@ RLS: anyone can read teacher `profiles` + `teacher_subjects`; a user can read/wr
 
 - **Presence reliability is now core.** A student picking a teacher who just went offline must fail gracefully (the accept/timeout handshake covers this). Handle stale presence (dropped connections) so the "online now" list doesn't show ghosts.
 - **Payment timing.** Charging *after* teacher-accept (not on pick) is the design choice that avoids refunding declined/timed-out instant requests. Keep it.
-- **No-show & refund policy must exist before the first real payment.** Who gets refunded, who decides, how disputes resolve. Stripe's refund API is easy; the *policy* is the work.
+- **No-show & refund policy must exist before the first real payment.** Who gets refunded, who decides, how disputes resolve. The refund API is easy — Razorpay's is wired and has settled real refunds — the *policy* is the work.
 - **Trust & safety cannot be retrofitted.** Students here are **minors (K-12)** — a ToS, reporting mechanism, and escalation policy must be thought through early. Background checks not required at MVP; a defined escalation path is.
 - **Bad video gets blamed on the platform** regardless of whose connection is at fault. Daily.co's per-session quality dashboard (packet loss, jitter, bitrate) is how we distinguish platform vs. user-connection issues.
 - **TURN cost is real at scale.** Predictable but non-zero; ~1,000 hours/month of 1:1 ≈ several hundred dollars in video infra. Budget it.
