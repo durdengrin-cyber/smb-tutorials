@@ -111,7 +111,7 @@ export default async function DashboardPage() {
             description="Go available to receive instant student requests."
           />
 
-          <NotificationSetup variant="card" />
+          <NotificationSetup variant="card" audience="teacher" />
 
           <VettingBanner state={vettingState} />
 

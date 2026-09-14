@@ -19,7 +19,47 @@ import { FormError } from "@/components/form-error";
 // rotated subscription). There is no separate "onboarding wizard" — the
 // state machine in @/lib/push/state is the only source of what to show, so
 // all three appearances can never drift out of sync with each other.
-export function NotificationSetup({ variant }: { variant: "full" | "card" }) {
+/**
+ * Who is being asked, and therefore what we can honestly promise them.
+ *
+ * This component was written for teachers and then reused verbatim on
+ * /admin, where every sentence in it was false: an admin is never sent a
+ * session request. dispatch.ts sends them notifyAdminsOfApplication, whose
+ * payload title is "New teacher application" — so the card asked an admin to
+ * enable notifications for an event they do not receive, and the blocked
+ * state told them students were not reaching them.
+ *
+ * `audience` is REQUIRED rather than defaulting to "teacher": the defect was
+ * caused by a new caller silently inheriting copy written for someone else,
+ * and a required prop makes the compiler ask the question every time.
+ */
+type Audience = "teacher" | "admin";
+
+const COPY: Record<Audience, { ios: string; promise: string; blocked: string }> = {
+  teacher: {
+    ios: "One more step so students can reach you",
+    promise:
+      "We'll notify you when a student asks for a session, even with your phone locked.",
+    blocked:
+      "Notifications are blocked for this site, so students aren't being shown to you when your dashboard is closed. You can turn them back on in your browser settings for this site.",
+  },
+  admin: {
+    ios: "One more step so applications reach you",
+    promise:
+      "We'll notify you when a teacher applies to join, even with your phone locked.",
+    blocked:
+      "Notifications are blocked for this site, so new teacher applications won't reach you while this page is closed. You can turn them back on in your browser settings for this site.",
+  },
+};
+
+export function NotificationSetup({
+  variant,
+  audience,
+}: {
+  variant: "full" | "card";
+  audience: Audience;
+}) {
+  const copy = COPY[audience];
   const [action, setAction] = useState<SetupAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +104,7 @@ export function NotificationSetup({ variant }: { variant: "full" | "card" }) {
     <>
       {action === "install_ios" && (
         <>
-          <h2 className="font-bold text-foreground">
-            One more step so students can reach you
-          </h2>
+          <h2 className="font-bold text-foreground">{copy.ios}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             iPhone needs the app on your Home Screen before it can notify
             you. Tap Share, then Add to Home Screen. Open it from there and
@@ -77,10 +115,7 @@ export function NotificationSetup({ variant }: { variant: "full" | "card" }) {
       {action === "enable" && (
         <>
           <h2 className="font-bold text-foreground">Turn on notifications</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            We&apos;ll notify you when a student asks for a session, even
-            with your phone locked.
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">{copy.promise}</p>
           {error && <FormError className="mt-2">{error}</FormError>}
           <Button type="button" className="mt-4" onClick={handleEnable} disabled={busy}>
             {busy ? "…" : "Turn on notifications"}
@@ -90,11 +125,7 @@ export function NotificationSetup({ variant }: { variant: "full" | "card" }) {
       {action === "blocked" && (
         <>
           <h2 className="font-bold text-foreground">Can&apos;t reach you</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Notifications are blocked for this site, so students aren&apos;t
-            being shown to you when your dashboard is closed. You can turn
-            them back on in your browser settings for this site.
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">{copy.blocked}</p>
         </>
       )}
     </>

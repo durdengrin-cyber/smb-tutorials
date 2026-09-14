@@ -3,5 +3,5 @@ import { NotificationSetup } from "@/components/notification-setup";
 
 export default async function SetupPage() {
   await requireRole("teacher");
-  return <NotificationSetup variant="full" />;
+  return <NotificationSetup variant="full" audience="teacher" />;
 }

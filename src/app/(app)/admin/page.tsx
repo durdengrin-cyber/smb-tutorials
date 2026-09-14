@@ -190,7 +190,7 @@ export default async function AdminPage() {
       <LiveRefresh />
 
       <div className="mb-10">
-        <NotificationSetup variant="card" />
+        <NotificationSetup variant="card" audience="admin" />
       </div>
 
       {(subjectRequests ?? []).length > 0 ? (
